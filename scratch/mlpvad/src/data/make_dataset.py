@@ -37,7 +37,7 @@ if __name__ == "__main__":
         res.check_returncode()
 
         # Download the playlist to that directory
-        dl_command = # TODO
+        dl_command = 3# TODO
         res = subprocess.run(dl_command.split(' '), stdout=subprocess.PIPE)
         res.check_returncode()
 

@@ -9,6 +9,7 @@ BUCKET = [OPTIONAL] your-bucket-for-syncing-data (do not include 's3://')
 PROFILE = default
 PROJECT_NAME = mlpvad
 PYTHON_INTERPRETER = python3
+HD_DEV=
 
 ifeq (,$(shell which conda))
 HAS_CONDA=False
@@ -22,11 +23,18 @@ endif
 
 ## Install Python Dependencies
 requirements: test_environment
+	pipreqs --force .
 	pip install -r requirements.txt
 
 ## Make Dataset
 data: requirements
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py
+ifeq (,$(HD_DEV))
+	@echo ":::::: FAIL ::::::"
+	@echo "You must modify the Makefile's HD variable to be the path to the device."
+	@echo "::::::::::::::::::"
+else
+	sudo $(PYTHON_INTERPRETER) src/data/make_dataset.py $(HD_DEV) data/raw
+endif
 
 ## Delete all compiled Python files
 clean:
