@@ -5,8 +5,15 @@ from __future__ import division
 
 import collections
 import pydub
+import os
 import subprocess
+import sys
 import tempfile
+import webrtcvad
+
+MS_PER_S = 1000
+S_PER_MIN = 60
+MS_PER_MIN = MS_PER_S * S_PER_MIN
 
 class Segment:
     """
@@ -81,6 +88,9 @@ class Segment:
 
         :returns: The described list. Does not modify self.
         """
+        assert self.frame_rate in (48000, 32000, 16000, 8000), "Try resampling to one of the allowed frame rates."
+        assert self.sample_width == 2, "Try resampling to 16 bit."
+        assert self.channels == 1, "Try resampling to one channel."
         def vad_collector(frame_duration_ms, padding_duration_ms, v, frames):
             """
             Collects self into segments of VAD and non VAD.
@@ -91,8 +101,6 @@ class Segment:
                                                                           sample_width=self.sample_width,
                                                                           frame_rate=self.frame_rate,
                                                                           channels=self.channels), self.name)
-            def construct_segment(frames):
-                return Segment(pydub.AudioSegment(data=b''.join([f.bytes
             num_padding_frames = int(padding_duration_ms / frame_duration_ms)
             ring_buffer = collections.deque(maxlen=num_padding_frames)
             triggered = False
@@ -100,7 +108,7 @@ class Segment:
             for frame in frames:
                 if not triggered:
                     ring_buffer.append(frame)
-                    num_voiced = len([f for f in ring_buffer if v.is_speech(f.bytes, sample_rate)])
+                    num_voiced = len([f for f in ring_buffer if v.is_speech(f.bytes, self.frame_rate)])
                     if num_voiced > 0.9 * ring_buffer.maxlen:
                         triggered = True
                         voiced_frames.extend(ring_buffer)
@@ -108,7 +116,7 @@ class Segment:
                 else:
                     voiced_frames.append(frame)
                     ring_buffer.append(frame)
-                    num_unvoiced = len([f for f in ring_buffer if not v.is_speech(f.bytes, sample_rate)])
+                    num_unvoiced = len([f for f in ring_buffer if not v.is_speech(f.bytes, self.frame_rate)])
                     if num_unvoiced > 0.9 * ring_buffer.maxlen:
                         triggered = False
                         yield 'v', construct_segment(voiced_frames)
@@ -120,15 +128,16 @@ class Segment:
             if ring_buffer:
                 yield 'u', construct_segment(ring_buffer)
 
-        aggressiveness = 1
+        # best params: 2, 20, 800 -> 28sec of unvoiced
+        aggressiveness = 2#2
         window_size = 20
-        padding_duration_ms = 800
+        padding_duration_ms = 200#800
 
         frames = self.generate_frames(frame_duration_ms=window_size, zero_pad=True)
         v = webrtcvad.Vad(int(aggressiveness))
         return [tup for tup in vad_collector(window_size, padding_duration_ms, v, frames)]
 
-    def filter_silence(self):
+    def filter_silence(self, duration_s=1, threshold_percentage=3):
         """
         Removes all silence from this segment and returns itself after modification.
 
@@ -136,17 +145,18 @@ class Segment:
         """
         tmp = tempfile.NamedTemporaryFile()
         othertmp = tempfile.NamedTemporaryFile()
-        self.export(tmp, format="WAV")
-        command = "sox " + tmp.name + " " + othertmp.name + " silence 1 0.8 0.1% reverse silence 1 0.8 0.1% reverse"
+        self.export(tmp.name, format="WAV")
+        command = "sox " + tmp.name + " -t wav " + othertmp.name + " silence -l 1 0.1 "\
+                   + str(threshold_percentage) + "% -1 " + str(float(duration_s)) + " " + str(threshold_percentage) + "%"
         res = subprocess.run(command.split(' '), stdout=subprocess.PIPE)
-        assert proc.returncode == 0, "Sox did not work as intended, or perhaps you don't have Sox installed?"
+        assert res.returncode == 0, "Sox did not work as intended, or perhaps you don't have Sox installed?"
         other = Segment(pydub.AudioSegment.from_wav(othertmp.name), self.name)
         tmp.close()
         othertmp.close()
         self = other
         return self
 
-    def generate_frames(frame_duration_ms, zero_pad=True):
+    def generate_frames(self, frame_duration_ms, zero_pad=True):
         """
         Yields self's data in chunks of frame_duration_ms.
 
@@ -159,19 +169,19 @@ class Segment:
         """
         Frame = collections.namedtuple("Frame", "bytes timestamp duration")
 
-        bytes_per_frame = int(self.sample_rate * (frame_duration_ms / 1000) * self.sample_width)  # (samples/sec) * (seconds in a frame) * (bytes/sample)
+        bytes_per_frame = int(self.frame_rate * (frame_duration_ms / 1000) * self.sample_width)  # (samples/sec) * (seconds in a frame) * (bytes/sample)
         offset = 0  # where we are so far in self's data (in bytes)
         timestamp = 0.0  # where we are so far in self (in seconds)
-        frame_duration_s = (bytes_per_frame / self.sample_rate) / self.sample_width  # (bytes/frame) * (sample/bytes) * (sec/samples)
+        frame_duration_s = (bytes_per_frame / self.frame_rate) / self.sample_width  # (bytes/frame) * (sample/bytes) * (sec/samples)
         while offset + bytes_per_frame < len(self.raw_data):
-            yield Frame(self.raw_data[offset:offset + bytes_per_frame], timestamp, frame_duration_s
+            yield Frame(self.raw_data[offset:offset + bytes_per_frame], timestamp, frame_duration_s)
             timestamp += frame_duration_s
             offset += bytes_per_frame
 
         if zero_pad:
             rest = self.raw_data[offset:]
             zeros = bytes(bytes_per_frame - len(rest))
-            yield Frame(rest + zeros, timestamp, frame_duration_s
+            yield Frame(rest + zeros, timestamp, frame_duration_s)
 
     def reduce(self, others):
         """
@@ -180,9 +190,28 @@ class Segment:
         :param others: The other Segment objects to append to this one.
         :returns: self, for convenience (self is modified in place as well)
         """
-        for other in others:
-            self.seg._data += other.seg._data
+        self.seg._data = b''.join([self.seg._data] + [o.seg._data for o in others])
 
+        return self
+
+    def resample(self, sample_rate_Hz=None, sample_width=None, channels=None):
+        """
+        Resamples self and returns self with the new characteristics. Any paramter that is left as None will be unchanged.
+
+        :param sample_rate_Hz: The new sample rate in Hz.
+        :param sample_width: The new sample width in bytes, so sample_width=2 would correspond to 16 bit (2 byte) width.
+        :param channels: The new number of channels.
+        :returns: self, and also changes self in place
+        """
+        infile, outfile = tempfile.NamedTemporaryFile(), tempfile.NamedTemporaryFile()
+        self.export(infile.name, format="wav")
+        command = "sox " + infile.name + " -b" + str(sample_width * 8) + " -r " + str(sample_rate_Hz) + " -t wav " + outfile.name + " channels " + str(channels)
+        res = subprocess.run(command.split(' '), stdout=subprocess.PIPE)
+        res.check_returncode()
+        other = Segment(pydub.AudioSegment.from_wav(outfile.name), self.name)
+        infile.close()
+        outfile.close()
+        self = other
         return self
 
     def trim_to_minutes(self, strip_last_seconds=False):
@@ -206,4 +235,45 @@ class Segment:
                 wav_outs = wav_outs[:-1]
 
         return wav_outs
+
+# Tests
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("For testing this module, USAGE:", sys.argv[0], os.sep.join("path to wave file.wav".split(' ')))
+        exit(1)
+
+    print("Reading in the wave file...")
+    dubseg = pydub.AudioSegment.from_wav(sys.argv[1])
+    seg = Segment(dubseg, sys.argv[1])
+
+    print("Information:")
+    print("Channels:", seg.channels)
+    print("Bits per sample:", seg.sample_width * 8)
+    print("Sampling frequency:", seg.frame_rate)
+
+    print("Detecting voice...")
+    seg = seg.resample(sample_rate_Hz=32000, sample_width=2, channels=1)
+    results = seg.detect_voice()
+    voiced = [tup[1] for tup in results if tup[0] == 'v']
+    unvoiced = [tup[1] for tup in results if tup[0] == 'u']
+    print("  |-> reducing voiced segments to a single wav file 'voiced.wav'")
+    voiced_segment = voiced[0].reduce(voiced[1:])
+    voiced_segment.export("voiced.wav", format="WAV")
+    print("  |-> reducing unvoiced segments to a single wav file 'unvoiced.wav'")
+    unvoiced_segment = unvoiced[0].reduce(unvoiced[1:])
+    unvoiced_segment.export("unvoiced.wav", format="WAV")
+
+    print("Removing silence...")
+    dubseg = pydub.AudioSegment.from_wav(sys.argv[1])
+    seg = Segment(dubseg, sys.argv[1])
+    seg = seg.filter_silence()
+    outname_silence = "nosilence.wav"
+    seg.export(outname_silence, format="wav")
+    print("After removal:", outname_silence)
+
+    print("Trimming to one minute segments...")
+    dubseg = pydub.AudioSegment.from_wav(sys.argv[1])
+    seg = Segment(dubseg, sys.argv[1])
+    results = seg.trim_to_minutes()
+    print("Results:", results)
 

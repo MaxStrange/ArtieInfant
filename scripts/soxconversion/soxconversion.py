@@ -21,9 +21,9 @@ if __name__ == "__main__":
             fpath = os.sep.join([dirname, f])
             fname, ext = os.path.splitext(fpath)
             if ext.lower() == ".wav":
-                print("Converting", fpath, "to 16 bit, one channel audio sampled at 24kHz.")
+                print("Converting", fpath, "to 16 bit, one channel audio sampled at 32kHz.")
                 outname = fname + "output.WAV"
-                command = "sox " + fpath + " -b16 -r 24000 " + outname + " channels 1"
+                command = "sox " + fpath + " -b16 -r 32000 " + outname + " channels 1"
                 res = subprocess.run(command.split(' '), stdout=subprocess.PIPE)
                 res.check_returncode()
                 os.rename(outname, fpath)
