@@ -37,13 +37,16 @@ def _sox_filter_silence(ws, **kwargs):
     Note: There are no keyword arguments. This function maintains backwards compatibility with the _filter_silence function.
     """
     tmp = tempfile.NamedTemporaryFile()
+    othertmp = tempfile.NamedTemporaryFile()
     ws.export(tmp, format="WAV")
-    with subprocess.Popen(["sox", tmp.name, tmp.name, "silence", "1", "0.8", "0.1%", "reverse", "silence", "1", "0.8", "0.1%", "reverse"], stdout=subprocess.PIPE) as proc:
+    command = "sox " + tmp.name + " " + othertmp.name + " silence 1 0.8 0.1% reverse silence 1 0.8 0.1% reverse"
+    with subprocess.Popen(command.split(' '), stdout=subprocess.PIPE) as proc:
         print(proc.stdout.read())
         proc.wait()
         assert proc.returncode == 0, "Sox did not work as intended."
-    ws = Segment(pydub.AudioSegment.from_wav(tmp.name), ws.name)
+    ws = Segment(pydub.AudioSegment.from_wav(othertmp.name), ws.name)
     tmp.close()
+    othertmp.close()
 
 def silencefilter(wav_segments, plot=False):
     """
