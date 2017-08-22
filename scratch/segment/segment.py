@@ -128,16 +128,15 @@ class Segment:
             if ring_buffer:
                 yield 'u', construct_segment(ring_buffer)
 
-        # best params: 2, 20, 800 -> 28sec of unvoiced
-        aggressiveness = 2#2
+        aggressiveness = 2
         window_size = 20
-        padding_duration_ms = 200#800
+        padding_duration_ms = 200
 
         frames = self.generate_frames(frame_duration_ms=window_size, zero_pad=True)
         v = webrtcvad.Vad(int(aggressiveness))
         return [tup for tup in vad_collector(window_size, padding_duration_ms, v, frames)]
 
-    def filter_silence(self, duration_s=1, threshold_percentage=3):
+    def filter_silence(self, duration_s=1, threshold_percentage=1):
         """
         Removes all silence from this segment and returns itself after modification.
 
@@ -263,17 +262,9 @@ if __name__ == "__main__":
     unvoiced_segment = unvoiced[0].reduce(unvoiced[1:])
     unvoiced_segment.export("unvoiced.wav", format="WAV")
 
-    print("Removing silence...")
-    dubseg = pydub.AudioSegment.from_wav(sys.argv[1])
-    seg = Segment(dubseg, sys.argv[1])
-    seg = seg.filter_silence()
+    print("Removing silence from voiced...")
+    seg = voiced_segment.filter_silence()
     outname_silence = "nosilence.wav"
     seg.export(outname_silence, format="wav")
     print("After removal:", outname_silence)
-
-    print("Trimming to one minute segments...")
-    dubseg = pydub.AudioSegment.from_wav(sys.argv[1])
-    seg = Segment(dubseg, sys.argv[1])
-    results = seg.trim_to_minutes()
-    print("Results:", results)
 
