@@ -9,7 +9,8 @@ BUCKET = [OPTIONAL] your-bucket-for-syncing-data (do not include 's3://')
 PROFILE = default
 PROJECT_NAME = mlpvad
 PYTHON_INTERPRETER = python3
-HD_DEV=
+THEANO_FLAGS = device=gpu,floatX=float32
+HD_DEV =
 
 ifeq (,$(shell which conda))
 HAS_CONDA=False
@@ -35,6 +36,10 @@ ifeq (,$(HD_DEV))
 else
 	sudo $(PYTHON_INTERPRETER) src/data/make_dataset.py $(HD_DEV) data/raw
 endif
+
+## Train the model(s)
+train: data
+	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) src/models/train_model.py models/mlps data/raw
 
 ## Delete all compiled Python files
 clean:

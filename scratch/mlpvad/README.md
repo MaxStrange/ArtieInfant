@@ -3,6 +3,20 @@ mlpVad
 
 MLP for VAD
 
+Usage
+-----------
+
+All actions for using this project (while it is under development) are done through the Makefile.
+To set up on a new system after cloning the repo:
+
+1. `make environment`
+1. `workon mlpvad`
+1. Plug in the hard drive and modify the HD_DEV variable in the Makefile
+1. `make data`
+1. `make train`
+
+You should now have a trained model to play with.
+
 Project Organization
 ------------
 
