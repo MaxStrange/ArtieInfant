@@ -34,12 +34,12 @@ ifeq (,$(HD_DEV))
 	@echo "You must modify the Makefile's HD variable to be the path to the device."
 	@echo "::::::::::::::::::"
 else
-	sudo $(PYTHON_INTERPRETER) src/data/make_dataset.py $(HD_DEV) data/raw
+	sudo $(PYTHON_INTERPRETER) -m src.data.make_dataset $(HD_DEV) data/raw
 endif
 
 ## Train the model(s)
 train: data
-	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) src/models/train_model.py models/mlps data/raw
+	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) -m src.models.train_model models/mlps data/raw
 
 ## Delete all compiled Python files
 clean:
