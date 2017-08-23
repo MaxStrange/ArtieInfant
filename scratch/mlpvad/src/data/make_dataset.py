@@ -70,15 +70,22 @@ if __name__ == "__main__":
         path = os.sep.join([raw_data_path, "mlpvad_raw_data", pl_name])
         mkdir_command = "mkdir -p " + path
         res = subprocess.run(mkdir_command.split(' '), stdout=subprocess.PIPE)
-        res.check_returncode()
+        # Don't check result, in case this directory exists
 
         # Download the playlist to that directory
-        dl_command = ""# TODO : Only download a file if it is under one hour
+        dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --id --max-filesize 3G " + pl
         res = subprocess.run(dl_command.split(' '), stdout=subprocess.PIPE)
         res.check_returncode()
 
         # Cut each file into one minute pieces
-        # TODO
+        for dpath, __, fname in os.walk(path):
+            fpath = os.sep.join([dpath, fname])
+            segment = audiosegment.from_file(fpath)
+            new_segments = segment.trim_to_minutes()
+            for i, new in enumerate(new_segments):
+                new_name, _ext = os.splitext(new.name)
+                new_name = new_name + str(i)
+                new.export(new_name, format="wav")
 
     # Get ~10% of each playlist and stick it in a test folder
     for pl_name in playlists_by_name:
@@ -98,3 +105,4 @@ if __name__ == "__main__":
             mv_command = "mv " + f + " " + path_test + os.sep
             res = subprocess.run(mv_command.split(' '), stdout=subprocess.PIPE)
             res.check_returncode()
+

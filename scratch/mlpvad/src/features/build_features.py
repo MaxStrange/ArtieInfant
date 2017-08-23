@@ -33,7 +33,7 @@ def _generate_segments(data_dir, shuffle=False, sampling_frequency_hz=32000, sam
             seg = seg.resample(sample_rate_Hz=sampling_frequency_hz, sample_width=sample_width, channels=channels)
         yield seg
 
-def calculate_steps_per_epoch(data_dir, samples_per_vector=1024, batch_size=32, sampling_frequency_hz=32000, channels=1):
+def calculate_steps_per_epoch(data_dir, samples_per_vector=5120, batch_size=64, sampling_frequency_hz=32000, channels=1):
     """
     Figures out how many steps there are in an epoch. Simply number of samples in the dataset / batch_size.
 
