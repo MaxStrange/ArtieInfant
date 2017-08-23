@@ -6,15 +6,24 @@ import os
 import subprocess
 import sys
 
-# TODO: More and especially, you still need to get voiced stuff
 playlists_by_name = [
-    "animals",
-    "vehicles",,
-    "construction",
-    "orchestra",
-    "whistling",
-    "relaxing",
-    "city",
+    "animals_NO",
+    "vehicles_NO",
+    "construction_NO",
+    "orchestra_NO",
+    "whistling_NO",
+    "relaxing_NO",
+    "city_NO",
+#   ------------
+    "singing_VO",
+    "dateline_VO",
+    "jeopardy_VO",
+    "arguments_VO",
+    "crazies_VO",
+    "letterman_VO",
+    "girlcode_VO",
+    "chinese_VO",
+    "arabic_VO",
     ]
 playlists_by_url = [
     "https://www.youtube.com/playlist?list=PLUdgyJns5kk4CqxE2m_U0jmUhLVluyAVg",
@@ -24,6 +33,16 @@ playlists_by_url = [
     "https://www.youtube.com/playlist?list=PLZV1ZbskgOJebWy0JQ27zy3FYQda75n-D",
     "https://www.youtube.com/playlist?list=PLpGECAvGnKuezB-u_yVFn0pRA2kUHpB5M",
     "https://www.youtube.com/playlist?list=PLY0sW_63wdrJmFieOFQHX9Bs5DKi1rkh-",
+#   ----------------------
+    "https://www.youtube.com/playlist?list=PL25JVhBBh1BUJpyguS0WrFR-xxl8rKMVC",
+    "https://www.youtube.com/playlist?list=PLA4fUiA62LMgsBhBA5H9eTJ_MxqYaJKsD",
+    "https://www.youtube.com/playlist?list=PL-C_fu0ZbbDLdc3ZW5-eqkr68_dKR2OWN",
+    "https://www.youtube.com/playlist?list=PLMATWUx3t7L9AgEifZjTVT4iiOKxzfNO6",
+    "https://www.youtube.com/playlist?list=PLtbSrjOWdnG6LQUKjSMA00OUVv8n4-iV3",
+    "https://www.youtube.com/playlist?list=PLQErULyJFhO9tNT2gxOCk6Xm7LxGq5lI8",
+    "https://www.youtube.com/playlist?list=PLG-PeTcq2CV3ttMW6LcaWa3jfJo7NoztJ",
+    "https://www.youtube.com/playlist?list=PLfAyWdGHnLdFJnwmW_Yb4AJj5eGDlWIH4",
+    "https://www.youtube.com/playlist?list=PLWKPdTtKr85pjFqOkp6k2s_8KvZKAAXXH",
     ]
 
 if __name__ == "__main__":
@@ -57,6 +76,9 @@ if __name__ == "__main__":
         dl_command = ""# TODO : Only download a file if it is under one hour
         res = subprocess.run(dl_command.split(' '), stdout=subprocess.PIPE)
         res.check_returncode()
+
+        # Cut each file into one minute pieces
+        # TODO
 
     # Get ~10% of each playlist and stick it in a test folder
     for pl_name in playlists_by_name:
