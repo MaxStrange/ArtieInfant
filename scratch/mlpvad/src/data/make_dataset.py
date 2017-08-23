@@ -6,8 +6,25 @@ import os
 import subprocess
 import sys
 
-playlists_by_name = {} #TODO
-playlists_by_url = {} #TODO
+# TODO: More and especially, you still need to get voiced stuff
+playlists_by_name = [
+    "animals",
+    "vehicles",,
+    "construction",
+    "orchestra",
+    "whistling",
+    "relaxing",
+    "city",
+    ]
+playlists_by_url = [
+    "https://www.youtube.com/playlist?list=PLUdgyJns5kk4CqxE2m_U0jmUhLVluyAVg",
+    "https://www.youtube.com/playlist?list=PLNHQwiFqj9P85rlcaEsYe-cE-uK-n1VKa",
+    "https://www.youtube.com/playlist?list=PLGUX2N7uSFwJsful0ONVBEcbISzD7knK-",
+    "https://www.youtube.com/playlist?list=PLrYyvZOoKKiT_AmF0LLes4qDEEpNHxyes",
+    "https://www.youtube.com/playlist?list=PLZV1ZbskgOJebWy0JQ27zy3FYQda75n-D",
+    "https://www.youtube.com/playlist?list=PLpGECAvGnKuezB-u_yVFn0pRA2kUHpB5M",
+    "https://www.youtube.com/playlist?list=PLY0sW_63wdrJmFieOFQHX9Bs5DKi1rkh-",
+    ]
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -37,7 +54,7 @@ if __name__ == "__main__":
         res.check_returncode()
 
         # Download the playlist to that directory
-        dl_command = 3# TODO
+        dl_command = ""# TODO : Only download a file if it is under one hour
         res = subprocess.run(dl_command.split(' '), stdout=subprocess.PIPE)
         res.check_returncode()
 

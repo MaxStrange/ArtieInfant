@@ -20,8 +20,11 @@ def _generate_segments(data_dir, sampling_frequency_hz=32000, sample_width=2, ch
     :param channels: Each wav file will be resampled to this number of channels (if it isn't already at this one).
     :returns: Yields a single wav file at a time, as a segment.
     """
-    # TODO
-    pass
+    for root, dirs, wavpath in os.walk(data_dir):
+        seg = audiosegment.from_file(os.join([root, wavpath]))
+        if seg.frame_rate != sampling_frequency_hz or seg.sample_width != sample_width or seg.channels != channels:
+            seg = seg.resample(sample_rate_Hz=sampling_frequency_hz, sample_width=sample_width, channels=channels)
+        yield seg
 
 def calculate_steps_per_epoch(data_dir, samples_per_vector=1024, batch_size=32, sampling_frequency_hz=32000, channels=1):
     """
