@@ -35,5 +35,7 @@ if __name__ == "__main__":
 
     model.compile(optimizer="adagrad", loss="binary_crossentropy", metrics=["accuracy"])
 
+    data_generator =
     checkpointer = keras.callbacks.ModelCheckpoint(model_dir_path)
-    model.fit(data, one_hot_labels, epochs=NUM_EPOCHS, batch_size=BATCH_SIZE, callbacks=checkpointer)
+    progbar = keras.callbacks.ProgbarLogger()
+    model.fit_generator(data_generator, epochs=NUM_EPOCHS, batch_size=BATCH_SIZE, callbacks=[checkpointer, progbar])
