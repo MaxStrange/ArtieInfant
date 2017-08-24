@@ -22,6 +22,13 @@ endif
 # COMMANDS                                                                      #
 #################################################################################
 
+## Define a function for printing in color.
+define colorecho
+	@tput setaf 1
+	@echo $1
+	@tput sgr0
+endef
+
 ## Install Python Dependencies
 requirements: test_environment
 	pipreqs --force .
@@ -31,9 +38,9 @@ requirements: test_environment
 data: requirements
 ifeq (,$(HD_DEV))
 ifeq (,$(wildcard data/raw/.makeskip))
-	@echo ":::::: FAIL ::::::"
-	@echo "You must modify the Makefile's HD variable to be the path to the device."
-	@echo "::::::::::::::::::"
+	$(call colorecho, ":::::: FAIL ::::::")
+	$(call colorecho, "You must modify the Makefile's HD variable to be the path to the device.")
+	$(call colorecho, "::::::::::::::::::")
 endif
 else
 	sudo $(PYTHON_INTERPRETER) -m src.data.make_dataset $(HD_DEV) data/raw

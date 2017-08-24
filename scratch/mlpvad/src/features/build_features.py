@@ -6,6 +6,7 @@ import audiosegment
 import enum
 import itertools
 import numpy as np
+import os
 import random
 
 class ClassLabels(enum.Enum):
@@ -24,7 +25,7 @@ def _generate_segments(data_dir, shuffle=False, sampling_frequency_hz=32000, sam
     :param channels: Each wav file will be resampled to this number of channels (if it isn't already at this one).
     :returns: Yields a single wav file at a time, as a segment.
     """
-    fpaths = [os.sep.join([root, wavpath]) for root, __, wavpath in os.walk(data_dir)]
+    fpaths = [os.sep.join([root, wavpath]) for root, __, wavpaths in os.walk(data_dir) for wavpath in wavpaths if os.path.splitext(wavpath)[1].lower().endswith("wav")]
     if shuffle:
         random.shuffle(fpaths)
     for fpath in fpaths:
@@ -58,7 +59,7 @@ def calculate_steps_per_epoch(data_dir, samples_per_vector=5120, batch_size=64, 
     :param channels: The number of channels in a wav file.
     :returns: The number of vectors in the entire dataset.
     """
-    num_samples_in_dataset = sum((len(seg) for seg in _generate_segments(sampling_frequency_hz=sampling_frequency_hz, channels=channels)))
+    num_samples_in_dataset = sum((len(seg) for seg in _generate_segments(data_dir, sampling_frequency_hz=sampling_frequency_hz, channels=channels)))
     samples_per_batch = samples_per_vector * batch_size
     steps_per_epoch = int(num_samples_in_dataset / samples_per_batch)
     return steps_per_epoch
@@ -112,7 +113,7 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
         """
         Generates the vectors and labels, one tuple at a time.
         """
-        generator = _generate_segments(data_dir, shuffle=True, sampling_frequency_hz=sampling_frequency_hz, sample_width=sample_width, channels=channels):
+        generator = _generate_segments(data_dir, shuffle=True, sampling_frequency_hz=sampling_frequency_hz, sample_width=sample_width, channels=channels)
         # Collect three audio files's worth of data with labels
         # Shuffle them and release one tuple at a time
         # The reason for doing this is so that we can hopefully get more variance into each batch than would otherwise be there
@@ -132,8 +133,8 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
             for frame in segment.generate_frames_as_segments(ms_per_vector):
                 yield np.fromstring(frame.raw_data, dtype=dtype), label
 
-        for segments in grouper(3, iterable):
-            tups = [tup for segment in segments for tup in get_tups(segment)]]  # Three audio files' worth of tuples
+        for segments in grouper(3, generator):
+            tups = [tup for segment in segments for tup in get_tups(segment)]  # Three audio files' worth of tuples
             random.shuffle(tups)
             for tup in tups:
                 yield tup

@@ -78,14 +78,15 @@ if __name__ == "__main__":
         res.check_returncode()
 
         # Cut each file into one minute pieces
-        for dpath, __, fname in os.walk(path):
-            fpath = os.sep.join([dpath, fname])
-            segment = audiosegment.from_file(fpath)
-            new_segments = segment.trim_to_minutes()
-            for i, new in enumerate(new_segments):
-                new_name, _ext = os.splitext(new.name)
-                new_name = new_name + str(i)
-                new.export(new_name, format="wav")
+        for dpath, __, fnames in os.walk(path):
+            for fname in fnames:
+                fpath = os.sep.join([dpath, fname])
+                segment = audiosegment.from_file(fpath)
+                new_segments = segment.trim_to_minutes()
+                for i, new in enumerate(new_segments):
+                    new_name, _ext = os.splitext(new.name)
+                    new_name = new_name + str(i)
+                    new.export(new_name, format="wav")
 
     # Get ~10% of each playlist and stick it in a test folder
     for pl_name in playlists_by_name:
