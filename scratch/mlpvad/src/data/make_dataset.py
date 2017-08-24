@@ -60,7 +60,7 @@ if __name__ == "__main__":
     subprocess.run(umount_command.split(' '), stdout=subprocess.PIPE)
 
     # mount the device here instead
-    mount_command = "mount " + dev_path + " " + raw_data_path
+    mount_command = "mount " + dev_path + " -t ntfs " + raw_data_path
     res = subprocess.run(mount_command.split(' '), stdout=subprocess.PIPE)
     res.check_returncode()
 

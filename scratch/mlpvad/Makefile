@@ -9,8 +9,9 @@ BUCKET = [OPTIONAL] your-bucket-for-syncing-data (do not include 's3://')
 PROFILE = default
 PROJECT_NAME = mlpvad
 PYTHON_INTERPRETER = python3
+PIP = pip3
 THEANO_FLAGS = device=gpu,floatX=float32
-HD_DEV =
+HD_DEV = /dev/sdb1
 
 ifeq (,$(shell which conda))
 HAS_CONDA=False
@@ -32,7 +33,7 @@ endef
 ## Install Python Dependencies
 requirements: test_environment
 	pipreqs --force .
-	pip install -r requirements.txt
+	$(PIP) install -r requirements.txt
 
 ## Make Dataset
 data: requirements
@@ -43,13 +44,13 @@ ifeq (,$(wildcard data/raw/.makeskip))
 	$(call colorecho, "::::::::::::::::::")
 endif
 else
-	sudo $(PYTHON_INTERPRETER) -m src.data.make_dataset $(HD_DEV) data/raw
+	sudo $(PYTHON_INTERPRETER) -m src.data.make_dataset $(HD_DEV) $(PROJECT_DIR)/data/raw
 	if [ $$? -eq 0 ] ; then touch data/raw/.makeskip ; fi
 endif
 
 ## Train the model(s)
 train: data
-	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) -m src.models.train_model models/mlps data/raw
+	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) -m src.models.train_model $(PROJECT_DIR)/models/mlps $(PROJECT_DIR)/data/raw
 
 ## Delete all compiled Python files
 clean:
@@ -75,8 +76,8 @@ else
 	aws s3 sync s3://$(BUCKET)/data/ data/ --profile $(PROFILE)
 endif
 
-## Set up python interpreter environment
-create_environment:
+## Initial setup of the directory structure and python environment
+environment:
 ifeq (True,$(HAS_CONDA))
 		@echo ">>> Detected conda, creating conda environment."
 ifeq (3,$(findstring 3,$(PYTHON_INTERPRETER)))
@@ -86,12 +87,16 @@ else
 endif
 		@echo ">>> New conda env created. Activate with:\nsource activate $(PROJECT_NAME)"
 else
-	@pip install -q virtualenv virtualenvwrapper
+	@$(PIP) install -q virtualenv virtualenvwrapper
 	@echo ">>> Installing virtualenvwrapper if not already intalled.\nMake sure the following lines are in shell startup file\n\
 	export WORKON_HOME=$$HOME/.virtualenvs\nexport PROJECT_HOME=$$HOME/Devel\nsource /usr/local/bin/virtualenvwrapper.sh\n"
 	@bash -c "source `which virtualenvwrapper.sh`;mkvirtualenv $(PROJECT_NAME) --python=$(PYTHON_INTERPRETER)"
 	@echo ">>> New virtualenv created. Activate with:\nworkon $(PROJECT_NAME)"
 endif
+	@mkdir -p $(PROJECT_DIR)/data/external
+	@mkdir -p $(PROJECT_DIR)/data/interim
+	@mkdir -p $(PROJECT_DIR)/data/processed
+	@mkdir -p $(PROJECT_DIR)/data/raw
 
 ## Test python environment is setup correctly
 test_environment:
