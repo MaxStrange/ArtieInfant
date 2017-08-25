@@ -33,8 +33,11 @@ endef
 
 ## Install Python Dependencies
 requirements: test_environment
-	pipreqs --force .
-	$(PIP) install -r requirements.txt
+	@echo "Ensuring all requirements are installed..."
+	@$(PIP) install -q pipreqs
+	@pipreqs --force .
+	@$(PIP) install -q -r requirements.txt
+	@if [ ! -d ~/.keras ]; then mkdir ~/.keras; echo "{\n    \"image_data_format\": \"channels_last\",\n    \"epsilon\": 1e-07,\n    \"floatx\": \"float32\",\n    \"backend\": \"theano\"\n}" > ~/.keras/keras.json; fi
 
 ## Make Dataset
 data: requirements
@@ -88,16 +91,19 @@ else
 endif
 		@echo ">>> New conda env created. Activate with:\nsource activate $(PROJECT_NAME)"
 else
-	@$(PIP) install -q virtualenv virtualenvwrapper
-	@echo ">>> Installing virtualenvwrapper if not already intalled.\nMake sure the following lines are in shell startup file\n\
+	@echo ">>> Need to install virtualenv and virtualenvwrapper system-wide, so enter password."
+	@sudo pip install virtualenv virtualenvwrapper
+	@echo ">>> Installing virtualenvwrapper if not already installed.\nMake sure the following lines are in shell startup file\n\
 	export WORKON_HOME=$$HOME/.virtualenvs\nexport PROJECT_HOME=$$HOME/Devel\nsource /usr/local/bin/virtualenvwrapper.sh\n"
 	@bash -c "source `which virtualenvwrapper.sh`;mkvirtualenv $(PROJECT_NAME) --python=$(PYTHON_INTERPRETER)"
 	@echo ">>> New virtualenv created. Activate with:\nworkon $(PROJECT_NAME)"
+	@echo ">>> Creating directory structure..."
 endif
 	@mkdir -p $(PROJECT_DIR)/data/external
 	@mkdir -p $(PROJECT_DIR)/data/interim
 	@mkdir -p $(PROJECT_DIR)/data/processed
 	@mkdir -p $(PROJECT_DIR)/data/raw
+	@sudo apt-get install ffmpeg
 
 ## Test python environment is setup correctly
 test_environment:
