@@ -6,12 +6,13 @@
 
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 BUCKET = [OPTIONAL] your-bucket-for-syncing-data (do not include 's3://')
+DATE = `date +'%d_%m_%y_%H_%M_%S'`
 PROFILE = default
 PROJECT_NAME = mlpvad
 PYTHON_INTERPRETER = python3
 PIP = pip3
 THEANO_FLAGS = device=gpu,floatX=float32
-HD_DEV = /dev/sdb1
+HD_DEV =
 
 ifeq (,$(shell which conda))
 HAS_CONDA=False
@@ -50,7 +51,7 @@ endif
 
 ## Train the model(s)
 train: data
-	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) -m src.models.train_model $(PROJECT_DIR)/models/mlps $(PROJECT_DIR)/data/raw
+	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) -m src.models.train_model $(PROJECT_DIR)/models/mlps/$(DATE).hdf5 $(PROJECT_DIR)/data/raw
 
 ## Delete all compiled Python files
 clean:

@@ -8,8 +8,9 @@ import itertools
 import numpy as np
 import os
 import random
+import src.utilities.utils as utils
 
-class ClassLabels(enum.Enum):
+class ClassLabels(enum.IntEnum):
     NO_VOICE = 0
     VOICE = 1
 
@@ -59,9 +60,13 @@ def calculate_steps_per_epoch(data_dir, samples_per_vector=5120, batch_size=64, 
     :param channels: The number of channels in a wav file.
     :returns: The number of vectors in the entire dataset.
     """
+    utils.log("Calculating number of samples in dataset...")
     num_samples_in_dataset = sum((len(seg) for seg in _generate_segments(data_dir, sampling_frequency_hz=sampling_frequency_hz, channels=channels)))
+    utils.log("Number of samples calculated:", num_samples_in_dataset)
     samples_per_batch = samples_per_vector * batch_size
+    utils.log("Samples per batch:", samples_per_batch)
     steps_per_epoch = int(num_samples_in_dataset / samples_per_batch)
+    utils.log("Steps per epoch:", steps_per_epoch)
     return steps_per_epoch
 
 def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_frequency_hz=32000, sample_width=2, channels=1):
@@ -128,9 +133,9 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
 
         def get_tups(segment):
             segment = segment.filter_silence()
-            path, filename = os.split(segment.name)
+            path, filename = os.path.split(segment.name)
             label = ClassLabels.NO_VOICE if "_NO" in path else ClassLabels.VOICE
-            for frame in segment.generate_frames_as_segments(ms_per_vector):
+            for frame, _timestamp in segment.generate_frames_as_segments(ms_per_vector):
                 yield np.fromstring(frame.raw_data, dtype=dtype), label
 
         for segments in grouper(3, generator):
@@ -139,15 +144,21 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
             for tup in tups:
                 yield tup
 
+    utils.log("Looping over dataset to provide data...")
     while True:
         # Keep generating forever
         try:
             vectors = []
             labels = []
+            utils.log("Generating batch...")
             for i in range(batch_size):
+                utils.log("Getting vector and label", i, increase_depth=1)
                 vector, label = next(generate_vector_by_vector())
+                utils.log("Got a vector and label", increase_depth=1)
                 vectors.append(vector)
                 labels.append(label)
+            utils.log("Yielding batch")
+            vectors = np.array(vectors)
             batch = (vectors, labels)
             yield batch
         except StopIteration:
