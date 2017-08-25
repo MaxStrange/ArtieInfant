@@ -70,6 +70,6 @@ if __name__ == "__main__":
     loss = 0
     acc = 1
     g = Getter(FILE_PATH, loss)
-    plotter = Plotter([], [], g)
+    plotter = Plotter([0], [0], g)
     plotter.animate()
 
