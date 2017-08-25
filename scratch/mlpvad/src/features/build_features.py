@@ -160,6 +160,10 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
             utils.log("Yielding batch")
             vectors = np.array(vectors)
             batch = (vectors, labels)
+            percent_no = 100 * len([l for l in labels if l == ClassLabels.NO_VOICE]) / len(labels)
+            percent_yes = 100 - percent_no
+            print("")
+            print("Percent no/yes in this batch:", percent_no, "/", percent_yes)
             yield batch
         except StopIteration:
             pass  # Just keep going
