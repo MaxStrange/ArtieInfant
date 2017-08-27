@@ -10,6 +10,11 @@ import os
 import random
 import src.utilities.utils as utils
 
+########## DEBUG ################
+tup_number_no_voice = 0
+tup_number_voice = 0
+#################################
+
 class ClassLabels(enum.IntEnum):
     NO_VOICE = 0
     VOICE = 1
@@ -106,11 +111,11 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
         raise ValueError("1000 * 1/sampling_frequency * samples_per_vector must be a whole number. Got: " + str(ms_per_vector))
 
     if sample_width == 1:
-        dtype = np.uint8
+        dtype = np.uint8  # WAV files are unsigned when 8-bit
     elif sample_width == 2:
-        dtype = np.uint16
+        dtype = np.int16
     elif sample_width == 4:
-        dtype = np.uint32
+        dtype = np.int32
     else:
         raise ValueError("Supported sample widths are: 1, 2, or 4. You gave: " + str(sample_width))
 
@@ -136,6 +141,19 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
             path, filename = os.path.split(segment.name)
             label = ClassLabels.NO_VOICE if "_NO" in path else ClassLabels.VOICE
             for frame, _timestamp in segment.generate_frames_as_segments(ms_per_vector):
+                ########## DEBUG ################
+#                global tup_number_no_voice, tup_number_voice
+#                if label == ClassLabels.NO_VOICE:
+#                    tup_number_no_voice += 1
+#                    tup_number = tup_number_no_voice
+#                else:
+#                    tup_number_voice += 1
+#                    tup_number = tup_number_voice
+#                with open(str(label) + str(tup_number) + ".csv", 'w') as f:
+#                    datavec = np.fromstring(frame.raw_data, dtype=dtype)
+#                    for val in datavec:
+#                        f.write(str(val) + os.linesep)
+                #################################
                 yield np.fromstring(frame.raw_data, dtype=dtype), label
 
         for segments in grouper(3, generator):
@@ -164,6 +182,7 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
             percent_yes = 100 - percent_no
             print("")
             print("Percent no/yes in this batch:", percent_no, "/", percent_yes)
+            print(batch)
             yield batch
         except StopIteration:
             pass  # Just keep going

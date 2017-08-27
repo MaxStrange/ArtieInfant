@@ -10,6 +10,6 @@ def log(*args, **kwargs):
     print("  " * depth, "|->", *args)
     """
     return None
-#    depth = len(inspect.stack()) + kwargs.pop("increase_depth", 0)
-#    print("  " * depth, "|->", *args, **kwargs)
+    depth = len(inspect.stack()) + kwargs.pop("increase_depth", 0)
+    print("  " * depth, "|->", *args, **kwargs)
 

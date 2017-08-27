@@ -35,6 +35,7 @@ endef
 requirements: test_environment
 	@echo "Ensuring all requirements are installed..."
 	@$(PIP) install -q pipreqs
+	@$(PIP) install -q h5py
 	@pipreqs --force .
 	@$(PIP) install -q -r requirements.txt
 	@if [ ! -d ~/.keras ]; then mkdir ~/.keras; echo "{\n    \"image_data_format\": \"channels_last\",\n    \"epsilon\": 1e-07,\n    \"floatx\": \"float32\",\n    \"backend\": \"theano\"\n}" > ~/.keras/keras.json; fi

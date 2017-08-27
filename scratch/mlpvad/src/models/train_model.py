@@ -1,23 +1,24 @@
 """
 This script is used to train a given model.
 """
+import collections
 import keras
 import os
 import sys
 import src.features.build_features as build_features
 
 # Parameters
-WINDOW_WIDTH_MS = 160  # How many MS of audio to feed into the MLP at a time
+WINDOW_WIDTH_MS = 30#160  # How many MS of audio to feed into the MLP at a time
 SAMPLING_RATE_HZ = 32000  # Sample the audio at this rate
 NUM_CHANNELS = 1  # The number of channels in the audio
-NUM_EPOCHS = 10
+NUM_EPOCHS = 1000
 BATCH_SIZE = 4#32
 LOG_FILE = "log.csv"
 
 class GraphMetrics(keras.callbacks.Callback):
     def __init__(self, metrics):
         self.batch_num = 0
-        self.metrics_logs = {"loss" : []}
+        self.metrics_logs = collections.OrderedDict({"loss" : []})
         if "accuracy" in metrics:
             self.metrics_logs["acc"] = []
         # Make the file
@@ -54,13 +55,9 @@ if __name__ == "__main__":
     print("Input dimension:", samples_per_window)
 
     model = keras.models.Sequential()
-    model.add(keras.layers.Dense(2048, input_dim=samples_per_window))
+    model.add(keras.layers.Dense(4024, input_dim=samples_per_window))
     model.add(keras.layers.Activation("relu"))
-    model.add(keras.layers.Dense(1024))
-    model.add(keras.layers.Dropout(rate=0.33))
-    model.add(keras.layers.Activation("relu"))
-    model.add(keras.layers.Dense(512))
-    model.add(keras.layers.Dropout(rate=0.33))
+    model.add(keras.layers.Dense(1012))
     model.add(keras.layers.Activation("relu"))
     model.add(keras.layers.Dense(1))
     model.add(keras.layers.Activation("sigmoid"))
