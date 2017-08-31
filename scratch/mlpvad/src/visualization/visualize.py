@@ -3,6 +3,7 @@ Online logging script to be run concurrently with make train.
 """
 import functools
 import itertools
+import math
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import sys
@@ -14,8 +15,8 @@ FILE_PATH = "log.csv"
 class Plotter:
     def __init__(self, x1, y1, x2, y2, getter):
         self._fig = plt.figure()
-        self._ax1 = self._fig.add_subplot(1, 2, 1)
-        self._ax2 = self._fig.add_subplot(1, 2, 2)
+        self._ax1 = self._fig.add_subplot(2, 1, 1)
+        self._ax2 = self._fig.add_subplot(2, 1, 2)
 
         self._data_y1 = y1
         self._data_x1 = x1
@@ -43,11 +44,12 @@ class Plotter:
             self._data_x1.extend(new_x1s)
             self._data_x2.extend(new_x2s)
 
+        linewidth = max(0.005, min(1.0, 10 / math.log(len(self._data_x1))))
         self._ax1.clear()
-        self._ax1.plot(self._data_x1, self._data_y1)
+        self._ax1.plot(self._data_x1, self._data_y1, linewidth=linewidth)
         self._ax1.set_title("Loss")
         self._ax2.clear()
-        self._ax2.plot(self._data_x2, self._data_y2)
+        self._ax2.plot(self._data_x2, self._data_y2, linewidth=linewidth)
         self._ax2.set_title("Accuracy")
 
 class Getter:

@@ -11,8 +11,8 @@ import src.features.build_features as build_features
 WINDOW_WIDTH_MS = 30#160  # How many MS of audio to feed into the MLP at a time
 SAMPLING_RATE_HZ = 32000  # Sample the audio at this rate
 NUM_CHANNELS = 1  # The number of channels in the audio
-NUM_EPOCHS = 1000
-BATCH_SIZE = 4#32
+NUM_EPOCHS = 10000
+BATCH_SIZE = 32
 LOG_FILE = "log.csv"
 
 class GraphMetrics(keras.callbacks.Callback):
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     print("Input dimension:", samples_per_window)
 
     model = keras.models.Sequential()
-    model.add(keras.layers.Dense(4024, input_dim=samples_per_window))
+    model.add(keras.layers.Dense(4024, input_dim=samples_per_window // 2 + 1))  # Takes the abs of the FFT output
     model.add(keras.layers.Activation("relu"))
     model.add(keras.layers.Dense(1012))
     model.add(keras.layers.Activation("relu"))
@@ -76,5 +76,6 @@ if __name__ == "__main__":
                                                                channels=NUM_CHANNELS)
     checkpointer = keras.callbacks.ModelCheckpoint(model_dir_path)
     metrics_grapher = GraphMetrics(metrics)
-    model.fit_generator(data_generator, steps_per_epoch=steps_per_epoch, epochs=NUM_EPOCHS, callbacks=[checkpointer, metrics_grapher], verbose=1)
+    model.fit_generator(data_generator, steps_per_epoch=steps_per_epoch, epochs=NUM_EPOCHS,
+                        callbacks=[checkpointer, metrics_grapher], verbose=1)
 

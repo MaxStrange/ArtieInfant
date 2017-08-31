@@ -12,7 +12,7 @@ PROJECT_NAME = mlpvad
 PYTHON_INTERPRETER = python3
 PIP = pip3
 THEANO_FLAGS = device=gpu,floatX=float32
-HD_DEV =
+HD_DEV = blah
 
 ifeq (,$(shell which conda))
 HAS_CONDA=False
@@ -37,7 +37,7 @@ requirements: test_environment
 	@$(PIP) install -q pipreqs
 	@$(PIP) install -q h5py
 	@pipreqs --force .
-	@$(PIP) install -q -r requirements.txt
+	@$(PIP) install -q --upgrade -r requirements.txt
 	@if [ ! -d ~/.keras ]; then mkdir ~/.keras; echo "{\n    \"image_data_format\": \"channels_last\",\n    \"epsilon\": 1e-07,\n    \"floatx\": \"float32\",\n    \"backend\": \"theano\"\n}" > ~/.keras/keras.json; fi
 
 ## Make Dataset
@@ -49,7 +49,7 @@ ifeq (,$(wildcard data/raw/.makeskip))
 	$(call colorecho, "::::::::::::::::::")
 endif
 else
-	sudo $(PYTHON_INTERPRETER) -m src.data.make_dataset $(HD_DEV) $(PROJECT_DIR)/data/raw
+	$(PYTHON_INTERPRETER) -m src.data.make_dataset $(HD_DEV) $(PROJECT_DIR)/data
 	if [ $$? -eq 0 ] ; then touch data/raw/.makeskip ; fi
 endif
 
