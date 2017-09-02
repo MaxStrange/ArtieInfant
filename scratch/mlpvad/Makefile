@@ -54,8 +54,12 @@ else
 endif
 
 ## Train the model(s)
-train: data
-	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) -m src.models.train_model $(PROJECT_DIR)/models/mlps/$(DATE).hdf5 $(PROJECT_DIR)/data/raw
+train:
+	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) -m src.models.train_model $(PROJECT_DIR)/models/mlps/$(DATE).hdf5 $(PROJECT_DIR)/data/processed
+
+## Run the model on the test split
+test:
+	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) -m src.models.predict_model $(PROJECT_DIR)/models/mlps/to_test.hdf5 $(PROJECT_DIR)/data/processed
 
 ## Delete all compiled Python files
 clean:

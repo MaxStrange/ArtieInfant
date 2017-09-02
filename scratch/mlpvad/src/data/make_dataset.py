@@ -63,51 +63,65 @@ if __name__ == "__main__":
     processed_data_path = os.path.join(sys.argv[2], "processed")
 
     # Download each playlist
-    for pl_name, pl in zip(playlists_by_name, playlists_by_url):
+    for pl_name, pl_url in zip(playlists_by_name, playlists_by_url):
+        print("Working on playlist:", pl_name)
+
         # Make a directory on the device for this playlist
-        path = os.sep.join([raw_data_path, pl_name])
-        mkdir_command = "mkdir -p " + path
+        pl_raw_data_dir_path = os.sep.join([raw_data_path, pl_name])
+        print("  |-> Making directory:", pl_raw_data_dir_path)
+        mkdir_command = "mkdir -p " + pl_raw_data_dir_path
         res = subprocess.run(mkdir_command.split(' '), stdout=subprocess.PIPE)
         # Don't check result, in case this directory exists
 
         # Download the playlist to that directory
-        dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G " + pl\
-                     + " -o " + path + "/%(title)s-%(id)s.%(ext)s"
+        print("  |-> Executing youtube-dl on the playlist...")
+        dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G "\
+                     + pl_url + " -o " + pl_raw_data_dir_path + "/%(title)s-%(id)s.%(ext)s"
         res = subprocess.run(dl_command.split(' '), stdout=subprocess.PIPE)
         # Don't check result, who knows what youtube-dl returns
 
         # Cut each file into 10 second pieces
+        pl_processed_data_dir_path = os.sep.join([processed_data_path, pl_name])
+        print("  |-> Making directory:", pl_processed_data_dir_path)
         try:
-            os.mkdir(os.sep.join([processed_data_path, pl_name]))
+            os.mkdir(pl_processed_data_dir_path)
         except FileExistsError:
             pass
-        for dpath, __, fnames in os.walk(path):
+        for dpath, __, fnames in os.walk(pl_raw_data_dir_path):
+            print("  |-> Walking path:", pl_raw_data_dir_path)
             for fname in fnames:
-                new_fpath = os.sep.join([processed_data_path, pl_name, fname.replace(' ', '_')])
-                fpath = os.sep.join([dpath, fname])
-                segment = audiosegment.from_file(fpath)
+                print("    |-> Dicing and exporting segments for:", fname)
+                raw_file_path = os.sep.join([dpath, fname])
+                processed_file_path = os.sep.join([pl_processed_data_dir_path, fname.replace(' ', '_')])
+                segment = audiosegment.from_file(raw_file_path)
                 new_segments = segment.dice(seconds=10)
                 for i, new in enumerate(new_segments):
                     new = new.resample(sample_rate_Hz=32000, channels=1, sample_width=2)
-                    new_name, _ext = os.path.splitext(new_fpath)
+                    new_name, _ext = os.path.splitext(processed_file_path)
                     new_name = new_name + "_seg" + str(i) + ".wav"
                     new.export(new_name, format="wav")
 
     # Get ~10% of each playlist and stick it in a test folder
+    print("|-> Making test split for each playlist...")
     for pl_name in playlists_by_name:
-        path = os.sep.join([processed_data_path, pl_name])
-        files = os.listdir(path)
+        pl_processed_data_dir_path = os.sep.join([processed_data_path, pl_name])
+        print("  |-> Working on playlist:", pl_name, "in directory:", pl_processed_data_dir_path)
+        files = os.listdir(pl_processed_data_dir_path)
+        files = [f for f in files if not os.path.isdir(f)]
 
         # Make this playlist's test dir
-        path_test = os.sep.join([processed_data_path, "test_split", pl_name])
-        mkdir_command = "mkdir -p " + path_test
+        pl_processed_data_test_path = os.sep.join([pl_processed_data_dir_path, "test_split", pl_name])
+        print("  |-> Making directory:", pl_processed_data_test_path)
+        mkdir_command = "mkdir -p " + pl_processed_data_test_path
         res = subprocess.run(mkdir_command.split(' '), stdout=subprocess.PIPE)
 
+        print("  |-> Collecting every tenth file in", pl_processed_data_dir_path)
         files = files[::10]
-        file_paths = [os.sep.join([path, f]) for f in files]
+        file_paths = [os.sep.join([pl_processed_data_dir_path, f]) for f in files]
         # Move the files into the other dir
+        print("  |-> Moving the files into the appropriate test directory...")
         for f in file_paths:
-            if not os.path.isdir(f):
-                res = subprocess.run(["mv", f, path_test, os.sep], stdout=subprocess.PIPE)
-                res.check_returncode()
+            fname = os.path.basename(f)
+            new = os.sep.join([pl_processed_data_test_path, fname])
+            os.rename(f, new)
 

@@ -8,7 +8,7 @@ import sys
 import src.features.build_features as build_features
 
 # Parameters
-WINDOW_WIDTH_MS = 30#160  # How many MS of audio to feed into the MLP at a time
+WINDOW_WIDTH_MS = 30  # How many MS of audio to feed into the MLP at a time
 SAMPLING_RATE_HZ = 32000  # Sample the audio at this rate
 NUM_CHANNELS = 1  # The number of channels in the audio
 NUM_EPOCHS = 10000
@@ -65,15 +65,15 @@ if __name__ == "__main__":
     metrics = ["accuracy"]
     model.compile(optimizer="adagrad", loss="binary_crossentropy", metrics=metrics)
 
-    data_generator = build_features.generate_data(data_dir_path,
-                                                  samples_per_vector=samples_per_window,
-                                                  batch_size=BATCH_SIZE,
-                                                  sampling_frequency_hz=SAMPLING_RATE_HZ)
-    steps_per_epoch = build_features.calculate_steps_per_epoch(data_dir_path,
-                                                               samples_per_vector=samples_per_window,
-                                                               batch_size=BATCH_SIZE,
-                                                               sampling_frequency_hz=SAMPLING_RATE_HZ,
-                                                               channels=NUM_CHANNELS)
+    kwargs = {"samples_per_vector": samples_per_window,
+              "batch_size": BATCH_SIZE,
+              "sampling_frequency_hz": SAMPLING_RATE_HZ,
+              "channels": NUM_CHANNELS,
+              "ignore": ["debug_NO", "debug_VO", "test_split"],
+              "include": None,
+             }
+    data_generator = build_features.generate_data(data_dir_path, **kwargs)
+    steps_per_epoch = build_features.calculate_steps_per_epoch(data_dir_path, **kwargs)
     checkpointer = keras.callbacks.ModelCheckpoint(model_dir_path)
     metrics_grapher = GraphMetrics(metrics)
     model.fit_generator(data_generator, steps_per_epoch=steps_per_epoch, epochs=NUM_EPOCHS,
