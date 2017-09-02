@@ -77,7 +77,7 @@ if __name__ == "__main__":
         print("  |-> Executing youtube-dl on the playlist...")
         dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G "\
                      + pl_url + " -o " + pl_raw_data_dir_path + "/%(title)s-%(id)s.%(ext)s"
-        res = subprocess.run(dl_command.split(' '), stdout=subprocess.PIPE)
+        res = subprocess.run(dl_command.split(' '), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         # Don't check result, who knows what youtube-dl returns
 
         # Cut each file into 10 second pieces

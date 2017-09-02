@@ -34,14 +34,14 @@ endef
 ## Install Python Dependencies
 requirements: test_environment
 	@echo "Ensuring all requirements are installed..."
-	@$(PIP) install -q pipreqs
-	@$(PIP) install -q h5py
+	@$(PIP) install pipreqs
+	@$(PIP) install h5py
 	@pipreqs --force .
-	@$(PIP) install -q --upgrade -r requirements.txt
+	@$(PIP) install --upgrade -r requirements.txt
 	@if [ ! -d ~/.keras ]; then mkdir ~/.keras; echo "{\n    \"image_data_format\": \"channels_last\",\n    \"epsilon\": 1e-07,\n    \"floatx\": \"float32\",\n    \"backend\": \"theano\"\n}" > ~/.keras/keras.json; fi
 
 ## Make Dataset
-data: requirements
+data:
 ifeq (,$(HD_DEV))
 ifeq (,$(wildcard data/raw/.makeskip))
 	$(call colorecho, ":::::: FAIL ::::::")
