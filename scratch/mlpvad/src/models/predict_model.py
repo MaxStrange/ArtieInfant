@@ -8,6 +8,7 @@ import numpy as np
 import os
 import src.features.build_features as build_features
 import sys
+from tqdm import tqdm
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -34,17 +35,39 @@ if __name__ == "__main__":
 
     prediction_results = {}
     for test_dir in test_dirs:
+        print("Checking:", test_dir)
         prediction_results[test_dir] = []
         for dpath, __, fpaths in os.walk(test_dir):
-            for fpath in fpaths:
+            print("  |-> Checking", dpath)
+            for fpath in tqdm(fpaths):
                 if fpath.lower().endswith("wav"):
                     full_fpath = os.sep.join([dpath, fpath])
                     for vector, label in build_features.generate_vectors_and_labels_from_file(full_fpath):
                         result = model.predict(np.array([vector]), batch_size=1)
-                        print("Got:", result, "expected:", label)
+                        result = int(round(result[0][0]))
+                        label = int(label)
                         prediction_results[test_dir].append((result, label))
 
-    # Visualize the results using whatever means (confusion matrix, accuracy, precision, recall, F0 score)
-    # TODO
-    # prediction results is a data structure that looks like this:
-    # {test_dir : [(guess, label), (guess, label), etc.], another_test_dir : [etc.], etc.}
+    correct_nos = 0
+    correct_yes = 0
+    no_should_be_yes = 0
+    yes_should_be_no = 0
+    for test_dir, results_list in prediction_results.items():
+        for guess, label in results_list:
+            if guess == 0 and label == 0:
+                correct_nos += 1
+            elif guess == 1 and label == 1:
+                correct_yes += 1
+            elif guess == 0 and label == 1:
+                no_should_be_yes += 1
+            else:
+                yes_should_be_no += 1
+
+    def percent(x):
+        total = correct_nos + correct_yes + no_should_be_yes + yes_should_be_no
+        return (x / total) * 100.0
+
+    print("Correct nos:", correct_nos, "    ", percent(correct_nos), "% of total guesses")
+    print("Correct yes:", correct_yes, "    ", percent(correct_yes), "% of total guesses")
+    print("False negatives:", no_should_be_yes, "    ", percent(no_should_be_yes), "% of total guesses")
+    print("False positives:", yes_should_be_no, "    ", percent(yes_should_be_no), "% of total guesses")

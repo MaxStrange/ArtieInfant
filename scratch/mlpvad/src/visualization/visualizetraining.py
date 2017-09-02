@@ -13,36 +13,43 @@ import random
 FILE_PATH = "log.csv"
 
 class Plotter:
-    def __init__(self, x1, y1, x2, y2, getter):
+    def __init__(self, x1, y1, x2, y2, x3, y3, getter):
         self._fig = plt.figure()
-        self._ax1 = self._fig.add_subplot(2, 1, 1)
-        self._ax2 = self._fig.add_subplot(2, 1, 2)
+        self._ax1 = self._fig.add_subplot(3, 1, 1)
+        self._ax2 = self._fig.add_subplot(3, 1, 2)
+        self._ax3 = self._fig.add_subplot(3, 1, 3)
 
         self._data_y1 = y1
         self._data_x1 = x1
         self._data_y2 = y2
         self._data_x2 = x2
+        self._data_y3 = y3
+        self._data_x3 = x3
 
         self._data_getter = getter
 
     def animate(self):
         ani = animation.FuncAnimation(self._fig, self._draw, interval=1)
+        plt.tight_layout()
         plt.show()
 
     def _update_data(self):
-        new_y1, new_y2 = self._data_getter.get()
+        new_y1, new_y2, new_y3 = self._data_getter.get()
         self._data_y1.extend(new_y1)
         self._data_y2.extend(new_y2)
-        return new_y1, new_y2
+        self._data_y3.extend(new_y3)
+        return new_y1, new_y2, new_y3
 
     def _draw(self, frame):
-        new_y1s, new_y2s = self._update_data()
+        new_y1s, new_y2s, new_y3s = self._update_data()
 
         if new_y1s:
             new_x1s = range(len(self._data_x1), len(self._data_x1) + len(new_y1s))
             new_x2s = range(len(self._data_x2), len(self._data_x2) + len(new_y2s))
+            new_x3s = range(len(self._data_x3), len(self._data_x3) + len(new_y3s))
             self._data_x1.extend(new_x1s)
             self._data_x2.extend(new_x2s)
+            self._data_x3.extend(new_x3s)
 
         linewidth = max(0.005, min(1.0, 10 / math.log(len(self._data_x1))))
         self._ax1.clear()
@@ -51,6 +58,9 @@ class Plotter:
         self._ax2.clear()
         self._ax2.plot(self._data_x2, self._data_y2, linewidth=linewidth)
         self._ax2.set_title("Accuracy")
+        self._ax3.clear()
+        self._ax3.plot(self._data_x3, self._data_y3, linewidth=linewidth)
+        self._ax3.set_title("F1Score")
 
 class Getter:
     """
@@ -74,14 +84,15 @@ class Getter:
             tups = [line.split(',') for line in lines]
             data_x1 = [float(tup[0].strip()) for tup in tups]
             data_x2 = [float(tup[1].strip()) for tup in tups]
+            data_x3 = [float(tup[2].strip()) for tup in tups]
         if data_x1:
             self.epoch_num += 1
-        return data_x1, data_x2
+        return data_x1, data_x2, data_x3
 
 if __name__ == "__main__":
     acc = 0
     loss = 1
     g = Getter(FILE_PATH)
-    plotter = Plotter([0, 1], [0, 1], [0, 1], [0, 1], g)
+    plotter = Plotter([0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], g)
     plotter.animate()
 

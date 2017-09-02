@@ -61,6 +61,10 @@ train:
 test:
 	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) -m src.models.predict_model $(PROJECT_DIR)/models/mlps/to_test.hdf5 $(PROJECT_DIR)/data/processed
 
+## Run the visualization script to view real time updates
+visualize:
+	$(PYTHON_INTERPRETER) -m src.visualization.visualizetraining
+
 ## Delete all compiled Python files
 clean:
 	find . -name "*.pyc" -exec rm {} \;

@@ -3,6 +3,7 @@ This script is used to train a given model.
 """
 import collections
 import keras
+import keras.backend as K
 import os
 import sys
 import src.features.build_features as build_features
@@ -15,12 +16,36 @@ NUM_EPOCHS = 10000
 BATCH_SIZE = 32
 LOG_FILE = "log.csv"
 
+def fscore(pred, label):
+    """
+    Metric for calculating F1 score. An F1 score is a good way to measure when there is a class imbalance.
+    It can be interpreted as a weighted average of precision and recall.
+
+    Precision maxes out when there are few false positives.
+    Recall maxes out when there are few false negatives.
+    """
+    false_negatives = K.sum(K.round(K.clip(label - pred, 0, 1)))
+    false_positives = K.sum(K.round(K.clip(pred - label, 0, 1)))
+    true_positives = K.sum(K.round(pred * label))
+    true_negatives = K.sum(K.round((1 - pred) * (1 - label)))
+
+    pres = true_positives / (true_positives + false_positives + 1E-9)
+    rec = true_positives / (true_positives + false_negatives + 1E-9)
+    fscore = pres * rec / (pres + rec + 1E-9)
+    return fscore
+
 class GraphMetrics(keras.callbacks.Callback):
     def __init__(self, metrics):
+        """
+        """
         self.batch_num = 0
         self.metrics_logs = collections.OrderedDict({"loss" : []})
         if "accuracy" in metrics:
             self.metrics_logs["acc"] = []
+        for m in metrics:
+            if hasattr(m, "__name__"):
+                self.metrics_logs[m.__name__] = []
+
         # Make the file
         with open(LOG_FILE, 'w') as f:
             f.write(", ".join([metric for metric in self.metrics_logs.keys()]))
@@ -59,11 +84,14 @@ if __name__ == "__main__":
     model.add(keras.layers.Activation("relu"))
     model.add(keras.layers.Dense(1012))
     model.add(keras.layers.Activation("relu"))
+    model.add(keras.layers.Dense(512))
+    model.add(keras.layers.Dropout(0.10))
+    model.add(keras.layers.Activation("relu"))
     model.add(keras.layers.Dense(1))
     model.add(keras.layers.Activation("sigmoid"))
 
-    metrics = ["accuracy"]
-    model.compile(optimizer="adagrad", loss="binary_crossentropy", metrics=metrics)
+    metrics = ["accuracy", fscore]
+    model.compile(optimizer="nadam", loss="binary_crossentropy", metrics=metrics)
 
     kwargs = {"samples_per_vector": samples_per_window,
               "batch_size": BATCH_SIZE,
