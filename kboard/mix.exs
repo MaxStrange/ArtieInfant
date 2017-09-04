@@ -19,7 +19,7 @@ defmodule Kboard.Mixfile do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {Kboard.Application, []},
+      mod: {Kboard.Application, ["/home/max/git_repos/ArtieInfant/scratch/mlpvad/log.csv"]},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -40,7 +40,8 @@ defmodule Kboard.Mixfile do
       {:phoenix_html, "~> 2.10"},
       {:phoenix_live_reload, "~> 1.0", only: :dev},
       {:gettext, "~> 0.11"},
-      {:cowboy, "~> 1.0"}
+      {:cowboy, "~> 1.0"},
+      {:expyplot, "~> 1.1.2"}
     ]
   end
 
