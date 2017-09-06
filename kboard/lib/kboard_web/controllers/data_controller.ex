@@ -1,27 +1,22 @@
-defmodule Kboard.Worker do
-  use GenServer
-  alias Expyplot.Plot
+defmodule KboardWeb.DataController do
+  use KboardWeb, :controller
 
-  def start_link(name, [path]) do
-    GenServer.start_link(__MODULE__, path, [name: name])
+  def data(conn, params) do
+    metric = params["metric"]
+    {x, _} = params["x"] |> Integer.parse()
+    d = parse_log_file(x, metric)
+    json conn, d
   end
 
-  def init(path) do
-    spawn_link(fn -> refresh(path) end)
-    {:ok, path}
-  end
+  @path "/home/max/git_repos/ArtieInfant/scratch/mlpvad/log.csv"
 
-  defp refresh(path) do
-    parse_log_file(path)
-    #|> print_images()
-  end
-
-  defp parse_log_file(path) do
-    File.read!(path)
+  defp parse_log_file(x, metric) do
+    File.read!(@path)
     |> String.split("\n")
     |> Enum.map(fn(s)-> parse_line(s) end)
     |> Enum.filter(fn(ls)-> ls != [] end)
     |> convert_to_map()
+    |> get_latest_y(x, metric)
   end
 
   defp parse_line(line) do
@@ -52,14 +47,12 @@ defmodule Kboard.Worker do
     |> Enum.into(%{})
   end
 
-  defp print_images(dict) do
-    # dict is a map: %{name: [values], another_name: [values]}
-    for {name, values} <- dict do
-      Plot.ylim([[0, 1]])
-      Plot.title(name)
-      Plot.plot([values])
-      Plot.savefig(["./assets/static/images/" <> name <> ".png"])
-      Plot.cla()
+  defp get_latest_y(map, x, metric) do
+    values = map[metric]
+    cond do
+      is_list(values) and Enum.count(values) > x  -> Enum.at(values, x)
+      is_list(values) and Enum.count(values) <= x -> Enum.at(values, Enum.count(values) - 1)
+      true                                        -> 0
     end
   end
 end

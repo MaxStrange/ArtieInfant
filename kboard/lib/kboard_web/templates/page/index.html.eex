@@ -1,45 +1,22 @@
-<div class="jumbotron">
-  <h2><%= gettext "Welcome to %{name}!", name: "Phoenix" %></h2>
-  <p class="lead">A productive web framework that<br />does not compromise speed and maintainability.</p>
-</div>
+<head>
+  <title>Refresh Example</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+</head>
 
-<div id="images_div">
+<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<div id="container" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+
+<div id="images_div" onload="updateImages()">
+<script src="https://code.highcharts.com/highcharts.src.js"></script>
     <script>
-    window.onload = function() {
-        startLoop();
-    }
+//    window.onload = function() {
+//        startLoop();
+//    }
     </script>
-    <img id="image0" src=<%=handler_images%> alt="Blah" height="700" width="1000">
+    <img id="loss" src=<%=handler_images "loss"%> alt="Loss" height="700" width="1000">
+    <img id="accuracy" src=<%=handler_images "accuracy"%> alt="Accuracy" height="700" width="1000">
+    <img id="fscore" src=<%=handler_images "fscore"%> alt="FScore" height="700" width="1000">
 </div>
 
-<div class="row marketing">
-  <div class="col-lg-6">
-    <h4>Resources</h4>
-    <ul>
-      <li>
-        <a href="http://phoenixframework.org/docs/overview">Guides</a>
-      </li>
-      <li>
-        <a href="https://hexdocs.pm/phoenix">Docs</a>
-      </li>
-      <li>
-        <a href="https://github.com/phoenixframework/phoenix">Source</a>
-      </li>
-    </ul>
-  </div>
-
-  <div class="col-lg-6">
-    <h4>Help</h4>
-    <ul>
-      <li>
-        <a href="http://groups.google.com/group/phoenix-talk">Mailing list</a>
-      </li>
-      <li>
-        <a href="http://webchat.freenode.net/?channels=elixir-lang">#elixir-lang on freenode IRC</a>
-      </li>
-      <li>
-        <a href="https://twitter.com/elixirphoenix">@elixirphoenix</a>
-      </li>
-    </ul>
-  </div>
-</div>
