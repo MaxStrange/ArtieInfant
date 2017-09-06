@@ -6,17 +6,7 @@
 <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 <script src="https://code.highcharts.com/highcharts.js"></script>
 <script src="https://code.highcharts.com/modules/exporting.js"></script>
-<div id="container" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
-
-<div id="images_div" onload="updateImages()">
-<script src="https://code.highcharts.com/highcharts.src.js"></script>
-    <script>
-//    window.onload = function() {
-//        startLoop();
-//    }
-    </script>
-    <img id="loss" src=<%=handler_images "loss"%> alt="Loss" height="700" width="1000">
-    <img id="accuracy" src=<%=handler_images "accuracy"%> alt="Accuracy" height="700" width="1000">
-    <img id="fscore" src=<%=handler_images "fscore"%> alt="FScore" height="700" width="1000">
-</div>
+<div id="accContainer" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+<div id="lossContainer" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+<div id="fscoreContainer" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
 

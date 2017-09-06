@@ -1,35 +1,47 @@
-var chart;
-var length = 0;
+var accChart;
+var fscoreChart;
+var lossChart;
 
-function requestData(metric) {
+function updateData(chart, y, metric) {
+  if (chart.series != undefined) {
+    var x = (new Date()).getTime(), // current time
+    series = chart.series[0],
+    shift = series.data.length > 20;
+    series.addPoint([x, y], true, shift);
+    setTimeout(function() {requestData(chart, metric)}, 2000);
+  }
+}
+
+function requestData(chart, metric) {
+  var x;
+  if (chart.series != undefined) {
+    x = chart.series[0].data.length;
+  } else {
+    x = 0;
+  }
   $.ajax({
     url: "/data",
-    data: {"x": length, "metric": metric},
+    data: {"x": x, "metric": metric},
     success: function(y) {
-      length += 1;
-      var x = (new Date()).getTime(), // current time
-      series = chart.series[0],
-      shift = series.data.length > 20;
-      series.addPoint([x, y], true, shift);
-      setTimeout(function() {requestData("acc")}, 1000);
+      updateData(chart, y, metric);
     },
     cache: false
   });
 }
 
-$(document).ready(function() {
-  chart = new Highcharts.Chart({
+function makeChart(metric, title, container) {
+  return new Highcharts.Chart({
     chart: {
-      renderTo: "container",
+      renderTo: container,
       defaultSeriesType: "spline",
       events: {
         load: function() {
-          requestData("acc");
+          requestData(this, metric);
         }
       }
     },
     title: {
-      text: "Live Random Data"
+      text: title
     },
     xAxis: {
       type: "datetime",
@@ -40,116 +52,19 @@ $(document).ready(function() {
       minPadding: 0.2,
       maxPadding: 0.2,
       title: {
-        text: "Value",
+        text: title,
         margin: 80
       }
     },
     series: [{
-      name: "Random Data",
+      name: title,
       data: []
     }]
   });
+}
+
+$(document).ready(function() {
+  accChart = makeChart("acc", "Accuracy", "accContainer");
+  fscoreChart = makeChart("fscore", "FScore", "fscoreContainer");
+  lossChart = makeChart("loss", "Loss", "lossContainer");
 });
-//var frequency = 2000;//ms
-//var interval = 0;
-//
-//function startLoop() {
-//    if (interval > 0)
-//        clearInterval(interval);
-//    interval = setInterval("updateImages()", frequency);
-//}
-//
-//function updateImages() {
-//    // Get all the images in the image div
-//    var images = document.getElementById("images_div").getElementsByTagName("img");
-//    var now = new Date();
-//
-//    var add_to_width = 0;
-//    // TODO: Get `add_to_width` from JSON.
-//    $.getJSON("http://localhost:4000/data", function(result) {
-//        console.log(result);
-//        add_to_width = result;
-//    });
-//
-//    // Update all image srcs
-//    for (i = 0; i < images.length; i++) {
-//        //images[i].src = images[i].src + "?" + now.getTime();
-//        images[i].width += add_to_width;
-//    }
-//    timeoutID = setTimeout("updateImages()", 60000);
-//}
-//
-//$(document).ready(function () {
-//    Highcharts.setOptions({
-//      global: {
-//        useUTC: false
-//      }
-//    });
-//
-//    Highcharts.chart('container', {
-//      chart: {
-//        type: 'spline',
-//        animation: Highcharts.svg, // don't animate in old IE
-//        marginRight: 10,
-//        events: {
-//          load: function () {
-//
-//            // set up the updating of the chart each second
-//            var series = this.series[0];
-//            setInterval(function () {
-//              var x = (new Date()).getTime(), // current time
-//              y = Math.random();
-//              series.addPoint([x, y], true, true);
-//            }, 1000);
-//          }
-//        }
-//      },
-//      title: {
-//        text: 'Live random data'
-//      },
-//      xAxis: {
-//        type: 'datetime',
-//        tickPixelInterval: 150
-//      },
-//      yAxis: {
-//        title: {
-//          text: 'Value'
-//        },
-//        plotLines: [{
-//          value: 0,
-//          width: 1,
-//          color: '#808080'
-//        }]
-//      },
-//      tooltip: {
-//        formatter: function () {
-//          return '<b>' + this.series.name + '</b><br/>' +
-//          Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.x) + '<br/>' +
-//          Highcharts.numberFormat(this.y, 2);
-//        }
-//    },
-//    legend: {
-//      enabled: false
-//    },
-//    exporting: {
-//      enabled: false
-//    },
-//    series: [{
-//      name: 'Random data',
-//      data: (function () {
-//        // generate an array of random data
-//        var data = [],
-//        time = (new Date()).getTime(),
-//        i;
-//
-//        for (i = -19; i <= 0; i += 1) {
-//          data.push({
-//            x: time + i * 1000,
-//            y: Math.random()
-//          });
-//        }
-//        return data;
-//      }())
-//    }]
-//  });
-//});
