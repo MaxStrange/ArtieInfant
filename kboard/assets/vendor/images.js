@@ -3,15 +3,27 @@ var fscoreChart;
 var lossChart;
 
 function updateData(chart, y, metric) {
-  if (chart.series != undefined) {
-    var x = (new Date()).getTime(), // current time
-    series = chart.series[0],
-    shift = series.data.length > 20;
-    series.addPoint([x, y], true, shift);
-    setTimeout(function() {requestData(chart, metric)}, 2000);
+  if ((chart.series != undefined) && (y != null)) {
+    series = chart.series[0];
+    shift = series.data.length > 10000;
+    x = series.data.length;
+    for (i = 0; i < y.length; i++) {
+      series.addPoint([x, y[i]], true, shift);
+      x++;
+    }
+    setTimeout(function() {
+      requestData(chart, metric)
+    }, 2000);
   }
 }
 
+/*
+ * Fetches the data from the server. If there is no data in the given chart object,
+ * then asks the server for all data so far. If there is data in the chart object,
+ * only asks for all items not so far given.
+ *
+ * Returns a list of values.
+ */
 function requestData(chart, metric) {
   var x;
   if (chart.series != undefined) {
@@ -29,7 +41,7 @@ function requestData(chart, metric) {
   });
 }
 
-function makeChart(metric, title, container) {
+function makeChart(metric, title, container, min, max) {
   return new Highcharts.Chart({
     chart: {
       renderTo: container,
@@ -44,13 +56,14 @@ function makeChart(metric, title, container) {
       text: title
     },
     xAxis: {
-      type: "datetime",
       tickPixelInterval: 150,
-      maxZoom: 20 * 1000
+      maxZoom: 20
     },
     yAxis: {
-      minPadding: 0.2,
-      maxPadding: 0.2,
+      min: min,
+      max: max,
+      minPadding: 0.1,
+      maxPadding: 0.1,
       title: {
         text: title,
         margin: 80
@@ -64,7 +77,7 @@ function makeChart(metric, title, container) {
 }
 
 $(document).ready(function() {
-  accChart = makeChart("acc", "Accuracy", "accContainer");
-  fscoreChart = makeChart("fscore", "FScore", "fscoreContainer");
-  lossChart = makeChart("loss", "Loss", "lossContainer");
+  accChart = makeChart("acc", "Accuracy", "accContainer", 0.0, 1.0);
+  fscoreChart = makeChart("fscore", "FScore", "fscoreContainer", 0.0, 1.0);
+  lossChart = makeChart("loss", "Loss", "lossContainer", 0.0, undefined);
 });

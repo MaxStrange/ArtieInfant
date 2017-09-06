@@ -50,9 +50,13 @@ defmodule KboardWeb.DataController do
   defp get_latest_y(map, x, metric) do
     values = map[metric]
     cond do
-      is_list(values) and Enum.count(values) > x  -> Enum.at(values, x)
-      is_list(values) and Enum.count(values) <= x -> Enum.at(values, Enum.count(values) - 1)
-      true                                        -> 0
+      is_list(values) and Enum.count(values) > x  ->
+        # Take at most 5 items at a time
+        count = Enum.count(values)
+        end_index = if count < 10, do: count, else: 10
+        Enum.slice(values, x..x + end_index)
+      is_list(values) and Enum.count(values) <= x -> nil
+      true                                        -> nil
     end
   end
 end
