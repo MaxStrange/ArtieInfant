@@ -31,7 +31,7 @@ def fscore(pred, label):
 
     pres = true_positives / (true_positives + false_positives + 1E-9)
     rec = true_positives / (true_positives + false_negatives + 1E-9)
-    fscore = pres * rec / (pres + rec + 1E-9)
+    fscore = 2 * pres * rec / (pres + rec + 1E-9)
     return fscore
 
 class GraphMetrics(keras.callbacks.Callback):
