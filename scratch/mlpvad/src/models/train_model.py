@@ -7,6 +7,7 @@ import keras.backend as K
 import os
 import sys
 import src.features.build_features as build_features
+import src.models.metrics as metrics
 
 # Parameters
 WINDOW_WIDTH_MS = 30  # How many MS of audio to feed into the MLP at a time
@@ -15,24 +16,6 @@ NUM_CHANNELS = 1  # The number of channels in the audio
 NUM_EPOCHS = 10000
 BATCH_SIZE = 32
 LOG_FILE = "log.csv"
-
-def fscore(pred, label):
-    """
-    Metric for calculating F1 score. An F1 score is a good way to measure when there is a class imbalance.
-    It can be interpreted as a weighted average of precision and recall.
-
-    Precision maxes out when there are few false positives.
-    Recall maxes out when there are few false negatives.
-    """
-    false_negatives = K.sum(K.round(K.clip(label - pred, 0, 1)))
-    false_positives = K.sum(K.round(K.clip(pred - label, 0, 1)))
-    true_positives = K.sum(K.round(pred * label))
-    true_negatives = K.sum(K.round((1 - pred) * (1 - label)))
-
-    pres = true_positives / (true_positives + false_positives + 1E-9)
-    rec = true_positives / (true_positives + false_negatives + 1E-9)
-    fscore = 2 * pres * rec / (pres + rec + 1E-9)
-    return fscore
 
 class GraphMetrics(keras.callbacks.Callback):
     def __init__(self, metrics):
@@ -90,7 +73,7 @@ if __name__ == "__main__":
     model.add(keras.layers.Dense(1))
     model.add(keras.layers.Activation("sigmoid"))
 
-    metrics = ["accuracy", fscore]
+    metrics = ["accuracy", metrics.fscore]
     model.compile(optimizer="nadam", loss="binary_crossentropy", metrics=metrics)
 
     kwargs = {"samples_per_vector": samples_per_window,
@@ -102,7 +85,7 @@ if __name__ == "__main__":
              }
     data_generator = build_features.generate_data(data_dir_path, **kwargs)
     steps_per_epoch = build_features.calculate_steps_per_epoch(data_dir_path, **kwargs)
-    checkpointer = keras.callbacks.ModelCheckpoint(model_dir_path)
+    checkpointer = keras.callbacks.ModelCheckpoint(model_dir_path, period=0.2)
     metrics_grapher = GraphMetrics(metrics)
     model.fit_generator(data_generator, steps_per_epoch=steps_per_epoch, epochs=NUM_EPOCHS,
                         callbacks=[checkpointer, metrics_grapher], verbose=1)

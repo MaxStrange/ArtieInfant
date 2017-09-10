@@ -134,7 +134,7 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
                          + str(ms_per_vector))
 
     utils.log("Looping over dataset to provide data...")
-    printed_a_batch = False
+    printed_a_batch = True  # Set to False to debug by looking at the features' FFTs
     batch_num = 0
     while True:
         # Keep generating forever

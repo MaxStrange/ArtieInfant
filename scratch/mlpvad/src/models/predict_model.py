@@ -7,6 +7,7 @@ import keras.models
 import numpy as np
 import os
 import src.features.build_features as build_features
+import src.models.metrics as metrics
 import sys
 from tqdm import tqdm
 
@@ -31,7 +32,7 @@ if __name__ == "__main__":
         print("No test directories detected anywhere inside", test_root)
         exit(1)
 
-    model = keras.models.load_model(model_path)
+    model = keras.models.load_model(model_path, custom_objects={"fscore": metrics.fscore})
 
     prediction_results = {}
     for test_dir in test_dirs:

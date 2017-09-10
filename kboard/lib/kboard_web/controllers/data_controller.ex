@@ -8,7 +8,7 @@ defmodule KboardWeb.DataController do
     json conn, d
   end
 
-  @path "/home/max/git_repos/ArtieInfant/scratch/mlpvad/log.csv"
+  @path "/home/ubuntu/git_repos/ArtieInfant/scratch/mlpvad/log.csv"
 
   defp parse_log_file(x, metric) do
     File.read!(@path)

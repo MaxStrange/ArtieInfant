@@ -19,7 +19,7 @@ defmodule Kboard.Mixfile do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {Kboard.Application, ["/home/max/git_repos/ArtieInfant/scratch/mlpvad/log.csv"]},
+      mod: {Kboard.Application, ["/home/ubuntu/git_repos/ArtieInfant/scratch/mlpvad/log.csv"]},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
