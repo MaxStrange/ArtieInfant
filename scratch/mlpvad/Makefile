@@ -43,14 +43,11 @@ requirements: test_environment
 ## Make Dataset
 data:
 ifeq (,$(HD_DEV))
-ifeq (,$(wildcard data/raw/.makeskip))
 	$(call colorecho, ":::::: FAIL ::::::")
 	$(call colorecho, "You must modify the Makefile's HD variable to be the path to the device.")
 	$(call colorecho, "::::::::::::::::::")
-endif
 else
 	$(PYTHON_INTERPRETER) -m src.data.make_dataset $(HD_DEV) $(PROJECT_DIR)/data
-	if [ $$? -eq 0 ] ; then touch data/raw/.makeskip ; fi
 endif
 
 ## Train the model(s)
