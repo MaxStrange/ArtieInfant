@@ -5,7 +5,7 @@ var lossChart;
 function updateData(chart, y, metric) {
   if ((chart.series != undefined) && (y != null)) {
     series = chart.series[0];
-    shift = series.data.length > 2500;
+    shift = series.data.length > 250;
     x = series.data.length;
     for (i = 0; i < y.length; i++) {
       series.addPoint([x, y[i]], true, shift);
