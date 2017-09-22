@@ -10,8 +10,8 @@ import random
 import src.utilities.utils as utils
 
 class ClassLabels(enum.IntEnum):
-    NO_VOICE = 0
-    VOICE = 1
+    ENGLISH = 0
+    CHINESE = 1
 
 def _generate_segments(data_dir, shuffle=False, sampling_frequency_hz=32000,
                        sample_width=2, channels=1, ignore=None, include=None):
@@ -80,7 +80,7 @@ def calculate_steps_per_epoch(data_dir, samples_per_vector=5120, batch_size=64,
     :param include: If not None, all the directories in here will be used, and no others.
     :returns: The number of vectors in the entire dataset.
     """
-#    print("Calculating number of samples in dataset...")
+    print("Calculating number of samples in dataset...")
 #    num_samples_in_dataset = sum((len(seg) for seg, _path in _generate_segments(data_dir,
 #                                                                                sampling_frequency_hz=sampling_frequency_hz,
 #                                                                                channels=channels,
@@ -91,7 +91,8 @@ def calculate_steps_per_epoch(data_dir, samples_per_vector=5120, batch_size=64,
 #    utils.log("Samples per batch:", samples_per_batch)
 #    steps_per_epoch = int(num_samples_in_dataset / samples_per_batch)
 #    print("Steps per epoch:", steps_per_epoch)
-    steps_per_epoch = 4050
+
+    steps_per_epoch = 1354
     print("Using pre-cached value for steps_per_epoch. Uncomment the code in build_features.py if you need to recalculate.")
     print("  |-> steps_per_epoch:", steps_per_epoch)
     return steps_per_epoch
@@ -169,10 +170,10 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
             utils.log("Yielding batch")
             vectors = np.array(vectors)
             batch = (vectors, labels)
-            percent_no = 100 * len([l for l in labels if l == ClassLabels.NO_VOICE]) / len(labels)
-            percent_yes = 100 - percent_no
+            percent_chinese = 100 * len([l for l in labels if l == ClassLabels.CHINESE]) / len(labels)
+            percent_english = 100 - percent_chinese
             utils.log("")
-            utils.log("Percent no/yes in this batch:", percent_no, "/", percent_yes)
+            utils.log("Percent ZH/EN in this batch:", percent_chinese, "/", percent_english)
             utils.log(batch)
             yield batch
             batch_num += 1
@@ -190,7 +191,7 @@ def _get_tups(segment, path_to_segment, ms_per_vector):
     """
     segment = segment.filter_silence()
     path, filename = os.path.split(path_to_segment)
-    label = ClassLabels.NO_VOICE if "_NO" in path else ClassLabels.VOICE
+    label = ClassLabels.CHINESE if "chinese" in path else ClassLabels.ENGLISH
     for frame, _timestamp in segment.generate_frames_as_segments(ms_per_vector):
         _bins, fft_vals = frame.fft()
         fft_vals = np.abs(fft_vals) / len(fft_vals)
