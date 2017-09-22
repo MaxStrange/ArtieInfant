@@ -31,8 +31,8 @@ if __name__ == "__main__":
 
     modelpath = sys.argv[1]
     wavpath = sys.argv[2]
-    assert os.path.isfile(modelpath)
-    assert os.path.isfile(wavpath)
+    assert os.path.isfile(modelpath), "Error: modelpath is not a file: " + str(modelpath)
+    assert os.path.isfile(wavpath), "Error: wavpath is not a file: " + str(wavpath)
 
     print("Loading model...")
     model = Model(modelpath)
