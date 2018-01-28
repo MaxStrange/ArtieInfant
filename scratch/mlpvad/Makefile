@@ -34,27 +34,26 @@ endef
 ## Install Python Dependencies
 requirements: test_environment
 	@echo "Ensuring all requirements are installed..."
-	@$(PIP) install -q pipreqs
-	@$(PIP) install -q h5py
+	@$(PIP) install pipreqs
+	@$(PIP) install h5py
 	@pipreqs --force .
-	@$(PIP) install -q --upgrade -r requirements.txt
+	@$(PIP) install --upgrade -r requirements.txt
 	@if [ ! -d ~/.keras ]; then mkdir ~/.keras; echo "{\n    \"image_data_format\": \"channels_last\",\n    \"epsilon\": 1e-07,\n    \"floatx\": \"float32\",\n    \"backend\": \"theano\"\n}" > ~/.keras/keras.json; fi
 
 ## Make Dataset
-data: requirements
+data:
 ifeq (,$(HD_DEV))
-ifeq (,$(wildcard data/raw/.makeskip))
 	$(call colorecho, ":::::: FAIL ::::::")
 	$(call colorecho, "You must modify the Makefile's HD variable to be the path to the device.")
 	$(call colorecho, "::::::::::::::::::")
-endif
 else
 	$(PYTHON_INTERPRETER) -m src.data.make_dataset $(HD_DEV) $(PROJECT_DIR)/data
-	if [ $$? -eq 0 ] ; then touch data/raw/.makeskip ; fi
 endif
 
 ## Train the model(s)
 train:
+	cd $(PROJECT_DIR)/../../kboard/ && mix phx.server > /dev/null 2> /dev/null &
+	cd $(PROJECT_DIR)
 	$(THEANO_FLAGS) $(PYTHON_INTERPRETER) -m src.models.train_model $(PROJECT_DIR)/models/mlps/$(DATE).hdf5 $(PROJECT_DIR)/data/processed
 
 ## Run the model on the test split

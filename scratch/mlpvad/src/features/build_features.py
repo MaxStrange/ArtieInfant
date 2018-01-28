@@ -80,17 +80,20 @@ def calculate_steps_per_epoch(data_dir, samples_per_vector=5120, batch_size=64,
     :param include: If not None, all the directories in here will be used, and no others.
     :returns: The number of vectors in the entire dataset.
     """
-    print("Calculating number of samples in dataset...")
-    num_samples_in_dataset = sum((len(seg) for seg, _path in _generate_segments(data_dir,
-                                                                                sampling_frequency_hz=sampling_frequency_hz,
-                                                                                channels=channels,
-                                                                                ignore=ignore,
-                                                                                include=include)))
-    utils.log("Number of samples calculated:", num_samples_in_dataset)
-    samples_per_batch = samples_per_vector * batch_size
-    utils.log("Samples per batch:", samples_per_batch)
-    steps_per_epoch = int(num_samples_in_dataset / samples_per_batch)
-    print("Steps per epoch:", steps_per_epoch)
+#    print("Calculating number of samples in dataset...")
+#    num_samples_in_dataset = sum((len(seg) for seg, _path in _generate_segments(data_dir,
+#                                                                                sampling_frequency_hz=sampling_frequency_hz,
+#                                                                                channels=channels,
+#                                                                                ignore=ignore,
+#                                                                                include=include)))
+#    utils.log("Number of samples calculated:", num_samples_in_dataset)
+#    samples_per_batch = samples_per_vector * batch_size
+#    utils.log("Samples per batch:", samples_per_batch)
+#    steps_per_epoch = int(num_samples_in_dataset / samples_per_batch)
+#    print("Steps per epoch:", steps_per_epoch)
+    steps_per_epoch = 4050
+    print("Using pre-cached value for steps_per_epoch. Uncomment the code in build_features.py if you need to recalculate.")
+    print("  |-> steps_per_epoch:", steps_per_epoch)
     return steps_per_epoch
 
 def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_frequency_hz=32000,
@@ -134,7 +137,7 @@ def generate_data(data_dir, samples_per_vector=5120, batch_size=64, sampling_fre
                          + str(ms_per_vector))
 
     utils.log("Looping over dataset to provide data...")
-    printed_a_batch = False
+    printed_a_batch = True  # Set to False to debug by looking at the features' FFTs
     batch_num = 0
     while True:
         # Keep generating forever
