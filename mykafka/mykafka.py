@@ -68,7 +68,7 @@ def _produce_from_mailbox(pub_names, serializer):
     """
     while True:
         item = mailbox.get()
-        serialized = if serializer is not None: serializer(item) else item.serialize()
+        serialized = serializer(item) if serializer is not None else item.serialize()
         for name in pub_names:
             try:
                 key, value = serialized
@@ -143,6 +143,6 @@ def produce(pub_names, key, item, serializer=None):
                         or else a function that takes `item` and returns a byte string.
     """
     for name in pub_names:
-        v = if serializer is not None: serializer(item) else item.serialize()
+        v = serializer(item) if serializer is not None else item.serialize()
         producer.send(name, value=v, key=key)
 
