@@ -50,3 +50,6 @@ CATKIN_IGNORE
 
 # Vim
 *.swp
+*.egg-info
+*/dist
+*.hdf5
