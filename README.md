@@ -10,7 +10,7 @@ The license is MIT, so go ahead and do whatever you want! Just make sure you giv
 *This is very much under construction*, but the target for release is Q4 2018.
 
 ## Installation
-TODO
+1. Download kafka-2.12+ and put it in the top level directory of this repo (where this README is).
 
 ## Usage
 TODO
