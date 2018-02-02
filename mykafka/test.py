@@ -1,23 +1,33 @@
 """
-This is a Kafka node that subscribes to whatever topics are passed in
-and publishes to whatever topics are passed in. Call 'help' to see
-options.
+Module for testing the mykafka library.
 """
 import mykafka
 import myargparse
 
-def remove_silence(seg):
+def do_a_thing_with_a_msg(msg):
     """
-    Wrapper for audiosegment_object.filter_silence()
+    This is the function that will get called when the msg gets received and deserialized.
     """
-    return seg.filter_silence()
+    print(msg)
 
-# TODO: This is the idea
+def deserialize(msg):
+    """
+    Function for deserializing a msg.
+    """
+    return msg.decode('utf8')
+
+def serialize(msg):
+    """
+    Function for serializing a msg.
+    """
+    return msg.encode('utf8')
+
+
 if __name__ == "__main__":
     consumer_names, producer_names, consumer_configs, producer_configs = myargparse.parse_args()
     mykafka.init_consumer(**consumer_configs)
     mykafka.init_producer(**producer_configs)
 
     # Runs forever - accepts messages from consumer_names, filters the silence, then publishes to producer_names
-    mykafka.consume_and_produce(consumer_names, audiosegment.deserialize, remove_silence, producer_names)
+    mykafka.consume_and_produce(consumer_names, deserialize, remove_silence, producer_names, serializer=serialize)
 
