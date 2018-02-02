@@ -31,6 +31,7 @@ def init_consumer(*args, **kwargs):
 
     Merely a wrapper for calling kafka.KafkaConsumer()
     """
+    global consumer
     consumer = kafka.KafkaConsumer(*args, **kwargs)
     atexit.register(_at_close)
 
@@ -40,15 +41,17 @@ def init_producer(*args, **kwargs):
 
     Merely a wrapper for calling kafka.KafkaProducer()
     """
+    global producer
     producer = kafka.KafkaProducer(*args, **kwargs)
     atexit.register(_at_close)
 
-def _callback_and_enqueue(callback, msg):
+def _callback_and_enqueue(callback, msg, deserializer):
     """
     Executes `callback` on `msg` and stores the result in mailbox.
     """
     deserialized = deserializer(msg)
     ret = callback(deserialized)
+    print("Putting", ret, "into the mailbox, which now looks like this:", mailbox)
     mailbox.put(ret)
 
 def _wait_for_msgs(callback, deserializer):
@@ -57,7 +60,7 @@ def _wait_for_msgs(callback, deserializer):
     """
     assert consumer is not None
     for msg in consumer:
-        t = threading.Thread(target=_callback_and_enqueue, args=(msg, deserializer))
+        t = threading.Thread(target=_callback_and_enqueue, args=(callback, msg, deserializer))
         t.start()
 
 def _produce_from_mailbox(pub_names, serializer):

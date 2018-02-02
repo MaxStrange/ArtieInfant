@@ -14,10 +14,10 @@ def parse_args():
               is given, it is returned as an empty dict; same goes for producer_configs.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("consumer_topics", type=str, nargs="*", help="List of names of consumer topics")
-    parser.add_argument("producer_topics", type=str, nargs="*", help="List of names of producer topics")
-    parser.add_argument("consumer_configs", type=str, nargs="*", help="List of property=value strings")
-    parser.add_argument("producer_configs", type=str, nargs="*", help="List of property=value strings")
+    parser.add_argument("--consumer_topics", type=str, nargs="*", help="List of names of consumer topics")
+    parser.add_argument("--producer_topics", type=str, nargs="*", help="List of names of producer topics")
+    parser.add_argument("--consumer_configs", type=str, nargs="*", help="List of property=value strings")
+    parser.add_argument("--producer_configs", type=str, nargs="*", help="List of property=value strings")
     args = parser.parse_args()
 
     if not args.consumer_topics and not args.producer_topics:
