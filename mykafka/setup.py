@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="mykafka",
-    version="0.1.1",
+    version="0.1.5",
     author="Max Strange",
     author_email="maxfieldstrange@gmail.com",
     description="Argparse wrapper for very particular use case",

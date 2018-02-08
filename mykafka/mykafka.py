@@ -25,6 +25,19 @@ def _at_close():
         print("Closing producer...")
         producer.close()
 
+def _repair_kwargs(kw):
+    """
+    Takes configurations and changes their names to whatever the kafka library is actually expecting.
+    """
+    # bootstrap-server is 'bootstrap-servers' in this library, so change it if you see it
+    newkw = {}
+    for k, v in kw.items():
+        if k == "bootstrap_server":
+            newkw["bootstrap_servers"] = v
+        else:
+            newkw[k] = v
+    return newkw
+
 def init_consumer(*args, **kwargs):
     """
     Must be called before consumer functions can be used.
@@ -32,6 +45,7 @@ def init_consumer(*args, **kwargs):
     Merely a wrapper for calling kafka.KafkaConsumer()
     """
     global consumer
+    kwargs = _repair_kwargs(kwargs)
     consumer = kafka.KafkaConsumer(*args, **kwargs)
     atexit.register(_at_close)
 
@@ -42,6 +56,7 @@ def init_producer(*args, **kwargs):
     Merely a wrapper for calling kafka.KafkaProducer()
     """
     global producer
+    kwargs = _repair_kwargs(kwargs)
     producer = kafka.KafkaProducer(*args, **kwargs)
     atexit.register(_at_close)
 
@@ -51,7 +66,6 @@ def _callback_and_enqueue(callback, msg, deserializer):
     """
     deserialized = deserializer(msg)
     ret = callback(deserialized)
-    print("Putting", ret, "into the mailbox, which now looks like this:", mailbox)
     mailbox.put(ret)
 
 def _wait_for_msgs(callback, deserializer):
