@@ -4,6 +4,17 @@ every Kafka node.
 """
 import argparse
 
+def _parse_dict(d):
+    """
+    Parses a dict out of `d`, which should be a list of string that contains a list of the form "blah=something".
+    """
+    def tokenize_and_split(d):
+        for token in d:
+            if token.strip() != "":
+                yield token.split('=')
+
+    return {k: v for (k, v) in tokenize_and_split(d)}
+
 def parse_args():
     """
     Gets all the consumer topic names, producer topic names, and configurations
@@ -23,7 +34,7 @@ def parse_args():
     if not args.consumer_topics and not args.producer_topics:
         print("consumer_topics and producer_topics cannot both be empty")
         exit(1)
-    consumer_configs = parse_dict(args.consumer_configs) if args.consumer_configs else {}
-    producer_configs = parse_dict(args.producer_configs) if args.producer_configs else {}
+    consumer_configs = _parse_dict(args.consumer_configs) if args.consumer_configs else {}
+    producer_configs = _parse_dict(args.producer_configs) if args.producer_configs else {}
 
     return args.consumer_topics, args.producer_topics, consumer_configs, producer_configs
