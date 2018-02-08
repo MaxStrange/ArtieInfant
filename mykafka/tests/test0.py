@@ -19,6 +19,9 @@ def deserialize(msg):
 if __name__ == "__main__":
     consumer_names, producer_names, consumer_configs, producer_configs = myargparse.parse_args()
     print("CONSUMING FROM:", consumer_names)
+
+    consumer_configs['api_version']=(0,10)
+
     mykafka.init_consumer(**consumer_configs)
 
     for msg in mykafka.consume(consumer_names, deserialize):
