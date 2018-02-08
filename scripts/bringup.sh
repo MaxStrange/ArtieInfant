@@ -8,7 +8,7 @@ if [ "$EUID" -ne 0 ]
 fi
 
 apt-get update
-apt-get install git curl vim -y
+apt-get install git curl vim sox -y
 git config --global core.editor vim
 git config --global push.default simple
 git config --global user.name MaxStrange
