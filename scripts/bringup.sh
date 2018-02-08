@@ -37,7 +37,9 @@ rm kafka_2.12-1.0.0.tgz
 
 echo "Installing virtualenvwrapper"
 pip3 install --user virtualenv virtualenvwrapper
-echo "export WORKON_HOME=$HOME/.virtualenvs" >> ~/.bashrc
-echo "export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3" >> ~/.bashrc
-echo "source ~/.local/bin/virtualenvwrapper.sh" >> ~/.bashrc
+echo 'PATH=~/.local/bin:$PATH'
+echo 'export WORKON_HOME=$HOME/.virtualenvs' >> ~/.bashrc
+echo 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3' >> ~/.bashrc
+echo 'source ~/.local/bin/virtualenvwrapper.sh' >> ~/.bashrc
 
+echo "You should now source your .bashrc, then mkvirtualenv ai"
