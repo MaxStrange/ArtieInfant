@@ -13,7 +13,7 @@ def _parse_dict(d):
             if token.strip() != "":
                 yield token.split('=')
 
-    return {k: v for (k, v) in tokenize_and_split(d)}
+    return {k.replace('-', '_'): v for (k, v) in tokenize_and_split(d)}
 
 def parse_args():
     """
