@@ -17,8 +17,6 @@ if __name__ == "__main__":
     consumer_names, producer_names, consumer_configs, producer_configs = myargparse.parse_args()
     print("PRODUCING TO:", producer_names)
 
-    producer_configs['api_version'] = (0, 10)
-
     mykafka.init_producer(**producer_configs)
 
     mykafka.produce(producer_names, key="".encode('utf8'), item="Hello!", serializer=serialize)
