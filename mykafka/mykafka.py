@@ -29,13 +29,17 @@ def _repair_kwargs(kw):
     """
     Takes configurations and changes their names to whatever the kafka library is actually expecting.
     """
-    # bootstrap-server is 'bootstrap-servers' in this library, so change it if you see it
+    # - bootstrap-server is 'bootstrap-servers' in this library, so change it if you see it
+    # - 'api-version' needs to be added or things don't work with remote brokers
     newkw = {}
     for k, v in kw.items():
         if k == "bootstrap_server":
             newkw["bootstrap_servers"] = v
         else:
             newkw[k] = v
+    if 'api_version' not in newkw:
+        newkw['api_version'] = (0, 10)
+
     return newkw
 
 def init_consumer(*args, **kwargs):
