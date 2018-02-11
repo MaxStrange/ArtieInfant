@@ -11,7 +11,10 @@ def _parse_dict(d):
     def tokenize_and_split(d):
         for token in d:
             if token.strip() != "":
-                yield token.split('=')
+                if '=' not in token.strip():
+                    raise ValueError("Arguments to kafka configurations must be a key=value pair, like bootstrap-servers=10.0.0.11")
+                else:
+                    yield token.split('=')
 
     return {k.replace('-', '_'): v for (k, v) in tokenize_and_split(d)}
 
