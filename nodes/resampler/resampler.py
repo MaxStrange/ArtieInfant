@@ -22,5 +22,5 @@ if __name__ == "__main__":
     mykafka.init_consumer(**consumer_configs)
     mykafka.init_producer(**producer_configs)
 
-    mykafka.consume_and_produce(consumer_names, lambda msg: asg.deserialize(msg), remove_silence, producer_names)
+    mykafka.consume_and_produce(consumer_names, lambda msg: asg.deserialize(msg.value), remove_silence, producer_names)
 
