@@ -3,6 +3,7 @@ This library abstracts away all the work required
 to plumb in the kafka library.
 """
 import atexit
+import logging
 import kafka
 import queue
 import threading
@@ -14,15 +15,16 @@ producer = None
 class NotInitializedException(Exception):
     pass
 
+@atexit.register
 def _at_close():
     """
     Cleanup function.
     """
     if consumer is not None:
-        print("Closing consumer...")
+        logging.info("Closing consumer...")
         consumer.close()
     if producer is not None:
-        print("Closing producer...")
+        logging.info("Closing producer...")
         producer.close()
 
 def _repair_kwargs(kw):
@@ -51,7 +53,7 @@ def init_consumer(*args, **kwargs):
     global consumer
     kwargs = _repair_kwargs(kwargs)
     consumer = kafka.KafkaConsumer(*args, **kwargs)
-    atexit.register(_at_close)
+    logging.debug("Initialized consumer")
 
 def init_producer(*args, **kwargs):
     """
@@ -62,7 +64,7 @@ def init_producer(*args, **kwargs):
     global producer
     kwargs = _repair_kwargs(kwargs)
     producer = kafka.KafkaProducer(*args, **kwargs)
-    atexit.register(_at_close)
+    logging.debug("Initialized producer")
 
 def _callback_and_enqueue(callback, msg, deserializer):
     """
@@ -145,6 +147,7 @@ def consume(consume_names, deserializer=None):
     """
     consumer.subscribe(consume_names)
     for msg in consumer:
+        logging.debug("Consumer got " + str(msg))
         if deserializer is not None:
             yield deserializer(msg)
         else:
@@ -165,5 +168,6 @@ def produce(pub_names, key, item, serializer=None):
     """
     for name in pub_names:
         v = serializer(item) if serializer is not None else item.serialize()
+        logging.debug("Producer sending " + str(v) + " with key " + str(key))
         producer.send(name, value=v, key=key)
 
