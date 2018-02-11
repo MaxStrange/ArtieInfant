@@ -1,18 +1,19 @@
 """
-This is a Kafka node that subscribes to whatever topics are passed in
-and publishes to whatever topics are passed in. Call 'help' to see
-options.
+This node resamples the audiosegments it gets and then produces them back to whatever
+topic the user requests.
 """
 import audiosegment as asg
 import logging
 import mykafka
 import myargparse
 
-def remove_silence(seg):
+def resample(seg):
     """
-    Wrapper for audiosegment_object.filter_silence()
+    Wrapper for audiosegment_object.resample()
+    def resample(self, sample_rate_Hz=None, sample_width=None, channels=None, console_output=False):
     """
-    return seg.filter_silence()
+    # Resample to 16bit @ 16kHz mono
+    return seg.resample(sample_rate_Hz=16000, sample_width=2, channels=1)
 
 if __name__ == "__main__":
     consumer_names, producer_names, consumer_configs, producer_configs = myargparse.parse_args()
@@ -21,6 +22,5 @@ if __name__ == "__main__":
     mykafka.init_consumer(**consumer_configs)
     mykafka.init_producer(**producer_configs)
 
-    # Runs forever - accepts messages from consumer_names, filters the silence, then publishes to producer_names
     mykafka.consume_and_produce(consumer_names, lambda msg: asg.deserialize(msg), remove_silence, producer_names)
 
