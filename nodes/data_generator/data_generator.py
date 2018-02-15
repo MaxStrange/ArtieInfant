@@ -28,6 +28,8 @@ def _cache_file_paths(args):
     the audio files that we find. The returned list will be in the correct order
     based on args' 'shuffle' arguments.
 
+    :note:: Ignores files of size greater than 2GB.
+
     :param args: The args from parser.parse_args()
     :returns:    The (correctly shuffled) list of absolute paths to files that we can convert.
     """
@@ -36,6 +38,7 @@ def _cache_file_paths(args):
     fpaths = []
     for root, dirs, files in os.walk(target_dir):
         local_fpaths = [os.path.join(root, f) for f in files]
+        local_fpaths = [fp for fp in local_fpaths if os.path.getsize(fp) < 8E9]
         if args.shuffle_subdir:
             random.shuffle(local_fpaths)
         fpaths.extend(local_fpaths)
@@ -60,7 +63,7 @@ def _produce_segments(mailbox, args):
     logging.info("Producing segments...")
     while True:
         seg = mailbox.get()
-        logging.info("Produce thread got segment to send")
+        logging.info("Produce thread got segment to send " + seg.name)
         slices = seg.dice(args.slice_length_s)
         if args.shuffle_segments:
             random.shuffle(slices)
@@ -112,7 +115,8 @@ if __name__ == "__main__":
 
     # Before anything else, start the logger
     logging.basicConfig(level=getattr(logging, args.loglevel.upper()), format="%(asctime)s %(message)s", datefmt="%m/%d %I:%M:%S %p")
-    kafkalogger = logging.getLogger('kafka').setLevel("INFO")
+    logging.getLogger('kafka').setLevel("INFO")
+    logging.getLogger('subprocess').setLevel("WARN")
 
     # Now get the producer configuration and start it up
     producer_configs = myargparse._parse_dict(args.producer_configs)
@@ -143,7 +147,7 @@ if __name__ == "__main__":
         for f in cached_fpaths:
             seg = asg.from_file(f)
             if args.remove_silence:
-                logging.info("Removing silence...")
+                logging.info("Removing silence from " + seg.name + "...")
                 seg = seg.filter_silence()
                 logging.info("Done removing silence")
             mailbox.put(seg)
