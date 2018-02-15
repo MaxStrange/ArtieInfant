@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="myargparse",
-    version="0.1.8",
+    version="0.1.9",
     author="Max Strange",
     author_email="maxfieldstrange@gmail.com",
     description="Argparse wrapper for very particular use case",
