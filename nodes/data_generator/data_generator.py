@@ -21,6 +21,7 @@ import os
 import queue
 import random
 import threading
+import time
 
 def _cache_file_paths(args):
     """
@@ -150,6 +151,9 @@ if __name__ == "__main__":
                 logging.info("Removing silence from " + seg.name + "...")
                 seg = seg.filter_silence()
                 logging.info("Done removing silence")
+            logging.info("Waiting for 30 seconds before putting the segment into the queue.")
+            time.sleep(30)
+            logging.info("Now putting the segment into the queue.")
             mailbox.put(seg)
         logging.info("Done converting the audiofiles into audiosegments")
 
