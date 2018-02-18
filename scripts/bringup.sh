@@ -8,6 +8,7 @@ if [ "$EUID" -ne 0 ]
 fi
 
 apt-get update
+apt-get upgrade -y
 apt-get install \
     git \
     curl \
@@ -18,8 +19,8 @@ apt-get install \
     libopenblas-dev \
     liblapack-dev \
     libatlas-base-dev \
-    ffmpeg \
     -y
+
 git config --global core.editor vim
 git config --global push.default simple
 git config --global user.name MaxStrange
@@ -54,3 +55,4 @@ echo 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3' >> ~/.bashrc
 echo 'source ~/.local/bin/virtualenvwrapper.sh' >> ~/.bashrc
 
 echo "You should now source your .bashrc, then mkvirtualenv ai"
+
