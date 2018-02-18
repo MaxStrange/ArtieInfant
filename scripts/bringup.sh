@@ -1,15 +1,9 @@
-#! /bin/sh
 # This script is for bringing up a new node in the Kafka cluster.
 # This should be all you need to run in order for a node to be ready
 # to go.
-if [ "$EUID" -ne 0 ]
-    then echo "Please run as root."
-    exit 1
-fi
-
-apt-get update
-apt-get upgrade -y
-apt-get install \
+sudo apt-get update
+sudo apt-get upgrade -y
+sudo apt-get install \
     git \
     curl \
     vim \
@@ -25,17 +19,17 @@ git config --global core.editor vim
 git config --global push.default simple
 git config --global user.name MaxStrange
 
-if [ ! -d "~/repos" ]; then
-    mkdir ~/repos
+if [ ! -d "/home/pi/repos" ]; then
+    mkdir /home/pi/repos
 fi
 
-cd ~/repos
+cd /home/pi/repos
 
 echo "Installing your vimrc"
 git clone https://www.github.com/MaxStrange/myvim.git
 cd myvim
 ./install.sh
-cp .vimrc ~/
+cp .vimrc /home/pi/
 cd ..
 
 echo "Installing ArtieInfant"
@@ -49,10 +43,10 @@ rm kafka_2.12-1.0.0.tgz
 
 echo "Installing virtualenvwrapper"
 pip3 install --user virtualenv virtualenvwrapper
-echo 'PATH=~/.local/bin:$PATH'
-echo 'export WORKON_HOME=$HOME/.virtualenvs' >> ~/.bashrc
-echo 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3' >> ~/.bashrc
-echo 'source ~/.local/bin/virtualenvwrapper.sh' >> ~/.bashrc
+echo 'PATH=/home/pi/.local/bin:$PATH' >> /home/pi/.bashrc
+echo 'export WORKON_HOME=$HOME/.virtualenvs' >> /home/pi/.bashrc
+echo 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3' >> /home/pi/.bashrc
+echo 'source /home/pi/.local/bin/virtualenvwrapper.sh' >> /home/pi/.bashrc
 
 echo "You should now source your .bashrc, then mkvirtualenv ai"
 
