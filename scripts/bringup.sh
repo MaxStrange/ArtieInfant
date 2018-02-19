@@ -13,23 +13,28 @@ sudo apt-get install \
     libopenblas-dev \
     liblapack-dev \
     libatlas-base-dev \
+    python3-dev \
+    python3-pip \
+    ssh \
     -y
 
 git config --global core.editor vim
 git config --global push.default simple
 git config --global user.name MaxStrange
 
-if [ ! -d "/home/pi/repos" ]; then
-    mkdir /home/pi/repos
+sudo systemctl start ssh
+
+if [ ! -d "/home/max/repos" ]; then
+    mkdir /home/max/repos
 fi
 
-cd /home/pi/repos
+cd /home/max/repos
 
 echo "Installing your vimrc"
 git clone https://www.github.com/MaxStrange/myvim.git
 cd myvim
 ./install.sh
-cp .vimrc /home/pi/
+cp .vimrc /home/max/
 cd ..
 
 echo "Installing ArtieInfant"
@@ -43,10 +48,11 @@ rm kafka_2.12-1.0.0.tgz
 
 echo "Installing virtualenvwrapper"
 pip3 install --user virtualenv virtualenvwrapper
-echo 'PATH=/home/pi/.local/bin:$PATH' >> /home/pi/.bashrc
-echo 'export WORKON_HOME=$HOME/.virtualenvs' >> /home/pi/.bashrc
-echo 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3' >> /home/pi/.bashrc
-echo 'source /home/pi/.local/bin/virtualenvwrapper.sh' >> /home/pi/.bashrc
+echo 'PATH=/home/max/.local/bin:$PATH' >> /home/max/.bashrc
+echo 'export WORKON_HOME=$HOME/.virtualenvs' >> /home/max/.bashrc
+echo 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3' >> /home/max/.bashrc
+echo 'source /home/max/.local/bin/virtualenvwrapper.sh' >> /home/max/.bashrc
 
+echo "Don't forget to reserve this device's IP address in the router."
 echo "You should now source your .bashrc, then mkvirtualenv ai"
 
