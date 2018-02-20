@@ -24,7 +24,7 @@ sudo apt-get install    curl \
                         ack-grep
 
 wget http://apache.mirrors.spacedump.net/hadoop/core/stable/hadoop-2.9.0.tar.gz
-sudo mkdir /opt
+sudo mkdir -p /opt
 sudo tar -xvzf hadoop-2.9.0.tar.gz -C /opt/
 sudo mv /opt/hadoop-2.9.0 /opt/hadoop
 
