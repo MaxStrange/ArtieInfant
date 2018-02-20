@@ -5,25 +5,25 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-## Make sure given argument is actually a host that we recognize
-#grep $1 /etc/hosts
-#if [ $? -ne 0 ]; then
-#    echo "$1 is not a host in /etc/hosts; please supply a namenode hostname"
-#    exit 2
-#fi
-#
-## install Java
-#sudo add-apt-repository ppa:webupd8team/java
-#sudo apt-get update
-#sudo apt-get install oracle-java8-installer
-#
-#sudo apt-get install    curl \
-#                        telnet \
-#                        dnsutils \
-#                        sed \
-#                        ack-grep
-#
-#wget http://apache.mirrors.spacedump.net/hadoop/core/stable/hadoop-2.9.0.tar.gz
+# Make sure given argument is actually a host that we recognize
+grep $1 /etc/hosts
+if [ $? -ne 0 ]; then
+    echo "$1 is not a host in /etc/hosts; please supply a namenode hostname"
+    exit 2
+fi
+
+# install Java
+sudo add-apt-repository ppa:webupd8team/java
+sudo apt-get update
+sudo apt-get install oracle-java8-installer
+
+sudo apt-get install    curl \
+                        telnet \
+                        dnsutils \
+                        sed \
+                        ack-grep
+
+wget http://apache.mirrors.spacedump.net/hadoop/core/stable/hadoop-2.9.0.tar.gz
 sudo mkdir -p /opt
 sudo tar -xvzf hadoop-2.9.0.tar.gz -C /opt/
 sudo mv /opt/hadoop-2.9.0 /opt/hadoop
