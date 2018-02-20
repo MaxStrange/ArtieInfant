@@ -1,12 +1,8 @@
 # This script should be run on the namenode
 set -e
-javac -version
-if [ $? -ne 0 ]; then
-    # install Java
-    sudo add-apt-repository ppa:webupd8team/java
-    sudo apt-get update
-    sudo apt-get install oracle-java8-installer
-fi
+sudo add-apt-repository ppa:webupd8team/java
+sudo apt-get update
+sudo apt-get install oracle-java8-installer
 
 sudo apt-get install    curl \
                         telnet \
