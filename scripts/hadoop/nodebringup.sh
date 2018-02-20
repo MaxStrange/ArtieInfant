@@ -5,26 +5,26 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-# Make sure given argument is actually a host that we recognize
-grep $1 /etc/hosts
-if [ $? -ne 0 ]; then
-    echo "$1 is not a host in /etc/hosts; please supply a namenode hostname"
-    exit 2
-fi
-
-# install Java
-sudo add-apt-repository ppa:webupd8team/java
-sudo apt-get update
-sudo apt-get install oracle-java8-installer
-
-sudo apt-get install    curl \
-                        telnet \
-                        dnsutils \
-                        sed \
-                        ack-grep
-
-wget http://apache.mirrors.spacedump.net/hadoop/core/stable/hadoop-2.9.0.tar.gz
-sudo mkdir /opt
+## Make sure given argument is actually a host that we recognize
+#grep $1 /etc/hosts
+#if [ $? -ne 0 ]; then
+#    echo "$1 is not a host in /etc/hosts; please supply a namenode hostname"
+#    exit 2
+#fi
+#
+## install Java
+#sudo add-apt-repository ppa:webupd8team/java
+#sudo apt-get update
+#sudo apt-get install oracle-java8-installer
+#
+#sudo apt-get install    curl \
+#                        telnet \
+#                        dnsutils \
+#                        sed \
+#                        ack-grep
+#
+#wget http://apache.mirrors.spacedump.net/hadoop/core/stable/hadoop-2.9.0.tar.gz
+sudo mkdir -p /opt
 sudo tar -xvzf hadoop-2.9.0.tar.gz -C /opt/
 sudo mv /opt/hadoop-2.9.0 /opt/hadoop
 
@@ -161,8 +161,10 @@ echo "
 " > /opt/hadoop/etc/hadoop/yarn-site.xml
 
 sudo mkdir -p /hdfs/tmp
+sudo chown -R $USER /hdfs
 sudo chmod 750 /hdfs/tmp
 
+echo "You should make sure to mount any additional storage media under /hdfs/tmp."
 echo "You now need to restart this node."
 echo "While it is doing that, pop on over to the master node and run nodebringup_on_master.sh."
 echo "You also need to make sure that the /etc/hosts file on EACH node contains all the nodes."
