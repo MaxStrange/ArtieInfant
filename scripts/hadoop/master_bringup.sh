@@ -1,5 +1,12 @@
 # This script should be run on the namenode
 set -e
+if [ "$#" -ne 1 ]; then
+    echo "USAGE: $0 <namenode_reserved_ip>"
+    exit 1
+fi
+
+NAMENODE_IP=$1
+
 sudo add-apt-repository ppa:webupd8team/java
 sudo apt-get update
 sudo apt-get install oracle-java8-installer
@@ -33,6 +40,11 @@ echo 'export HADOOP_HOME=$HADOOP_INSTALL' >> ~/.bashrc
 
 echo "Sourcing .bashrc"
 . ~/.bashrc
+# TODO: Sourcing the .bashrc inside this script doesn't seem to work
+
+# Make the hostname's IP address the network one, rather than localhost's
+sudo cp /etc/hosts /etc/hosts.BAK
+sudo sed -i /etc/hosts -e "s@^127*$HOSTNAME@$NAMENODE_IP    $HOSTNAME@"
 
 sed -i /opt/hadoop/etc/hadoop/hadoop-env.sh -e "s@^export JAVA_HOME=.*@export JAVA_HOME=$JAVA_HOME_PATH@"
 
@@ -149,5 +161,8 @@ echo "
 
 # Create the HDFS file system
 sudo mkdir -p /hdfs/tmp
+sudo chown -R $USER /hdfs
 sudo chmod 750 /hdfs/tmp
-hdfs namenode -format
+
+echo "Now mount any extra storage devices under /hdfs/tmp (or as /hdfs/tmp)."
+echo "And then run 'hdfs namenode -format'."

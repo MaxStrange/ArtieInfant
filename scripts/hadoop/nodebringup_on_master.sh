@@ -10,7 +10,7 @@ fi
 echo $2 >> /opt/hadoop/etc/hadoop/slaves
 
 # Add new hode to hosts file
-sudo echo "$1   $2" >> /etc/hosts
+echo "$1   $2" | sudo tee -a /etc/hosts
 
 echo "Now do the following things manually:"
 echo "1) cat .ssh/id_rsa.pub | ssh max@$2 'cat >> .ssh/authorized_keys' from EACH node"
