@@ -12,49 +12,6 @@ import shutil
 import subprocess
 import sys
 
-playlists_by_name = [
-#    "debug_list_NO",
-#    "debug_list_VO",
-#    "animals_NO",
-#    "vehicles_NO",
-#    "construction_NO",
-#    "orchestra_NO",
-#    "relaxing_NO",
-#    "city_NO",
-#   ------------
-#    "singing_VO",
-#    "dateline_VO",
-#    "jeopardy_VO",
-    "arguments_VO",
-    "crazies_VO",
-    "letterman_VO",
-    "girlcode_VO",
-    "chinese_VO",
-    "arabic_VO",
-    "whispering_VO",
-    ]
-playlists_by_url = [
-#    "https://www.youtube.com/playlist?list=PLi9gcAlLQJoJg6gqp-MiT8Mm3v7OOFarv",
-#    "https://www.youtube.com/playlist?list=PLAYFVhxsaqDuOh4Ic5mRu5CiZVKCMVv66",
-#    "https://www.youtube.com/playlist?list=PLUdgyJns5kk4CqxE2m_U0jmUhLVluyAVg",
-#    "https://www.youtube.com/playlist?list=PLNHQwiFqj9P85rlcaEsYe-cE-uK-n1VKa",
-#    "https://www.youtube.com/playlist?list=PLGUX2N7uSFwJsful0ONVBEcbISzD7knK-",
-#    "https://www.youtube.com/playlist?list=PLrYyvZOoKKiT_AmF0LLes4qDEEpNHxyes",
-#    "https://www.youtube.com/playlist?list=PLpGECAvGnKuezB-u_yVFn0pRA2kUHpB5M",
-#    "https://www.youtube.com/playlist?list=PLY0sW_63wdrJmFieOFQHX9Bs5DKi1rkh-",
-#   ----------------------
-#    "https://www.youtube.com/playlist?list=PL25JVhBBh1BUJpyguS0WrFR-xxl8rKMVC",
-#    "https://www.youtube.com/playlist?list=PLA4fUiA62LMgsBhBA5H9eTJ_MxqYaJKsD",
-#    "https://www.youtube.com/playlist?list=PL-C_fu0ZbbDLdc3ZW5-eqkr68_dKR2OWN",
-    "https://www.youtube.com/playlist?list=PLMATWUx3t7L9AgEifZjTVT4iiOKxzfNO6",
-    "https://www.youtube.com/playlist?list=PLtbSrjOWdnG6LQUKjSMA00OUVv8n4-iV3",
-    "https://www.youtube.com/playlist?list=PLQErULyJFhO9tNT2gxOCk6Xm7LxGq5lI8",
-    "https://www.youtube.com/playlist?list=PLG-PeTcq2CV3ttMW6LcaWa3jfJo7NoztJ",
-    "https://www.youtube.com/playlist?list=PLfAyWdGHnLdFJnwmW_Yb4AJj5eGDlWIH4",
-    "https://www.youtube.com/playlist?list=PLWKPdTtKr85pjFqOkp6k2s_8KvZKAAXXH",
-    "https://www.youtube.com/playlist?list=PL0178B60ED927A8AD",
-    ]
-
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("USAGE: python3", sys.argv[0], "<path to conf file> <target path>")
