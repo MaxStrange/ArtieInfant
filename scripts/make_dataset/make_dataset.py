@@ -37,11 +37,12 @@ if __name__ == "__main__":
 
         # Cut each file into 10 minute pieces
         processed_path = path + "/processed"
-        os.mkdir(processed_path, exist_ok=True)
+        os.makedirs(processed_path, exist_ok=True)
         for dpath, _, fnames in os.walk(path):
             for fname in fnames:
                 raw_file_path = dpath + "/" + fname
-                processed_file_path = processed_path + "/" + fname.replace(' ', '_')
+                processed_fname = "".join([i if ord(i) < 128 else 'x' for i in text.replace(' ', '_')])
+                processed_file_path = processed_path + "/" + processed_fname
                 try:
                     segment = audiosegment.from_file(raw_file_path)
                     new_segments = segment.dice(seconds=10 * 60)
