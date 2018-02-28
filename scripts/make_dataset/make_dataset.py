@@ -57,50 +57,39 @@ playlists_by_url = [
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("USAGE: sudo python3", sys.argv[0], os.sep.join("path to hard drive".split(' ')),
-                                                  os.sep.join("path to data folder".split(' ')))
+        print("USAGE: python3", sys.argv[0], "<path to conf file> <target path>")
         exit(1)
 
-    dev_path = sys.argv[1]
-    raw_data_path = os.path.join(sys.argv[2], "raw")
-    processed_data_path = os.path.join(sys.argv[2], "processed")
+    _, config_path, target_path = sys.argv
+    with open(config_path) as configfile:
+        lines = [line.strip() for line in configfile if not line.strip().startswith('#')]
+        names_and_urls = [map(lambda x: x.strip(), line.split(',')) for line in lines]
 
-    # Download each playlist
-    for pl_name, pl_url in zip(playlists_by_name, playlists_by_url):
-        print("Working on playlist:", pl_name)
+    for name, url in names_and_urls:
+        print("Working on playlist:", name)
 
-        # Make a directory on the device for this playlist
-        pl_raw_data_dir_path = os.sep.join([raw_data_path, pl_name])
-        print("  |-> Making directory:", pl_raw_data_dir_path)
-        mkdir_command = "mkdir -p " + pl_raw_data_dir_path
-        res = subprocess.run(mkdir_command.split(' '), stdout=subprocess.PIPE)
-        # Don't check result, in case this directory exists
+        path = target_path + "/" + name
+        os.makedirs(path, exist_ok=True)
 
         # Download the playlist to that directory
         print("  |-> Executing youtube-dl on the playlist...")
         dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G "\
-                     + pl_url + " -o " + pl_raw_data_dir_path + "/%(title)s-%(id)s.%(ext)s"
-        res = subprocess.run(dl_command.split(' '))
+                     + url + " -o " + path + "/%(title)s-%(id)s.%(ext)s"
+        subprocess.run(dl_command.split(' '))
         # Don't check result, who knows what youtube-dl returns
 
-        # Cut each file into 10 second pieces
-        pl_processed_data_dir_path = os.sep.join([processed_data_path, pl_name])
-        print("  |-> Making directory:", pl_processed_data_dir_path)
-        try:
-            os.mkdir(pl_processed_data_dir_path)
-        except FileExistsError:
-            pass
-        for dpath, __, fnames in os.walk(pl_raw_data_dir_path):
-            print("  |-> Walking path:", pl_raw_data_dir_path)
+        # Cut each file into 10 minute pieces
+        processed_path = path + "/processed"
+        os.mkdir(processed_path, exist_ok=True)
+        for dpath, _, fnames in os.walk(path):
             for fname in fnames:
+                raw_file_path = dpath + "/" + fname
+                processed_file_path = processed_path + "/" + fname.replace(' ', '_')
                 try:
-                    print("    |-> Dicing and exporting segments for:", fname)
-                    raw_file_path = os.sep.join([dpath, fname])
-                    processed_file_path = os.sep.join([pl_processed_data_dir_path, fname.replace(' ', '_')])
                     segment = audiosegment.from_file(raw_file_path)
-                    new_segments = segment.dice(seconds=10)
+                    new_segments = segment.dice(seconds=10 * 60)
                     for i, new in enumerate(new_segments):
-                        new = new.resample(sample_rate_Hz=32000, channels=1, sample_width=2)
+                        new = new.resample(sample_rate_Hz=48000, channels=1, sample_width=2)
                         new_name, _ext = os.path.splitext(processed_file_path)
                         new_name = new_name + "_seg" + str(i) + ".wav"
                         new.export(new_name, format="wav")
@@ -108,31 +97,28 @@ if __name__ == "__main__":
                     pass  # Probably not enough RAM to fit the whole thing into memory. Just skip it.
                 except MemoryError:
                     pass
-
-        # Now since the playlists are gigantic, remove the raw data
-        shutil.rmtree(pl_raw_data_dir_path)
+                os.remove(raw_file_path)
 
     # Get ~10% of each playlist and stick it in a test folder
     print("|-> Making test split for each playlist...")
-    for pl_name in playlists_by_name:
-        pl_processed_data_dir_path = os.sep.join([processed_data_path, pl_name])
+    for pl_name, _ in names_and_urls:
+        pl_processed_data_dir_path = target_path + "/" + pl_name + "/processed"
         print("  |-> Working on playlist:", pl_name, "in directory:", pl_processed_data_dir_path)
         files = os.listdir(pl_processed_data_dir_path)
         files = [f for f in files if not os.path.isdir(f)]
 
         # Make this playlist's test dir
-        pl_processed_data_test_path = os.sep.join([pl_processed_data_dir_path, "test_split", pl_name])
-        print("  |-> Making directory:", pl_processed_data_test_path)
-        mkdir_command = "mkdir -p " + pl_processed_data_test_path
-        res = subprocess.run(mkdir_command.split(' '), stdout=subprocess.PIPE)
+        pl_processed_data_test_path = pl_processed_data_dir_path + "/test_split/" + pl_name
+        os.makedirs(pl_processed_data_test_path, exist_ok=True)
 
         print("  |-> Collecting every tenth file in", pl_processed_data_dir_path)
         files = files[::10]
-        file_paths = [os.sep.join([pl_processed_data_dir_path, f]) for f in files]
+        file_paths = [pl_processed_data_dir_path + "/" + f for f in files]
+
         # Move the files into the other dir
         print("  |-> Moving the files into the appropriate test directory...")
         for f in file_paths:
             fname = os.path.basename(f)
-            new = os.sep.join([pl_processed_data_test_path, fname])
+            new = pl_processed_data_test_path + "/" + fname
             os.rename(f, new)
 
