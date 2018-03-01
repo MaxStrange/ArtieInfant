@@ -68,6 +68,10 @@ echo '
         <value>2</value>
     </property>
     <property>
+        <name>dfs.webhdfs.enabled</name>
+        <value>true</value>
+    </property>
+    <property>
         <name>dfs.blocksize</name>
         <value>5242880</value>
     </property>
