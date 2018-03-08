@@ -59,16 +59,20 @@ echo "
 " > /opt/hadoop/etc/hadoop/core-site.xml
 
 echo '
-    <configuration>
-        <property>
-            <name>dfs.replication</name>
-            <value>2</value>
-        </property>
-        <property>
-            <name>dfs.blocksize</name>
-            <value>5242880</value>
-        </property>
-    </configuration>
+<configuration>
+    <property>
+        <name>dfs.replication</name>
+        <value>2</value>
+    </property>
+    <property>
+        <name>dfs.webhdfs.enabled</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>dfs.blocksize</name>
+        <value>5242880</value>
+    </property>
+</configuration>
 ' > /opt/hadoop/etc/hadoop/hdfs-site.xml
 
 echo '
