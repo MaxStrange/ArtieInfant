@@ -42,24 +42,28 @@ if __name__ == "__main__":
         for dpath, _, fnames in os.walk(path):
             print("Working on directory", dpath)
             for fname in fnames:
-                print("Working on", fname)
+                print("  |-> Working on", fname)
                 raw_file_path = dpath + "/" + fname
-                print("  -> Raw file path:", raw_file_path)
-                processed_file_path = "".join([i if ord(i) < 128 else 'x' for i in raw_file_path.replace(' ', '_')])
+                print("    |-> Raw file path:", raw_file_path)
+                ascii_file_path = "".join([i if ord(i) < 128 else 'x' for i in raw_file_path.replace(' ', '_')])
+                print("    |-> ASCII file path:", ascii_file_path)
                 try:
-                    print("  -> Reading file into memory...")
+                    print("    |-> Reading file into memory...")
                     segment = audiosegment.from_file(raw_file_path)
-                    print("  -> Dicing up into 10 minute segments...")
+                    print("    |-> Dicing up into 10 minute segments...")
                     new_segments = segment.dice(seconds=10 * 60)
                     del segment
                     for i, new in enumerate(new_segments):
-                        print("  -> Resampling segment", i, "to 48kHz, mono, 16bit...")
+                        print("      |-> Resampling segment", i, "to 48kHz, mono, 16bit...")
                         new = new.resample(sample_rate_Hz=48000, channels=1, sample_width=2)
-                        new_name, _ext = os.path.splitext(processed_file_path)
+                        new_name, _ext = os.path.splitext(os.path.basename(ascii_file_path))
                         new_name = new_name + "_seg" + str(i) + ".wav"
-                        print("  -> Creating segment", i, "from", fname, "-> name is:", new_name)
-                        print("  -> Exporting to path:", new_name)
-                        new.export(new_name, format="wav")
+                        new_path = processed_path + "/" + new_name
+                        print("      |-> Creating segment", i, "from", fname, "-> name is:", new_name)
+                        print("      |-> Exporting to path:", new_path)
+                        new.export(new_path, format="wav")
+                        del new
+                    del new_segments
                 except OSError:
                     print("OS ERROR while working on", fname)
                     tb = traceback.format_exc()

@@ -1,21 +1,21 @@
 # Should look like this:
 # Name, URL
-#BABY_dog_training, https://www.youtube.com/watch?v=vulh--zh_Ss&list=PLmtOt0TVj8nNeOu9zkO5F8S5SK_lvVAih
-#BABY_sound_effects, https://www.youtube.com/watch?v=oGR5iH9UKGg&list=PLp9ADDyofs5hB0rThXP1oXg-VL02cSXUQ
-#BABY_cooing, https://www.youtube.com/watch?v=oGR5iH9UKGg&list=PLp9ADDyofs5hB0rThXP1oXg-VL02cSXUQ
-#BABY_more_cooing, https://www.youtube.com/watch?v=WUfyVGUGIkg&list=PL9Hc1rr803Z_NjqEHX1VdMezBjvU7RnZ9
-#BABY_still_more_cooing, https://www.youtube.com/watch?v=9Ublb3GWwrA&list=PL6utxqZly0xQGdQs2zd4lB6J2qqZyNpwA
-#BABY_lauging, https://www.youtube.com/watch?v=I_mBLWpdwnI&list=PL54A80D5F0569ABCF
-#BABY_more_laughing, https://www.youtube.com/watch?v=RP4abiHdQpc&list=PLNNuObWAcM0L347hotcwJw-mIvymbOZem
-#BABY_cute_laughing, https://www.youtube.com/watch?v=5LHsSfSNyyM&list=PLC6AD00F07FEB3692B
-#BABY_babbling, https://www.youtube.com/watch?v=bPGekZreJLc&list=PLPcY3u5WnUBRLkpjLkAFm8tLPeFEWkbSv
-#BABY_babies_babbling, https://www.youtube.com/watch?v=4wb00_eDS3g&list=PLoCRUn00udN2_ZjQ6vQNzN1gLJk_71c0N
-#BABY_babbling_babies, https://www.youtube.com/watch?v=IyV2j4BsEM8&list=PL6utxqZly0xSeTZRTkm3R2V1Hb5Lv3Qjy
-#BABY_early_talking, https://www.youtube.com/watch?v=iFwKeGWMbKc&list=PL-qUy2Ar34hhfEgFW-MHQrBrsebbGZFmk
-## -------------------------------------------------------------------------------------------
-#NOT_animals, https://www.youtube.com/playlist?list=PLUdgyJns5kk4CqxE2m_U0jmUhLVluyAVg
-#NOT_vehicles, https://www.youtube.com/playlist?list=PLNHQwiFqj9P85rlcaEsYe-cE-uK-n1VKa
-#NOT_construction, https://www.youtube.com/playlist?list=PLGUX2N7uSFwJsful0ONVBEcbISzD7knK-
+BABY_dog_training, https://www.youtube.com/watch?v=vulh--zh_Ss&list=PLmtOt0TVj8nNeOu9zkO5F8S5SK_lvVAih
+BABY_sound_effects, https://www.youtube.com/watch?v=oGR5iH9UKGg&list=PLp9ADDyofs5hB0rThXP1oXg-VL02cSXUQ
+BABY_cooing, https://www.youtube.com/watch?v=oGR5iH9UKGg&list=PLp9ADDyofs5hB0rThXP1oXg-VL02cSXUQ
+BABY_more_cooing, https://www.youtube.com/watch?v=WUfyVGUGIkg&list=PL9Hc1rr803Z_NjqEHX1VdMezBjvU7RnZ9
+BABY_still_more_cooing, https://www.youtube.com/watch?v=9Ublb3GWwrA&list=PL6utxqZly0xQGdQs2zd4lB6J2qqZyNpwA
+BABY_lauging, https://www.youtube.com/watch?v=I_mBLWpdwnI&list=PL54A80D5F0569ABCF
+BABY_more_laughing, https://www.youtube.com/watch?v=RP4abiHdQpc&list=PLNNuObWAcM0L347hotcwJw-mIvymbOZem
+BABY_cute_laughing, https://www.youtube.com/watch?v=5LHsSfSNyyM&list=PLC6AD00F07FEB3692B
+BABY_babbling, https://www.youtube.com/watch?v=bPGekZreJLc&list=PLPcY3u5WnUBRLkpjLkAFm8tLPeFEWkbSv
+BABY_babies_babbling, https://www.youtube.com/watch?v=4wb00_eDS3g&list=PLoCRUn00udN2_ZjQ6vQNzN1gLJk_71c0N
+BABY_babbling_babies, https://www.youtube.com/watch?v=IyV2j4BsEM8&list=PL6utxqZly0xSeTZRTkm3R2V1Hb5Lv3Qjy
+BABY_early_talking, https://www.youtube.com/watch?v=iFwKeGWMbKc&list=PL-qUy2Ar34hhfEgFW-MHQrBrsebbGZFmk
+# -------------------------------------------------------------------------------------------
+NOT_animals, https://www.youtube.com/playlist?list=PLUdgyJns5kk4CqxE2m_U0jmUhLVluyAVg
+NOT_vehicles, https://www.youtube.com/playlist?list=PLNHQwiFqj9P85rlcaEsYe-cE-uK-n1VKa
+NOT_construction, https://www.youtube.com/playlist?list=PLGUX2N7uSFwJsful0ONVBEcbISzD7knK-
 #   "NOT_relaxing", https://www.youtube.com/playlist?list=PLrYyvZOoKKiT_AmF0LLes4qDEEpNHxyes
 NOT_city, https://www.youtube.com/playlist?list=PLY0sW_63wdrJmFieOFQHX9Bs5DKi1rkh-
 NOT_singing, https://www.youtube.com/playlist?list=PL25JVhBBh1BUJpyguS0WrFR-xxl8rKMVC
