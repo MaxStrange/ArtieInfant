@@ -21,21 +21,21 @@ if __name__ == "__main__":
     _, config_path, target_path = sys.argv
     with open(config_path) as configfile:
         lines = [line.strip() for line in configfile if not line.strip().startswith('#')]
-        names_and_urls = [map(lambda x: x.strip(), line.split(',')) for line in lines if line.strip()]
 
+    names_and_urls = [map(lambda x: x.strip(), line.split(',')) for line in lines if line.strip()]
     for name, url in names_and_urls:
         print("Working on playlist:", name)
-#
+
         path = target_path + "/" + name
-#        os.makedirs(path, exist_ok=True)
-#
-#        # Download the playlist to that directory
-#        print("  |-> Executing youtube-dl on the playlist...")
-#        dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G "\
-#                     + url + " -o " + path + "/%(title)s-%(id)s.%(ext)s"
-#        subprocess.run(dl_command.split(' '))
-#        # Don't check result, who knows what youtube-dl returns
-#
+        os.makedirs(path, exist_ok=True)
+
+        # Download the playlist to that directory
+        print("  |-> Executing youtube-dl on the playlist...")
+        dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G "\
+                     + url + " -o " + path + "/%(title)s-%(id)s.%(ext)s"
+        subprocess.run(dl_command.split(' '))
+        # Don't check result, who knows what youtube-dl returns
+
         # Cut each file into 10 minute pieces
         processed_path = path + "/processed"
         os.makedirs(processed_path, exist_ok=True)
@@ -74,6 +74,7 @@ if __name__ == "__main__":
 
     # Get ~10% of each playlist and stick it in a test folder
     print("|-> Making test split for each playlist...")
+    names_and_urls = [map(lambda x: x.strip(), line.split(',')) for line in lines if line.strip()]
     for pl_name, _ in names_and_urls:
         pl_processed_data_dir_path = target_path + "/" + pl_name + "/processed"
         print("  |-> Working on playlist:", pl_name, "in directory:", pl_processed_data_dir_path)
