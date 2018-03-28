@@ -36,67 +36,67 @@ if __name__ == "__main__":
         subprocess.run(dl_command.split(' '))
         # Don't check result, who knows what youtube-dl returns
 
-        # Cut each file into 10 minute pieces
-        processed_path = path + "/processed"
-        os.makedirs(processed_path, exist_ok=True)
-        for dpath, _, fnames in os.walk(path):
-            print("Working on directory", dpath)
-            for fname in fnames:
-                print("  |-> Working on", fname)
-                raw_file_path = dpath + "/" + fname
-                print("    |-> Raw file path:", raw_file_path)
-                ascii_file_path = "".join([i if ord(i) < 128 else 'x' for i in raw_file_path.replace(' ', '_')])
-                print("    |-> ASCII file path:", ascii_file_path)
-                try:
-                    print("    |-> Reading file into memory...")
-                    segment = audiosegment.from_file(raw_file_path)
-                    print("    |-> Dicing up into 10 minute segments...")
-                    new_segments = segment.dice(seconds=10 * 60)
-                    del segment
-                    for i, new in enumerate(new_segments):
-                        print("      |-> Resampling segment", i, "to 48kHz, mono, 16bit...")
-                        new = new.resample(sample_rate_Hz=48000, channels=1, sample_width=2)
-                        new_name, _ext = os.path.splitext(os.path.basename(ascii_file_path))
-                        new_name = new_name + "_seg" + str(i) + ".wav"
-                        new_path = processed_path + "/" + new_name
-                        print("      |-> Creating segment", i, "from", fname, "-> name is:", new_name)
-                        print("      |-> Exporting to path:", new_path)
-                        new.export(new_path, format="wav")
-                        del new
-                    del new_segments
-                except OSError:
-                    print("OS ERROR while working on", fname)
-                    tb = traceback.format_exc()
-                    print(tb)
-                    pass  # Probably not enough RAM to fit the whole thing into memory. Just skip it.
-                except MemoryError:
-                    print("MEMORY ERROR while working on", fname)
-                    tb = traceback.format_exc()
-                    print(tb)
-                    pass
-                #os.remove(raw_file_path)
-
-    # Get ~10% of each playlist and stick it in a test folder
-    print("|-> Making test split for each playlist...")
-    names_and_urls = [map(lambda x: x.strip(), line.split(',')) for line in lines if line.strip()]
-    for pl_name, _ in names_and_urls:
-        pl_processed_data_dir_path = target_path + "/" + pl_name + "/processed"
-        print("  |-> Working on playlist:", pl_name, "in directory:", pl_processed_data_dir_path)
-        files = os.listdir(pl_processed_data_dir_path)
-        files = [f for f in files if not os.path.isdir(f)]
-
-        # Make this playlist's test dir
-        pl_processed_data_test_path = pl_processed_data_dir_path + "/test_split/" + pl_name
-        os.makedirs(pl_processed_data_test_path, exist_ok=True)
-
-        print("  |-> Collecting every tenth file in", pl_processed_data_dir_path)
-        files = files[::10]
-        file_paths = [pl_processed_data_dir_path + "/" + f for f in files]
-
-        # Move the files into the other dir
-        print("  |-> Moving the files into the appropriate test directory...")
-        for f in file_paths:
-            fname = os.path.basename(f)
-            new = pl_processed_data_test_path + "/" + fname
-            os.rename(f, new)
-
+#        # Cut each file into 10 minute pieces
+#        processed_path = path + "/processed"
+#        os.makedirs(processed_path, exist_ok=True)
+#        for dpath, _, fnames in os.walk(path):
+#            print("Working on directory", dpath)
+#            for fname in fnames:
+#                print("  |-> Working on", fname)
+#                raw_file_path = dpath + "/" + fname
+#                print("    |-> Raw file path:", raw_file_path)
+#                ascii_file_path = "".join([i if ord(i) < 128 else 'x' for i in raw_file_path.replace(' ', '_')])
+#                print("    |-> ASCII file path:", ascii_file_path)
+#                try:
+#                    print("    |-> Reading file into memory...")
+#                    segment = audiosegment.from_file(raw_file_path)
+#                    print("    |-> Dicing up into 10 minute segments...")
+#                    new_segments = segment.dice(seconds=10 * 60)
+#                    del segment
+#                    for i, new in enumerate(new_segments):
+#                        print("      |-> Resampling segment", i, "to 48kHz, mono, 16bit...")
+#                        new = new.resample(sample_rate_Hz=48000, channels=1, sample_width=2)
+#                        new_name, _ext = os.path.splitext(os.path.basename(ascii_file_path))
+#                        new_name = new_name + "_seg" + str(i) + ".wav"
+#                        new_path = processed_path + "/" + new_name
+#                        print("      |-> Creating segment", i, "from", fname, "-> name is:", new_name)
+#                        print("      |-> Exporting to path:", new_path)
+#                        new.export(new_path, format="wav")
+#                        del new
+#                    del new_segments
+#                except OSError:
+#                    print("OS ERROR while working on", fname)
+#                    tb = traceback.format_exc()
+#                    print(tb)
+#                    pass  # Probably not enough RAM to fit the whole thing into memory. Just skip it.
+#                except MemoryError:
+#                    print("MEMORY ERROR while working on", fname)
+#                    tb = traceback.format_exc()
+#                    print(tb)
+#                    pass
+#                #os.remove(raw_file_path)
+#
+#    # Get ~10% of each playlist and stick it in a test folder
+#    print("|-> Making test split for each playlist...")
+#    names_and_urls = [map(lambda x: x.strip(), line.split(',')) for line in lines if line.strip()]
+#    for pl_name, _ in names_and_urls:
+#        pl_processed_data_dir_path = target_path + "/" + pl_name + "/processed"
+#        print("  |-> Working on playlist:", pl_name, "in directory:", pl_processed_data_dir_path)
+#        files = os.listdir(pl_processed_data_dir_path)
+#        files = [f for f in files if not os.path.isdir(f)]
+#
+#        # Make this playlist's test dir
+#        pl_processed_data_test_path = pl_processed_data_dir_path + "/test_split/" + pl_name
+#        os.makedirs(pl_processed_data_test_path, exist_ok=True)
+#
+#        print("  |-> Collecting every tenth file in", pl_processed_data_dir_path)
+#        files = files[::10]
+#        file_paths = [pl_processed_data_dir_path + "/" + f for f in files]
+#
+#        # Move the files into the other dir
+#        print("  |-> Moving the files into the appropriate test directory...")
+#        for f in file_paths:
+#            fname = os.path.basename(f)
+#            new = pl_processed_data_test_path + "/" + fname
+#            os.rename(f, new)
+#
