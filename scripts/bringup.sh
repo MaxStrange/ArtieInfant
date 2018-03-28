@@ -48,10 +48,10 @@ rm kafka_2.12-1.0.0.tgz
 
 echo "Installing virtualenvwrapper"
 pip3 install --user virtualenv virtualenvwrapper
-echo 'PATH=/home/max/.local/bin:$PATH' >> /home/max/.bashrc
+echo 'PATH=$HOME/.local/bin:$PATH' >> /home/max/.bashrc
 echo 'export WORKON_HOME=$HOME/.virtualenvs' >> /home/max/.bashrc
 echo 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3' >> /home/max/.bashrc
-echo 'source /home/max/.local/bin/virtualenvwrapper.sh' >> /home/max/.bashrc
+echo 'source $HOME/.local/bin/virtualenvwrapper.sh' >> /home/max/.bashrc
 
 echo "Don't forget to reserve this device's IP address in the router."
 echo "You should now source your .bashrc, then mkvirtualenv ai"
