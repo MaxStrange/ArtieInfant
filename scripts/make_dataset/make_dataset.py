@@ -115,12 +115,12 @@ def _download(target_path, name, url):
     path = target_path + "/" + name
     os.makedirs(path, exist_ok=True)
 
-   # Download the playlist to that directory
-   print("  |-> Executing youtube-dl on the playlist...")
-   dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G "\
-                + url + " -o " + path + "/%(title)s-%(id)s.%(ext)s"
-   subprocess.run(dl_command.split(' '))
-   # Don't check result, who knows what youtube-dl returns
+    # Download the playlist to that directory
+    print("  |-> Executing youtube-dl on the playlist...")
+    dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G "\
+                 + url + " -o " + path + "/%(title)s-%(id)s.%(ext)s"
+    subprocess.run(dl_command.split(' '))
+    # Don't check result, who knows what youtube-dl returns
     return path
 
 
