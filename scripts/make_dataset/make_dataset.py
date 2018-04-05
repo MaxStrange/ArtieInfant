@@ -114,7 +114,7 @@ def _download(target_path, name, url):
     """
     path = target_path + "/" + name
     os.makedirs(path, exist_ok=True)
-#
+
 #   # Download the playlist to that directory
 #   print("  |-> Executing youtube-dl on the playlist...")
 #   dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G "\
@@ -148,5 +148,4 @@ if __name__ == "__main__":
     for name, _url in names_and_urls:
         print("Working on", name)
         _make_test_split(target_path, name)
-
 
