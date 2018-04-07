@@ -1,6 +1,6 @@
-defmodule OctopodTest do
+defmodule Octopod do
   @moduledoc """
-  Documentation for OctopodTest.
+  Documentation for Octopod.
   """
 
   @doc """
@@ -8,7 +8,7 @@ defmodule OctopodTest do
 
   ## Examples
 
-      iex> OctopodTest.hello
+      iex> Octopod.hello
       :world
 
   """
