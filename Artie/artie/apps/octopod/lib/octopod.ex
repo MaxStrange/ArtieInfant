@@ -12,15 +12,30 @@ defmodule Octopod do
   """
 
   @doc """
-  Hello world.
+  Starts a python process. Just a wrapper for :python.start/0.
 
   ## Examples
 
-      iex> Octopod.hello
-      :world
+      iex> {:ok, pid} = Octopod.start_pyprocess()
+      iex> is_pid(pid)
+      true
 
   """
-  def hello do
-    :world
+  def start_pyprocess do
+    :python.start()
+  end
+
+  @doc """
+  Starts a python process. Just a wrapper for :python.start/1.
+
+  ## Examples
+
+    iex> {:ok, pid} = Octopod.start_pyprocess([{:compressed, 5}])
+    iex> is_pid(pid)
+    true
+
+  """
+  def start_pyprocess(options) do
+    :python.start(options)
   end
 end

@@ -3,16 +3,10 @@ defmodule OctopodTest do
   doctest Octopod
 
   test "Initializes Python Process" do
-    path = to_char_list(Path.expand("python"))
-    options = [{:cd, :code.priv_dir(:octopod)},
-               {:compressed, 5},
-               {:start_timeout, 5},
-               {:python_path, path},
-               {:python, 'python'},
-              ]
+    options = Application.get_env(:octopod, :erlport_options)
 
     # Start the python instance using erlport
-    {:ok, python} = :python.start(options)
+    {:ok, python} = Octopod.start_pyprocess(options)
 
     # Stop the python instance - we only want to make sure the test doesn't hit
     # any runtime errors
@@ -23,8 +17,4 @@ defmodule OctopodTest do
 #    path = 
 #    {:ok, script_path} = Octopod.start_pyprocess(path)
 #  end
-
-  test "greets the world" do
-    assert Octopod.hello() == :world
-  end
 end
