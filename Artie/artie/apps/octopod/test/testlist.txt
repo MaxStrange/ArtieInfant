@@ -1,6 +1,5 @@
 TODO:
 
-- initialize simple python script
 - initialize python script with args
 - initialize python script and pass value to it
 - initailize python script and pass file to it

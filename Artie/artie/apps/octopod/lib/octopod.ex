@@ -75,8 +75,8 @@ defmodule Octopod do
     {:ok, 10}
 
   """
-  def execute_script(pyproc, module) do
-    result = :python.call(pyproc, module, :main, [])
+  def execute_script(pyproc, module, args \\ []) do
+    result = :python.call(pyproc, module, :main, args)
     {:ok, result}
   end
 end
