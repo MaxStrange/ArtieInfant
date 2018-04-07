@@ -1,6 +1,8 @@
 # Octopod
 
-**TODO: Add description**
+This library attempts to make it easy to send large files between running python
+processes on different nodes in a cluster.
+
 
 ## Installation
 

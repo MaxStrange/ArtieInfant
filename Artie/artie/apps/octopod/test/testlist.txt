@@ -1,0 +1,13 @@
+TODO:
+
+- initialize simple python script
+- initialize python script with args
+- initialize python script and pass value to it
+- initailize python script and pass file to it
+- initialize python script and pass large file to it
+- initialize python script and pass several files to it
+- initialize python script and pass several large files to it
+- initialize two python scripts and pass message to from A to B
+- initialize two python scripts and pass message to from A to B and back
+- initialize two python scripts and pass large file from A to B
+- initialize two python scripts and pass many large files from A to B
