@@ -69,7 +69,7 @@ defmodule Octopod do
 
   ## Examples
 
-    iex> path = 'C:/Users/maxst/repos/ArtieInfant/Artie/artie/apps/octopod/priv'
+    iex> path = 'C:/Users/maxst/repos/ArtieInfant/Artie/artie/apps/octopod/priv/test'
     iex> {:ok, pid} = Octopod.start_pyprocess([{:cd, path}])
     iex> Octopod.execute_script(pid, :test_doctest)
     {:ok, 10}

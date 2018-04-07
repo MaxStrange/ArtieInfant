@@ -1,7 +1,5 @@
 TODO:
 
-- initialize python script and pass file to it
-- initialize python script and pass large file to it
 - initialize python script and pass several files to it
 - initialize python script and pass several large files to it
 - initialize two python scripts and pass message to from A to B

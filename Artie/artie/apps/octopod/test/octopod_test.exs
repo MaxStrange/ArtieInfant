@@ -2,7 +2,7 @@ defmodule OctopodTest do
   use ExUnit.Case
   doctest Octopod
 
-  @priv_path Application.app_dir(:octopod, "priv")
+  @priv_path Application.app_dir(:octopod, "priv/test")
   @pyoptions [{:cd, to_charlist(@priv_path)} | Application.get_env(:octopod, :erlport_options)]
 
   test "Initializes Python Process" do
