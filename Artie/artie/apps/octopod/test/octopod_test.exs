@@ -10,7 +10,7 @@ defmodule OctopodTest do
 
     # Stop the python instance - we only want to make sure the test doesn't hit
     # any runtime errors
-    :ok = :python.stop(python)
+    :ok = Octopod.stop_pyprocess(python)
   end
 
 #  test "Initializes Simple Python Script" do

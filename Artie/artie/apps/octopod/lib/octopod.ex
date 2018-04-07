@@ -38,4 +38,18 @@ defmodule Octopod do
   def start_pyprocess(options) do
     :python.start(options)
   end
+
+  @doc """
+  Stops the given python process.
+
+  ## Examples
+
+    iex> {:ok, pid} = Octopod.start_pyprocess()
+    iex> Octopod.stop_pyprocess(pid)
+    :ok
+
+  """
+  def stop_pyprocess(pid) do
+    :python.stop(pid)
+  end
 end
