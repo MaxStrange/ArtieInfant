@@ -138,14 +138,14 @@ if __name__ == "__main__":
     for name, url in names_and_urls:
         print("Working on playlist:", name)
         path = _download(target_path, name, url)
-        print("  |-> Path to process:", path)
-        _process_downloaded_playlist(path)
+        #print("  |-> Path to process:", path)
+        #_process_downloaded_playlist(path)
 
-    print("::::::::::::::::::::::::::")
-    print(":: Creating test splits ::")
-    print("::::::::::::::::::::::::::")
-    names_and_urls = [map(lambda x: x.strip(), line.split(',')) for line in lines if line.strip()]
-    for name, _url in names_and_urls:
-        print("Working on", name)
-        #_make_test_split(target_path, name)
+    #print("::::::::::::::::::::::::::")
+    #print(":: Creating test splits ::")
+    #print("::::::::::::::::::::::::::")
+    #names_and_urls = [map(lambda x: x.strip(), line.split(',')) for line in lines if line.strip()]
+    #for name, _url in names_and_urls:
+    #    print("Working on", name)
+    #    _make_test_split(target_path, name)
 
