@@ -52,4 +52,31 @@ defmodule Octopod do
   def stop_pyprocess(pid) do
     :python.stop(pid)
   end
+
+  @doc """
+  Executes the given python script and returns :ok or {:err, stack_trace}.
+
+  *NOTE* The script must be local to the python process (use the {:cd, directory} option
+  with start_pyprocess) or must be in the path that python uses to load modules. Also,
+  the script must have a main() function that takes no arguments.
+
+  Returns whatever main() returns.
+
+  The below examples assume a test_doctest.py script that contains the following code:
+
+  def main():
+    return 5 + 5
+
+  ## Examples
+
+    iex> path = 'C:/Users/maxst/repos/ArtieInfant/Artie/artie/apps/octopod/priv'
+    iex> {:ok, pid} = Octopod.start_pyprocess([{:cd, path}])
+    iex> Octopod.execute_script(pid, :test_doctest)
+    {:ok, 10}
+
+  """
+  def execute_script(pyproc, module) do
+    result = :python.call(pyproc, module, :main, [])
+    {:ok, result}
+  end
 end
