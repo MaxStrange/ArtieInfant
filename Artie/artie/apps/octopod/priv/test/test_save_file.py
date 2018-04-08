@@ -17,15 +17,13 @@ def handle_message(msg):
     where <X> is 0 to start with, and increments one each time the
     handler receives a message.
     """
-    print("Got message from elixir")
     global filenum
     newname = "saved_file" + str(filenum) + ".wav"
-    print("saving to", newname)
     with open(newname, 'wb') as f:
         f.write(msg)
     filenum += 1
 
-    from_atom = Atom("pyprocess")
+    from_atom = Atom("pyprocess".encode('utf8'))
     ok_atom = Atom("ok".encode('utf8'))
     cast(message_handler, (from_atom, ok_atom))
 

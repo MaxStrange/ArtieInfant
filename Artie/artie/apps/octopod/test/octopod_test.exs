@@ -35,16 +35,16 @@ defmodule OctopodTest do
     :ok = Octopod.stop(pypid)
   end
 
-#  test "Can Pass File to Python" do
-#    {:ok, pypid} = Octopod.start_cast(:test_save_file, @pyoptions)
-#
-#    fcontents = Path.join(@priv_path, "furelise.wav") |> File.read!()
-#    :ok = Octopod.cast(pypid, fcontents)
-#    assert_receive({:pyprocess, :ok}, 6_000)
-#    fpath = Path.join(@priv_path, "saved_file0.wav")
-#    assert File.exists?(fpath) == true
-#    File.rm(fpath)
-#
-#    :ok = Octopod.stop(pypid)
-#  end
+  test "Can Pass File to Python" do
+    {:ok, pypid} = Octopod.start_cast(:test_save_file, @pyoptions)
+
+    fcontents = Path.join(@priv_path, "furelise.wav") |> File.read!()
+    :ok = Octopod.cast(pypid, fcontents)
+    assert_receive({:pyprocess, :ok}, 6_000)
+    fpath = Path.join(@priv_path, "saved_file0.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    :ok = Octopod.stop(pypid)
+  end
 end
