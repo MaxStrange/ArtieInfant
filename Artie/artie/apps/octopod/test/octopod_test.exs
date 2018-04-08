@@ -161,4 +161,24 @@ defmodule OctopodTest do
     :ok = Octopod.stop(pypid0)
     :ok = Octopod.stop(pypid1)
   end
+
+  test "Can Send Message between Two Python Processes and Back" do
+    {:ok, pypid0} = Octopod.start(@pyoptions)
+    {:ok, pypid1} = Octopod.start(@pyoptions)
+
+    # Have py0 add two numbers
+    result = Octopod.call(pypid0, :operator, :add, [7, 3])
+    assert result == 10
+
+    # Have py1 multiply the result by 5
+    result = Octopod.call(pypid1, :operator, :mul, [result, 5])
+    assert result == 50
+
+    # Have py0 subtrace 3
+    result = Octopod.call(pypid0, :operator, :sub, [result, 3])
+    assert result == 47
+
+    :ok = Octopod.stop(pypid0)
+    :ok = Octopod.stop(pypid1)
+  end
 end

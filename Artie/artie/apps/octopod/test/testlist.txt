@@ -1,9 +1,5 @@
 TODO:
 
-- initialize two python scripts and pass message from A to B
-- initialize two python scripts and pass message from A to B and back
-- initialize two python scripts and pass large file from A to B
-- initialize two python scripts and pass many large files from A to B
 - initialize two python processes and use pubsub to send msg from A to B
 - initialize three python processes and use pubsub to send msg from A to B and C
 - initialize two python processes and use pubsub to send file from A to B
