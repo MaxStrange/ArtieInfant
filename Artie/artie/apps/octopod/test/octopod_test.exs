@@ -11,9 +11,14 @@ defmodule OctopodTest do
   end
 
   test "Can Call Builtin" do
+    {:ok, pypid} = Octopod.start(@pyoptions)
+    answer = Octopod.call(pypid, :operator, :add, [2, 3])
+    assert answer == 5
+    :ok = Octopod.stop(pypid)
   end
 
   test "Can Cast" do
+    # TODO: This one next
   end
 
   test "Runs Simple Python Script" do

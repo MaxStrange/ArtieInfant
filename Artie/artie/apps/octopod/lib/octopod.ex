@@ -44,6 +44,10 @@ defmodule Octopod do
     GenServer.stop(pypid, :normal)
   end
 
+  def call(pypid, mod, func, args) do
+    GenServer.call(pypid, {mod, func, args}, :infinity)
+  end
+
 
   # TODO: Remove these functions ####################
   def cast_count(count) do
@@ -73,8 +77,8 @@ defmodule Octopod do
     {:ok, session}
   end
 
-  def handle_call({:count, count}, _from, session) do
-    result = Export.call(session, :test, :long_counter, [count])
+  def handle_call({mod, func, args}, _from, session) do
+    result = Export.call(session, mod, func, args)
     {:reply, result, session}
   end
 
