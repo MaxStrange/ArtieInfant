@@ -18,7 +18,10 @@ defmodule OctopodTest do
   end
 
   test "Can Cast" do
-    # TODO: This one next
+    {:ok, pypid} = Octopod.start_cast(:test, @pyoptions)
+    :ok = Octopod.cast(pypid, "hello")
+    assert_receive({:ok, "hello FROM PYTHON!"})
+    :ok = Octopod.stop(pypid)
   end
 
   test "Runs Simple Python Script" do

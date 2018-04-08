@@ -31,6 +31,34 @@ defmodule Octopod do
   end
 
   @doc """
+  Starts the python process as a GenServer and returns the pid. Just
+  like start/1, but also registers any handler with the process.
+
+  Convenience function for:
+
+  ```elixir
+  {:ok, pid} = Octopod.start(pyargs)
+  answer = Octopod.call(pid, mod, :register_handler, [self()])
+  {answer, pid}
+  ```
+
+  This means that `mod` must have a `register_handler()` function.
+
+  ## Examples
+
+    iex> privpath = [:code.priv_dir(:octopod), "test"] |> Path.join() |> to_charlist()
+    iex> {:ok, pid} = Octopod.start_cast(:test, [{:cd, privpath}])
+    iex> is_pid(pid)
+    true
+
+  """
+  def start_cast(mod, pyargs \\ []) do
+    {:ok, pid} = start_link(pyargs)
+    :undefined = Octopod.call(pid, mod, :register_handler, [self()])
+    {:ok, pid}
+  end
+
+  @doc """
   Call this to terminate a running python process.
 
   ## Examples
@@ -48,18 +76,9 @@ defmodule Octopod do
     GenServer.call(pypid, {mod, func, args}, :infinity)
   end
 
-
-  # TODO: Remove these functions ####################
-  def cast_count(count) do
-    {:ok, pid} = start_link([])
-    GenServer.cast(pid, {:count, count})
+  def cast(pypid, msg) do
+    GenServer.cast(pypid, msg)
   end
-
-  def call_count(count) do
-    {:ok, pid} = start_link([])
-    GenServer.call(pid, {:count, count}, :infinity)
-  end
-  ###################################################
 
 
   # Helper Functions
@@ -73,7 +92,6 @@ defmodule Octopod do
 
   def init(pyargs) do
     session = Export.start(pyargs)
-    #TODO: # REMOVE # Export.call(session, :test, :register_handler, [self()])
     {:ok, session}
   end
 
@@ -82,14 +100,13 @@ defmodule Octopod do
     {:reply, result, session}
   end
 
-  def handle_cast({:count, count}, session) do
-    Export.cast(session, count)
+  def handle_cast(msg, session) do
+    Export.cast(session, msg)
     {:noreply, session}
   end
 
   def handle_info({:python, message}, session) do
     IO.puts("Received message from python: #{inspect message}")
-
     {:stop, :normal, session}
   end
 
