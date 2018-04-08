@@ -40,11 +40,7 @@ defmodule OctopodTest do
 
     fcontents = Path.join(@priv_path, "furelise.wav") |> File.read!()
     :ok = Octopod.cast(pypid, fcontents)
-    assert_receive({:pyprocess, :ok}, 6_000)
-
-    # We are waiting for asynchronous threads to write files - let's give
-    # them a moment
-    Process.sleep(5_000)
+    assert_receive({:pyprocess, 0}, 6_000)
 
     fpath = Path.join(@priv_path, "saved_file0.wav")
     assert File.exists?(fpath) == true
@@ -58,12 +54,8 @@ defmodule OctopodTest do
     fcontents = Path.join(@priv_path, "furelise.wav") |> File.read!()
     :ok = Octopod.cast(pypid, fcontents)
     :ok = Octopod.cast(pypid, fcontents)
-    assert_receive({:pyprocess, :ok}, 6_000)
-    assert_receive({:pyprocess, :ok}, 6_000)
-
-    # We are waiting for asynchronous threads to write files - let's give
-    # them a moment
-    Process.sleep(5_000)
+    assert_receive({:pyprocess, 0}, 6_000)
+    assert_receive({:pyprocess, 1}, 6_000)
 
     fpath = Path.join(@priv_path, "saved_file0.wav")
     assert File.exists?(fpath) == true
@@ -91,20 +83,16 @@ defmodule OctopodTest do
     :ok = Octopod.cast(pypid, fcontents)
     :ok = Octopod.cast(pypid, fcontents)
     :ok = Octopod.cast(pypid, fcontents)
-    assert_receive({:pyprocess, :ok}, 60_000)
-    assert_receive({:pyprocess, :ok}, 6_000)
-    assert_receive({:pyprocess, :ok}, 6_000)
-    assert_receive({:pyprocess, :ok}, 6_000)
-    assert_receive({:pyprocess, :ok}, 6_000)
-    assert_receive({:pyprocess, :ok}, 6_000)
-    assert_receive({:pyprocess, :ok}, 6_000)
-    assert_receive({:pyprocess, :ok}, 6_000)
-    assert_receive({:pyprocess, :ok}, 6_000)
-    assert_receive({:pyprocess, :ok}, 6_000)
-
-    # We are waiting for asynchronous threads to write files - let's give
-    # them a moment
-    Process.sleep(5_000)
+    assert_receive({:pyprocess, 0}, 60_000)
+    assert_receive({:pyprocess, 1}, 6_000)
+    assert_receive({:pyprocess, 2}, 6_000)
+    assert_receive({:pyprocess, 3}, 6_000)
+    assert_receive({:pyprocess, 4}, 6_000)
+    assert_receive({:pyprocess, 5}, 6_000)
+    assert_receive({:pyprocess, 6}, 6_000)
+    assert_receive({:pyprocess, 7}, 6_000)
+    assert_receive({:pyprocess, 8}, 6_000)
+    assert_receive({:pyprocess, 9}, 6_000)
 
     fpath = Path.join(@priv_path, "saved_file0.wav")
     assert File.exists?(fpath) == true

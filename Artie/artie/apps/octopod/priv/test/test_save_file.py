@@ -1,3 +1,4 @@
+import queue
 import threading
 import time
 import sys
@@ -7,17 +8,32 @@ from erlport.erlterms import Atom
 
 message_handler = None
 filenum = 0
+msgq = queue.Queue()
 
 def register_handler(pid):
     global message_handler
     message_handler = pid
 
-def save_file(fcontents, fname):
-  """
-  Saves the given fcontents to file named fname.
-  """
-  with open(fname, 'wb') as f:
-      f.write(fcontents)
+def save_file(fcontents, fnum, msgq):
+    """
+    Saves the given fcontents to file named fname.
+    """
+    fname = "saved_file" + str(fnum) + ".wav"
+    with open(fname, 'wb') as f:
+        f.write(fcontents)
+
+    # Signal Elixir that we are done
+    msgq.put(fnum)
+
+def alert_elixir(msgq):
+    """
+    Waits around on the message queue and sends
+    {:pyprocess, :msgq.get()} to the erlport.
+    """
+    from_atom = Atom("pyprocess".encode('utf8'))
+    while True:
+        msg = msgq.get()
+        cast(message_handler, (from_atom, msg))
 
 def handle_message(msg):
     """
@@ -26,15 +42,9 @@ def handle_message(msg):
     handler receives a message.
     """
     global filenum
-    newname = "saved_file" + str(filenum) + ".wav"
-    threading.Thread(target=save_file, args=(msg, newname)).start()
-    #with open(newname, 'wb') as f:
-    #    f.write(msg)
+    threading.Thread(target=save_file, args=(msg, filenum, msgq)).start()
     filenum += 1
 
-    from_atom = Atom("pyprocess".encode('utf8'))
-    ok_atom = Atom("ok".encode('utf8'))
-    cast(message_handler, (from_atom, ok_atom))
-
+threading.Thread(target=alert_elixir, args=(msgq,)).start()
 set_message_handler(handle_message)
 
