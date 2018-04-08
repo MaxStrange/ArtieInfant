@@ -32,9 +32,18 @@ defmodule OctopodTest do
 
   test "Runs Simple Python Script with File as Arg" do
     # Start a python process and pass a serialized WAV file to it - it will save it under a different name
+
     {:ok, python} = Octopod.start_pyprocess(@pyoptions)
     wav_contents = Path.join(@priv_path, "furelise.wav") |> File.read!()
     {:ok, 'saved!'} = Octopod.execute_script(python, :save_file, [wav_contents])
     :ok = Octopod.stop_pyprocess(python)
+  end
+
+  test "Runs Python Script with While Loop" do
+    # Start a python process that sits around in a while loop, then kill it
+
+    {:ok, python} = Octopod.spin_script(:while, [], @pyoptions)
+    Process.sleep(1000)
+    Octopod.stop_pyprocess(python)
   end
 end

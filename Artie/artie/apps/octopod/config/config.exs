@@ -30,7 +30,8 @@ use Mix.Config
 #     import_config "#{Mix.env}.exs"
 
 config :octopod, erlport_options: [{:compressed, 5},
-                                   {:start_timeout, 5},
+                                   {:call_timeout, 15000},
+                                   {:start_timeout, 5000},
                                    {:python_path, to_charlist(Path.expand("python"))},
                                    {:python, 'python'}
                                   ]

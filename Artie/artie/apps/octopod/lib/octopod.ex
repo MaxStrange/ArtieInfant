@@ -49,8 +49,13 @@ defmodule Octopod do
     :ok
 
   """
-  def stop_pyprocess(pid) do
-    :python.stop(pid)
+  def stop_pyprocess(pypid) do
+    :python.stop(pypid)
+  end
+  def stop_pyprocess(pypid, pid) do
+    :python.stop(pypid)
+    Process.exit(pid, :kill)
+    :ok
   end
 
   @doc """
@@ -60,7 +65,9 @@ defmodule Octopod do
   with start_pyprocess) or must be in the path that python uses to load modules. Also,
   the script must have a main() function that takes no arguments.
 
-  Returns whatever main() returns.
+  Returns whatever main() returns, synchronously.
+
+  For asynchronously starting a python process, see Octopod.spin_script/3.
 
   The below examples assume a test_doctest.py script that contains the following code:
 
@@ -78,5 +85,53 @@ defmodule Octopod do
   def execute_script(pyproc, module, args \\ []) do
     result = :python.call(pyproc, module, :main, args)
     {:ok, result}
+  end
+
+  @doc """
+  Executes the given python module by spawning a new process to run it in. Returns the
+  pid of that process, which can be used in all the functions in this module, just like
+  the pid returned by any of the start_* functions.
+
+  This results in an asynchronous execution of the python module's main() function.
+
+  Parameters:
+    module:     The module, which must be in the python path.
+    args:       The arguments to the main() function.
+    pyoptions:  The options to pass to :python.start_link/1
+
+  Returns:
+    {:ok, pid}, where `pid` can be used just like the pids returned by any of the start_*
+    functions in this module.
+
+  ## Examples
+
+    iex> path = 'C:/Users/maxst/repos/ArtieInfant/Artie/artie/apps/octopod/priv/test'
+    iex> {:ok, pypid} = Octopod.spin_script(:while, [], [{:cd, path}])
+    iex> Octopod.stop_pyprocess(pypid)
+    :ok
+
+  """
+  def spin_script(module, args \\ [], pyoptions \\ []) do
+    {:ok, pyproc} = :python.start(pyoptions)
+    spawn fn -> spin(pyproc, module, args) end
+    {:ok, pyproc}
+  end
+
+  defp spin(pyproc, module, args) do
+    ospid = :python.call(pyproc, :os, :getpid, [])
+    {kill_cmd, kill_args} = get_kill_cmd(ospid)
+    try do
+      :python.call(pyproc, module, :main, args, [{:timeout, :infinity}])
+    rescue
+      ErlangError -> System.cmd(kill_cmd, kill_args)
+    end
+  end
+
+  defp get_kill_cmd(pid) do
+    case :os.type() do
+      {:win32, _} -> {"TaskKill", ["/PID", to_string(pid), "/F"]}
+      {:unix, _} -> {"kill", ["-9", pid]}
+      _ -> IO.puts "You may need to manually kill the process with PID" <> to_string(pid)
+    end
   end
 end
