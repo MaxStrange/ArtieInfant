@@ -72,10 +72,39 @@ defmodule Octopod do
     GenServer.stop(pypid, :normal)
   end
 
+  @doc """
+  Executes `mod.func(args)` synchronously in the python context.
+
+  ## Examples
+
+    iex> {:ok, pypid} = Octopod.start()
+    iex> Octopod.call(pypid, :operator, :add, [2, 3])
+    5
+
+  """
   def call(pypid, mod, func, args) do
     GenServer.call(pypid, {mod, func, args}, :infinity)
   end
 
+  @doc """
+  Passes `msg` to the module registered with `start_cast`. You must use
+  `start_cast/2` to get `pypid` and the module registered with `start_cast/2`
+  must have a message handler that can handle the type of message being passed.
+
+  ## Examples
+
+    iex> privpath = [:code.priv_dir(:octopod), "test"] |> Path.join() |> to_charlist()
+    iex> {:ok, pid} = Octopod.start_cast(:test, [{:cd, privpath}])
+    iex> :ok = Octopod.cast(pid, "hello")
+    iex> receive do
+    ...>   {:ok, "hello FROM PYTHON!"} -> :ok
+    ...>   _ -> :err
+    ...> after
+    ...>   3_000 -> :err_timeout
+    ...> end
+    :ok
+
+  """
   def cast(pypid, msg) do
     GenServer.cast(pypid, msg)
   end
