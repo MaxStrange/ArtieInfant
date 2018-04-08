@@ -1,3 +1,4 @@
+import threading
 import time
 import sys
 
@@ -11,6 +12,13 @@ def register_handler(pid):
     global message_handler
     message_handler = pid
 
+def save_file(fcontents, fname):
+  """
+  Saves the given fcontents to file named fname.
+  """
+  with open(fname, 'wb') as f:
+      f.write(fcontents)
+
 def handle_message(msg):
     """
     msg is the contents of a file. We save the file as 'saved_file<X>.wav'
@@ -19,8 +27,9 @@ def handle_message(msg):
     """
     global filenum
     newname = "saved_file" + str(filenum) + ".wav"
-    with open(newname, 'wb') as f:
-        f.write(msg)
+    threading.Thread(target=save_file, args=(msg, newname)).start()
+    #with open(newname, 'wb') as f:
+    #    f.write(msg)
     filenum += 1
 
     from_atom = Atom("pyprocess".encode('utf8'))

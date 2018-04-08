@@ -42,6 +42,10 @@ defmodule OctopodTest do
     :ok = Octopod.cast(pypid, fcontents)
     assert_receive({:pyprocess, :ok}, 6_000)
 
+    # We are waiting for asynchronous threads to write files - let's give
+    # them a moment
+    Process.sleep(5_000)
+
     fpath = Path.join(@priv_path, "saved_file0.wav")
     assert File.exists?(fpath) == true
     File.rm(fpath)
@@ -57,6 +61,10 @@ defmodule OctopodTest do
     assert_receive({:pyprocess, :ok}, 6_000)
     assert_receive({:pyprocess, :ok}, 6_000)
 
+    # We are waiting for asynchronous threads to write files - let's give
+    # them a moment
+    Process.sleep(5_000)
+
     fpath = Path.join(@priv_path, "saved_file0.wav")
     assert File.exists?(fpath) == true
     File.rm(fpath)
@@ -66,5 +74,79 @@ defmodule OctopodTest do
     File.rm(fpath)
 
     :ok = Octopod.stop(pypid)
+  end
+
+  test "Can Pass Several Files to Python Asynchronously" do
+    opts = @pyoptions |> Enum.reject(&(Enum.fetch!(Tuple.to_list(&1), 0) == :call_timeout)) |> Enum.concat([{:call_timeout, 60_000}])
+    {:ok, pypid} = Octopod.start_cast(:test_save_file, opts)
+
+    fcontents = Path.join(@priv_path, "furelise.wav") |> File.read!()
+    :ok = Octopod.cast(pypid, fcontents)
+    :ok = Octopod.cast(pypid, fcontents)
+    :ok = Octopod.cast(pypid, fcontents)
+    :ok = Octopod.cast(pypid, fcontents)
+    :ok = Octopod.cast(pypid, fcontents)
+    :ok = Octopod.cast(pypid, fcontents)
+    :ok = Octopod.cast(pypid, fcontents)
+    :ok = Octopod.cast(pypid, fcontents)
+    :ok = Octopod.cast(pypid, fcontents)
+    :ok = Octopod.cast(pypid, fcontents)
+    assert_receive({:pyprocess, :ok}, 60_000)
+    assert_receive({:pyprocess, :ok}, 6_000)
+    assert_receive({:pyprocess, :ok}, 6_000)
+    assert_receive({:pyprocess, :ok}, 6_000)
+    assert_receive({:pyprocess, :ok}, 6_000)
+    assert_receive({:pyprocess, :ok}, 6_000)
+    assert_receive({:pyprocess, :ok}, 6_000)
+    assert_receive({:pyprocess, :ok}, 6_000)
+    assert_receive({:pyprocess, :ok}, 6_000)
+    assert_receive({:pyprocess, :ok}, 6_000)
+
+    # We are waiting for asynchronous threads to write files - let's give
+    # them a moment
+    Process.sleep(5_000)
+
+    fpath = Path.join(@priv_path, "saved_file0.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    fpath = Path.join(@priv_path, "saved_file1.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    fpath = Path.join(@priv_path, "saved_file2.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    fpath = Path.join(@priv_path, "saved_file3.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    fpath = Path.join(@priv_path, "saved_file4.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    fpath = Path.join(@priv_path, "saved_file5.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    fpath = Path.join(@priv_path, "saved_file6.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    fpath = Path.join(@priv_path, "saved_file7.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    fpath = Path.join(@priv_path, "saved_file8.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    fpath = Path.join(@priv_path, "saved_file9.wav")
+    assert File.exists?(fpath) == true
+    File.rm(fpath)
+
+    :ok = Octopod.stop(pypid)
+
   end
 end
