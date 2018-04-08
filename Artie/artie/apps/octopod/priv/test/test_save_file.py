@@ -32,8 +32,12 @@ def alert_elixir(msgq):
     """
     from_atom = Atom("pyprocess".encode('utf8'))
     while True:
-        msg = msgq.get()
-        cast(message_handler, (from_atom, msg))
+        try:
+            msg = msgq.get(timeout=10)
+            cast(message_handler, (from_atom, msg))
+        except queue.Empty:
+            return  # Probably the elixir process is dead, so we should end
+
 
 def handle_message(msg):
     """
