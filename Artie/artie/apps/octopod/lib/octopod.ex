@@ -1,6 +1,7 @@
 defmodule Octopod do
   @moduledoc """
-  This module is the API for the library.
+  This module is the lower-level API for the library. To use the higher-level
+  API, see pyctopod.ex.
 
   The way this library works is this:
   1. Your elixir application starts a python instance that runs whatever python code
