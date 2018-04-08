@@ -38,7 +38,6 @@ def alert_elixir(msgq):
         except queue.Empty:
             return  # Probably the elixir process is dead, so we should end
 
-
 def handle_message(msg):
     """
     msg is the contents of a file. We save the file as 'saved_file<X>.wav'

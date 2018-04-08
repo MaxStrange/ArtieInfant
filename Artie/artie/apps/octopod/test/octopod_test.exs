@@ -69,7 +69,8 @@ defmodule OctopodTest do
   end
 
   test "Can Pass Several Files to Python Asynchronously" do
-    opts = @pyoptions |> Enum.reject(&(Enum.fetch!(Tuple.to_list(&1), 0) == :call_timeout)) |> Enum.concat([{:call_timeout, 60_000}])
+    check_for_timeout_tup = fn tup -> Enum.fetch!(Tuple.to_list(tup), 0) == :call_timeout end
+    opts = @pyoptions |> Enum.reject(check_for_timeout_tup) |> Enum.concat([{:call_timeout, 60_000}])
     {:ok, pypid} = Octopod.start_cast(:test_save_file, opts)
 
     fcontents = Path.join(@priv_path, "furelise.wav") |> File.read!()
@@ -136,5 +137,28 @@ defmodule OctopodTest do
 
     :ok = Octopod.stop(pypid)
 
+  end
+
+  test "Can Start Two Python Instances" do
+    {:ok, pypid0} = Octopod.start(@pyoptions)
+    {:ok, pypid1} = Octopod.start(@pyoptions)
+    :ok = Octopod.stop(pypid0)
+    :ok = Octopod.stop(pypid1)
+  end
+
+  test "Can Send Message between Two Python Instances" do
+    {:ok, pypid0} = Octopod.start(@pyoptions)
+    {:ok, pypid1} = Octopod.start(@pyoptions)
+
+    # Have py0 add two numbers
+    result = Octopod.call(pypid0, :operator, :add, [7, 3])
+    assert result == 10
+
+    # Have py1 multiply the result by 5
+    result = Octopod.call(pypid1, :operator, :mul, [result, 5])
+    assert result == 50
+
+    :ok = Octopod.stop(pypid0)
+    :ok = Octopod.stop(pypid1)
   end
 end
