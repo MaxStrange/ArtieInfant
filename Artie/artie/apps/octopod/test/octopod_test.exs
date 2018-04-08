@@ -46,4 +46,24 @@ defmodule OctopodTest do
     Process.sleep(1000)
     Octopod.stop_pyprocess(python)
   end
+
+  test "Can Pass Lots of Files to While Loop Script" do
+    # Start a python process that sits around saving files to disk as it gets them
+
+    wav_contents = Path.join(@priv_path, "furelise.wav") |> File.read!()
+    {:ok, python} = Octopod.spin_script(:while_listen, [self()], @pyoptions)
+
+    Process.sleep(100)
+    Octopod.cast(python, wav_contents)
+    Process.sleep(100)
+    Octopod.cast(python, wav_contents)
+    Process.sleep(100)
+    Octopod.cast(python, wav_contents)
+
+    Octopod.stop_pyprocess(python)
+
+    assert File.exists?(Path.join(@priv_path, "savefiletest0.wav")) == true
+    assert File.exists?(Path.join(@priv_path, "savefiletest1.wav")) == true
+    assert File.exists?(Path.join(@priv_path, "savefiletest2.wav")) == true
+  end
 end

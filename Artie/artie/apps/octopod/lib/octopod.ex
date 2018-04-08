@@ -134,4 +134,43 @@ defmodule Octopod do
       _ -> IO.puts "You may need to manually kill the process with PID" <> to_string(pid)
     end
   end
+
+  @doc """
+  Writes `msg` to `pyproc` via erlport's cast/2 function. This means that the running
+  python process must have been created via an asynchronous mechanism such as this module's
+  spin_script *and* the python module must have registered a handler with erlport as:
+
+  ```python
+  from erlport.erlterms import Atom
+  import erlport.erlang as erl
+
+  def register_handler(dest):
+    def handler(msg):
+      erl.cast(dest, msg)
+    erl.set_message_handler(handler)
+    return Atom("ok")
+
+  # You should give self() or some other pid as dest
+  ```
+
+  ## Examples
+
+    iex> path = 'C:/Users/maxst/repos/ArtieInfant/Artie/artie/apps/octopod/priv/test'
+    iex> {:ok, pypid} = Octopod.spin_script(:while_echo, [self()], [{:cd, path}])
+    iex> :ok = Octopod.cast(pypid, 'Here is a message')
+    iex> :ok = Process.sleep(100)
+    iex> receive do
+    ...>   "Here is a message FROM PYTHON!" -> :ok
+    ...>   _ -> :err
+    ...> after
+    ...>   1_000 -> :err_timeout
+    ...> end
+    :ok
+    iex> Octopod.stop_pyprocess(pypid)
+    :ok
+
+  """
+  def cast(pyproc, msg) do
+    :python.cast(pyproc, msg)
+  end
 end
