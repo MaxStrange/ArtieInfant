@@ -51,6 +51,11 @@ defmodule Octopod do
     iex> is_pid(pid)
     true
 
+    iex> privpath = [:code.priv_dir(:octopod), "pyctopod"] |> Path.join() |> to_charlist()
+    iex> {:ok, pid} = Octopod.start_cast(:pyctopod, [{:cd, privpath}])
+    iex> is_pid(pid)
+    true
+
   """
   def start_cast(mod, pyargs \\ []) do
     {:ok, pid} = start_link(pyargs)
