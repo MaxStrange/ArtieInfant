@@ -5,6 +5,7 @@ to reference erlport at all and should instead, handle all the
 publisher/subscriber interactions through this module.
 """
 import queue
+import string
 import threading
 import time
 from erlport.erlang import set_message_handler, cast
@@ -51,9 +52,17 @@ def subscribe(topics, handlers):
     The handlers are functions that take 'from_id', 'topic', msg.
     The handlers are called asynchronously, two messages received
     on the same topic will both fire without having to finish one.
+
+    Topics MAY NOT have spaces or punctuation - they should be
+    strings that are easily convertable to Elixir atoms.
     """
     if type(topics) == str:
         topics = [topics]
+
+    invalid_chars = set(string.punctuation.replace("_", ""))
+    for topic in topics:
+        if any(char in invalid_chars for char in topic):
+            raise ValueError("Topic {} contains invalid characters. Topics cannot have punctuation or spaces.".format(topic))
 
     global _topic_handlers
     for topic, handler in zip(topics, handlers):
@@ -63,6 +72,10 @@ def subscribe(topics, handlers):
     if _consumption_thread is None:
         _consumption_thread = threading.Thread(target=_consume)
         _consumption_thread.start()
+
+    topic_as_atom = Atom(topic.encode('utf8'))
+    atom_subscribe = Atom("subscribe".encode('utf8'))
+    cast(_msg_handling_pid, (atom_subscribe, topic_as_atom))
 
 def publish(topics, msg, from_id='default'):
     """
@@ -128,7 +141,6 @@ def _handle_message(msg):
         raise TypeError("Received a type {} for message. Always expecting tuple instead.".format(type(msg)))
 
     if msg[0] == Atom("message".encode('utf8')):
-        #print("Got a strange message with 'message' as the first thing.")
         msg = msg[1]
 
     signal = (Atom("ok".encode('utf8')), Atom("go".encode('utf8')))

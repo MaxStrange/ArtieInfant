@@ -35,14 +35,20 @@ defmodule Pyctopod do
   """
   def start(mod, msgbox_pid \\ nil) do
     # Start up the publisher to consumer bridge
-    {:ok, pub_to_con_bridge} = PubConBridge.start()
+    # self() is wrong - it needs to be updated to pyctopid
+    {:ok, pub_to_con_bridge} = PubConBridge.start(self(), self())
 
     # If we are testing, we may take the messages ourselves
     msgbox_pid = if (msgbox_pid == nil), do: pub_to_con_bridge, else: msgbox_pid
 
     {:ok, pid} = GenServer.start_link(__MODULE__, [mod, msgbox_pid])
+
+    # Alert the bridge to the python process pid
+    send pub_to_con_bridge, {:pyctopid, pid}
+
+    # Wait a moment for everything to settle, then tell pyctopid we are ready
     Process.sleep(2_000)
-    Octopod.cast(pid, {:ok, :go})  # Send signal to pyctopod to let it know we are ready
+    Octopod.cast(pid, {:ok, :go})
     {:ok, pid}
   end
 
@@ -60,9 +66,17 @@ defmodule Pyctopod do
     Octopod.stop(pypid)
   end
 
+  @doc """
+  Writes {from, topic, msg} to the given pypid.
+  """
+  def write_to_python(pypid, from, topic, msg) do
+    Octopod.cast(pypid, {from, topic, msg})
+  end
+
   # Server (callbacks)
 
   def init([module, msgbox_pid]) do
+    PubSub.start_link()
     Octopod.start_cast(module, @opts, msgbox_pid)
   end
 
