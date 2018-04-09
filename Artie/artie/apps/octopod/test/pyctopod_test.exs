@@ -95,7 +95,7 @@ defmodule PyctopodTest do
       |> :crypto.hash_final 
       |> Base.encode16 
     hash_new =
-      File.stream!(original, [], 2048) 
+      File.stream!(fpath, [], 2048) 
       |> Enum.reduce(:crypto.hash_init(:sha256), fn(line, acc) -> :crypto.hash_update(acc,line) end ) 
       |> :crypto.hash_final 
       |> Base.encode16 
@@ -119,5 +119,48 @@ defmodule PyctopodTest do
 
     :ok = Pyctopod.stop(pypid0)
     :ok = Pyctopod.stop(pypid1)
+  end
+
+  test "Can Pass File from A to B and C" do
+    {:ok, pypid0} = Pyctopod.start(:pyctotest_consume_file)
+    {:ok, pypid2} = Pyctopod.start(:pyctotest_consume_file)
+    {:ok, pypid1} = Pyctopod.start(:pyctotest_pub_file)
+
+    assert_receive({:pyctotest_consume_file, :test, fname0}, 15_000)
+    assert_receive({:pyctotest_consume_file, :test, fname1}, 25_000)
+
+    fpath0 = [Application.app_dir(:octopod, "priv/test"), fname0] |> Path.join()
+    fpath1 = [Application.app_dir(:octopod, "priv/test"), fname1] |> Path.join()
+    original = [Application.app_dir(:octopod, "priv/test"), "furelise.wav"] |> Path.join()
+
+    assert(File.exists?(fpath0) == true)
+    assert(File.exists?(fpath1) == true)
+
+    # Checksum
+    hash_original = 
+      File.stream!(original, [], 2048) 
+      |> Enum.reduce(:crypto.hash_init(:sha256), fn(line, acc) -> :crypto.hash_update(acc,line) end ) 
+      |> :crypto.hash_final 
+      |> Base.encode16 
+    hash_new0 =
+      File.stream!(fpath0, [], 2048) 
+      |> Enum.reduce(:crypto.hash_init(:sha256), fn(line, acc) -> :crypto.hash_update(acc,line) end ) 
+      |> :crypto.hash_final 
+      |> Base.encode16 
+    hash_new1 =
+      File.stream!(fpath1, [], 2048) 
+      |> Enum.reduce(:crypto.hash_init(:sha256), fn(line, acc) -> :crypto.hash_update(acc,line) end ) 
+      |> :crypto.hash_final 
+      |> Base.encode16 
+
+    assert(hash_original == hash_new0)
+    assert(hash_original == hash_new1)
+
+    File.rm!(fpath0)
+    File.rm!(fpath1)
+
+    :ok = Pyctopod.stop(pypid0)
+    :ok = Pyctopod.stop(pypid1)
+    :ok = Pyctopod.stop(pypid2)
   end
 end
