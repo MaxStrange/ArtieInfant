@@ -10,6 +10,6 @@ python:
 otp_release:
   - '19.3'
 before_install:
-  - ./test_install.sh
+  - cd ./Artie/artie/apps/octopod
 script:
-  - ./test.sh
+  - mix test --color
