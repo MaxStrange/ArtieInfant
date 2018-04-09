@@ -30,7 +30,7 @@ defmodule PubConBridge do
           PubSub.publish(topic, {from, msg})
           {pyctopid, pids}
         {:subscribe, topic} ->
-          pid = spawn fn -> subscribe(pyctopid, topic) end
+          pid = spawn_link fn -> subscribe(pyctopid, topic) end
           PubSub.subscribe(pid, topic)
           {pyctopid, [pid | pids]}
         {:pyctopid, pid} ->
@@ -38,6 +38,10 @@ defmodule PubConBridge do
           {pid, pids}
         other ->
           IO.puts "Got unexpected message: #{inspect other}"
+          {pyctopid, pids}
+      after
+        5_000 ->
+          Pyctopod.write_to_python(pyctopid, :keepalive, :priv_keepalive, 'keepalive')
           {pyctopid, pids}
       end
     loop(pyctopid, pids, testpid)

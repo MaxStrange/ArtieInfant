@@ -68,7 +68,7 @@ defmodule PyctopodTest do
     {:ok, pypid0} = Pyctopod.start(:pyctotest_consume_file)
     {:ok, pypid1} = Pyctopod.start(:pyctotest_pub_file)
 
-    assert_receive({:pyctotest_consume_file, :test, fname}, 5_000)
+    assert_receive({:pyctotest_consume_file, :test, fname}, 15_000)
     fpath = [Application.app_dir(:octopod, "priv/test"), fname] |> Path.join()
     assert(File.exists?(fpath) == true)
     File.rm!(fpath)
@@ -81,7 +81,7 @@ defmodule PyctopodTest do
     {:ok, pypid0} = Pyctopod.start(:pyctotest_consume_file)
     {:ok, pypid1} = Pyctopod.start(:pyctotest_pub_file)
 
-    assert_receive({:pyctotest_consume_file, :test, fname}, 5_000)
+    assert_receive({:pyctotest_consume_file, :test, fname}, 15_000)
 
     fpath = [Application.app_dir(:octopod, "priv/test"), fname] |> Path.join()
     original = [Application.app_dir(:octopod, "priv/test"), "furelise.wav"] |> Path.join()
@@ -103,6 +103,19 @@ defmodule PyctopodTest do
     assert(hash_original == hash_new)
 
     File.rm!(fpath)
+
+    :ok = Pyctopod.stop(pypid0)
+    :ok = Pyctopod.stop(pypid1)
+  end
+
+  @tag timeout: 200_000
+  test "Pyctopod Does Not Exit While Elixir is Still Around" do
+    {:ok, pypid0} = Pyctopod.start(:pyctotest_keepalive_receiver)
+    {:ok, pypid1} = Pyctopod.start(:pyctotest_keepalive_sender)
+
+    assert_receive({:pyctotest_keepalive_receiver, :test, _msg}, 60_000)
+    assert_receive({:pyctotest_keepalive_receiver, :test, _msg}, 60_000)
+    assert_receive({:pyctotest_keepalive_receiver, :test, _msg}, 60_000)
 
     :ok = Pyctopod.stop(pypid0)
     :ok = Pyctopod.stop(pypid1)

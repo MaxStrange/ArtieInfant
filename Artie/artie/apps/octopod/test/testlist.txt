@@ -1,6 +1,13 @@
 TODO:
 
-- initialize two python processes and use pubsub to send msg from A to B
-- initialize three python processes and use pubsub to send msg from A to B and C
-- initialize two python processes and use pubsub to send file from A to B
 - initialize three python processes and use pubsub to send file from A to B and C
+
+Scale Testing:
+
+- initialize one process on two different nodes
+- pubsub a message from A to B
+- pubsub a message from A to B and C (three nodes)
+- pubsub a file from A to B
+- pubsub a file from A to B and C
+- pubsub files quickly from A to B, C, and D
+- do this for a few days

@@ -11,7 +11,7 @@ defmodule Pyctopod do
   @testpath Application.app_dir(:octopod, "priv/test") |> to_charlist()
   @opts [{:cd, @testpath},
          {:compressed, 5},
-         {:call_timeout, 60_000},
+         {:call_timeout, :infinity},
          {:start_timeout, 10_000},
          {:python_path, @pypath},
          {:python, 'python'}
