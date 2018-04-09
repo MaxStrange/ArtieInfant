@@ -41,6 +41,13 @@ defmodule PyctopodTest do
     :ok = Pyctopod.stop(pypid1)
   end
 
-  #test "Can Publish a Message from A to B using PubSub" do
-  #end
+  test "Can Publish a Message from A to B using PubSub" do
+    {:ok, pypid0} = Pyctopod.start(:pyctotest_consume)
+    {:ok, pypid1} = Pyctopod.start(:pyctotest_pub_one_msg)
+
+    assert_receive({:pyctotest_consume, :test, "This is a Test FROM PYTHON!"}, 5_000)
+
+    :ok = Pyctopod.stop(pypid0)
+    :ok = Pyctopod.stop(pypid1)
+  end
 end

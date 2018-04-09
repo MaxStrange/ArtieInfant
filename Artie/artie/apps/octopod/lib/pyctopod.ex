@@ -34,7 +34,12 @@ defmodule Pyctopod do
 
   """
   def start(mod, msgbox_pid \\ nil) do
-    msgbox_pid = if (msgbox_pid == nil), do: self(), else: msgbox_pid
+    # Start up the publisher to consumer bridge
+    {:ok, pub_to_con_bridge} = PubConBridge.start()
+
+    # If we are testing, we may take the messages ourselves
+    msgbox_pid = if (msgbox_pid == nil), do: pub_to_con_bridge, else: msgbox_pid
+
     {:ok, pid} = GenServer.start_link(__MODULE__, [mod, msgbox_pid])
     Process.sleep(2_000)
     Octopod.cast(pid, {:ok, :go})  # Send signal to pyctopod to let it know we are ready
