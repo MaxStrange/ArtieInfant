@@ -9,9 +9,10 @@ before_install:
   - echo '19.3 $HOME/otp/19.3' >> ~/.kerl/otp_builds
   - source $HOME/otp/19.3/activate
   - wget https://repo.hex.pm/builds/elixir/v1.6.4-otp-19.zip
-  - echo 'export ELIXIR_VERSION=1.6.4
-          export PATH=$HOME/.kiex/elixirs/elixir-1.6.4/bin:$PATH
-          export MIX_ARCHIVES=$HOME/.kiex/mix/elixir-1.6.4' > $HOME/.kiex/elixirs/elixir-1.6.4.env
+  - echo 'export ELIXIR_VERSION=1.6.4' > $HOME/.kiex/elixirs/elixir-1.6.4.env
+  - echo 'export PATH=$HOME/.kiex/elixirs/elixir-1.6.4/bin:$PATH' >> $HOME/.kiex/elixirs/elixir-1.6.4.env
+  - echo 'export MIX_ARCHIVES=$HOME/.kiex/mix/elixir-1.6.4' >> $HOME/.kiex/elixirs/elixir-1.6.4.env
+  - cat $HOME/.kiex/elixirs/elixir-1.6.4.env
   - kiex use 1.6.4
   - elixir --version
   - cd ./Artie/artie/apps/octopod
