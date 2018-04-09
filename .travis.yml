@@ -2,7 +2,7 @@ language: python
 python:
   - '3.5'
 before_install:
-  - -o $HOME/erlang.tar.bz2 ${archive_url}
+  - wget -o $HOME/erlang.tar.bz2 ${archive_url}
   - mkdir -p ~/otp && tar -xf erlang-19.3-nonroot.tar.bz2 -C ~/otp/
   - mkdir -p ~/.kerl
   - echo '19.3,19.3' >> ~/.kerl/otp_builds
