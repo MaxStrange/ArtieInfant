@@ -5,9 +5,12 @@ defmodule Pyctopod do
   common one.
   """
   use GenServer
+  alias Octopod.Export
 
   @pypath Application.app_dir(:octopod, "priv/pyctopod") |> to_charlist()
-  @opts [{:compressed, 5},
+  @testpath Application.app_dir(:octopod, "priv/test") |> to_charlist()
+  @opts [{:cd, @testpath},
+         {:compressed, 5},
          {:call_timeout, 60_000},
          {:start_timeout, 10_000},
          {:python_path, @pypath},
@@ -20,14 +23,21 @@ defmodule Pyctopod do
   Call this first. Starts up a pyctopod server to interface with
   Python.
 
+  Call the target python module. That module must define a init_pyctopod() function
+  that takes no arguments, which calls pyctopod.register_handler().
+
   ## Examples
 
-    iex> Pyctopod.start()
-    {:ok, pypid}
+    iex> {:ok, pypid} = Pyctopod.start(:pyctotest, self())
+    iex> is_pid(pypid)
+    true
 
   """
-  def start() do
-    GenServer.start_link(__MODULE__, [])
+  def start(mod, msgbox_pid) do
+    {:ok, pid} = GenServer.start_link(__MODULE__, [mod, msgbox_pid])
+    Process.sleep(2_000)
+    Octopod.cast(pid, {:ok, :go})  # Send signal to pyctopod to let it know we are ready
+    {:ok, pid}
   end
 
   @doc """
@@ -35,7 +45,7 @@ defmodule Pyctopod do
 
   ## Examples
 
-    iex> {:ok, pypid} = Pyctopod.start()
+    iex> {:ok, pypid} = Pyctopod.start(:pyctotest, self())
     iex> Pyctopod.stop(pypid)
     :ok
 
@@ -44,38 +54,29 @@ defmodule Pyctopod do
     Octopod.stop(pypid)
   end
 
-  def push(pid, item) do
-    GenServer.cast(pid, {:push, item})
-  end
-
-  def pop(pid) do
-    GenServer.call(pid, :pop)
-  end
-
   # Server (callbacks)
 
-  def init(_state) do
-    Octopod.start_cast(:pyctopod, @opts)
+  def init([module, msgbox_pid]) do
+    Octopod.start_cast(module, @opts, msgbox_pid)
   end
 
-  def handle_info(:work, state) do
-    {:noreply, state}
+  def handle_call({mod, func, args}, _from, session) do
+    result = Export.call(session, mod, func, args)
+    {:reply, result, session}
   end
 
-  def handle_call(:pop, _from, [h | t]) do
-    {:reply, h, t}
+  def handle_cast(msg, session) do
+    Export.cast(session, msg)
+    {:noreply, session}
   end
 
-  def handle_call(request, from, state) do
-    # Call the default implementation from GenServer
-    super(request, from, state)
+  def handle_info({:python, message}, session) do
+    IO.puts("Received message from python: #{inspect message}")
+    {:stop, :normal, session}
   end
 
-  def handle_cast({:push, item}, state) do
-    {:noreply, [item | state]}
-  end
-
-  def handle_cast(request, state) do
-    super(request, state)
+  def terminate(_reason, session) do
+    Octopod.stop(session)
+    :ok
   end
 end

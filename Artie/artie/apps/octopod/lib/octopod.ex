@@ -58,9 +58,10 @@ defmodule Octopod do
     true
 
   """
-  def start_cast(mod, pyargs \\ []) do
+  def start_cast(mod, pyargs \\ [], msgbox_pid \\ nil) do
+    msgbox_pid = if (msgbox_pid == nil), do: self(), else: msgbox_pid
     {:ok, pid} = start_link(pyargs)
-    :undefined = Octopod.call(pid, mod, :register_handler, [self()])
+    :undefined = Octopod.call(pid, mod, :register_handler, [msgbox_pid])
     {:ok, pid}
   end
 
