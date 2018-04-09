@@ -1,15 +1,12 @@
-language:
-  - elixir
-  - python
+language: elixir
 elixir:
   - '1.6.4'
-python:
-  - 3.4
-  - 3.5
-  - 3.6
 otp_release:
   - '19.3'
 before_install:
   - cd ./Artie/artie/apps/octopod
+  - apt-get install -y python3
+  - apt-get install -y python3-dev
+  - apt-get install -y python3-pip
 script:
   - mix test --color
