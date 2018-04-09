@@ -181,4 +181,22 @@ defmodule OctopodTest do
     :ok = Octopod.stop(pypid0)
     :ok = Octopod.stop(pypid1)
   end
+
+  test "Can Start a Pyctopod Script that Casts to Me" do
+    pypath = Application.app_dir(:octopod, "priv/pyctopod") |> to_charlist()
+    testpath = Application.app_dir(:octopod, "priv/test") |> to_charlist()
+    opts = [{:cd, testpath},
+            {:compressed, 5},
+            {:call_timeout, 60_000},
+            {:start_timeout, 10_000},
+            {:python_path, pypath},
+            {:python, 'python'}
+           ]
+    {:ok, pypid} = Octopod.start_cast(:pyctotest_simple_msg, opts)
+    :ok = Octopod.cast(pypid, {:ok, :go})
+
+    assert_receive({:tester, :test_topic, "This is a Test"}, 20_000)
+
+    :ok = Octopod.stop(pypid)
+  end
 end

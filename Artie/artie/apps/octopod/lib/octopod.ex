@@ -1,6 +1,7 @@
 defmodule Octopod do
   @moduledoc """
-  This module is the API for the library.
+  This module is the lower-level API for the library. To use the higher-level
+  API, see pyctopod.ex.
 
   The way this library works is this:
   1. Your elixir application starts a python instance that runs whatever python code
@@ -51,10 +52,16 @@ defmodule Octopod do
     iex> is_pid(pid)
     true
 
+    iex> privpath = [:code.priv_dir(:octopod), "pyctopod"] |> Path.join() |> to_charlist()
+    iex> {:ok, pid} = Octopod.start_cast(:pyctopod, [{:cd, privpath}])
+    iex> is_pid(pid)
+    true
+
   """
-  def start_cast(mod, pyargs \\ []) do
+  def start_cast(mod, pyargs \\ [], msgbox_pid \\ nil) do
+    msgbox_pid = if (msgbox_pid == nil), do: self(), else: msgbox_pid
     {:ok, pid} = start_link(pyargs)
-    :undefined = Octopod.call(pid, mod, :register_handler, [self()])
+    :undefined = Octopod.call(pid, mod, :register_handler, [msgbox_pid])
     {:ok, pid}
   end
 
