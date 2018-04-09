@@ -110,6 +110,10 @@ def _consume():
                 threading.Thread(target=handler, args=(from_id, topic, msg)).start()
         except queue.Empty:
             return
+        except KeyError as e:
+            print(e)
+            print("Could not find key {} in {}".format(topic, _topic_handlers))
+            raise
 
 
 ## Erlport API: Don't use this in client modules
@@ -132,9 +136,9 @@ def _handle_message(msg):
         threading.Thread(target=_main_func).start()
     else:
         from_id, topic, msg_payload = msg  # Will throw an error here if msg is not formatted correctly
-        from_id = from_id.decode('utf8')
-        topic = from_id.decode('utf8')
-        _msgq.add((from_id, topic, msg_payload))
+        from_id = str(from_id).lstrip('b').strip("'")
+        topic = str(topic).lstrip('b').strip("'")
+        _msgq.put((from_id, topic, msg_payload))
 
 # Register the handler function with Elixir
 set_message_handler(_handle_message)
