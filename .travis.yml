@@ -1,7 +1,15 @@
-language: elixir
+language:
+  - elixir
+  - python
 elixir:
   - '1.6.4'
+python:
+  - 3.4
+  - 3.5
+  - 3.6
 otp_release:
   - '19.3'
+before_install:
+  - ./test_install.sh
 script:
   - ./test.sh
