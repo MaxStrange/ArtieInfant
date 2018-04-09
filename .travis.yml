@@ -14,5 +14,9 @@ before_install:
     export MIX_ARCHIVES=$HOME/.kiex/mix/elixir-1.6.4' > $HOME/.kiex/elixirs/elixir-1.6.4.env
 # - kiex use 1.6.4
   - cd ./Artie/artie/apps/octopod
+  - mix local
+  - mix local.rebar --force
+  - mix local.hex --force
+  - mix deps.get
 script:
   - mix test --color
