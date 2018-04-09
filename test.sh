@@ -1,3 +1,3 @@
 #!/bin/bash
-cd ./Artie/artie
+cd ./Artie/artie/apps/octopod
 mix test --color
