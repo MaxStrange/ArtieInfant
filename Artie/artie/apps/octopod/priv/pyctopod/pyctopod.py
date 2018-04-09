@@ -6,12 +6,17 @@ publisher/subscriber interactions through this module.
 """
 import queue
 import threading
+import time
 from erlport.erlang import set_message_handler, cast
 from erlport.erlterms import Atom
 
+## A horrible number of globals... Ugh.
 _msg_handling_pid = None
 _msgq = queue.Queue()
 _main_func = None
+_topic_handlers = {}
+_consumption_thread = None
+
 
 ## Client-Facing API
 
@@ -37,7 +42,27 @@ def register_handler(pid):
     _msg_handling_pid = pid
 
 def subscribe(topics, handlers):
-    pass
+    """
+    Subscribes to each topic in `topics` (which may be a single
+    str). Whenever a message is received from a topic, the
+    associated handler is called - the handlers are associated
+    with the topics based purely on order: topic0 -> handler0.
+
+    The handlers are functions that take 'from_id', 'topic', msg.
+    The handlers are called asynchronously, two messages received
+    on the same topic will both fire without having to finish one.
+    """
+    if type(topics) == str:
+        topics = [topics]
+
+    global _topic_handlers
+    for topic, handler in zip(topics, handlers):
+        _topic_handlers[topic] = handler
+
+    global _consumption_thread
+    if _consumption_thread is None:
+        _consumption_thread = threading.Thread(target=_consume)
+        _consumption_thread.start()
 
 def publish(topics, msg, from_id='default'):
     """
@@ -57,10 +82,34 @@ def publish(topics, msg, from_id='default'):
     except TypeError:
         topics = [Atom(topics.encode('utf8'))]
 
-
     id_as_atom = Atom(from_id.encode('utf8'))
     for topic in topics:
         cast(_msg_handling_pid, (id_as_atom, topic, msg))
+
+
+def _consume():
+    """
+    Sits around waiting for messages from Elixir. Expects a
+    keepalive message to the :priv_keepalive topic at least
+    once every a minute, otherwise exits.
+
+    Spawns a new thread every time a new message is received
+    on a topic that has a handler associated with it.
+    """
+    keepalive_interval = 30
+    start = time.time()
+    while True:
+        if time.time() - start > keepalive_interval:
+            return
+        try:
+            from_id, topic, msg = _msgq.get(timeout=keepalive_interval)
+            if topic == "priv_keepalive":
+                start = time.time()
+            else:
+                handler = _topic_handlers[topic]
+                threading.Thread(target=handler, args=(from_id, topic, msg)).start()
+        except queue.Empty:
+            return
 
 
 ## Erlport API: Don't use this in client modules
@@ -81,6 +130,11 @@ def _handle_message(msg):
     signal = (Atom("ok".encode('utf8')), Atom("go".encode('utf8')))
     if msg == signal:
         threading.Thread(target=_main_func).start()
+    else:
+        from_id, topic, msg_payload = msg  # Will throw an error here if msg is not formatted correctly
+        from_id = from_id.decode('utf8')
+        topic = from_id.decode('utf8')
+        _msgq.add((from_id, topic, msg_payload))
 
 # Register the handler function with Elixir
 set_message_handler(_handle_message)
