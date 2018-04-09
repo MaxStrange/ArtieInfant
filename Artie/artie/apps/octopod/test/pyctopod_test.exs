@@ -14,4 +14,17 @@ defmodule PyctopodTest do
 
     :ok = Pyctopod.stop(pypid)
   end
+
+  test "Can Spawn Two Processes" do
+    {:ok, pypid0} = Pyctopod.start(:pyctotest, self())
+    {:ok, pypid1} = Pyctopod.start(:pyctotest, self())
+
+    Process.sleep(1)
+
+    :ok = Pyctopod.stop(pypid0)
+    :ok = Pyctopod.stop(pypid1)
+  end
+
+  #test "Can Publish a Message from A to B" do
+  #end
 end
