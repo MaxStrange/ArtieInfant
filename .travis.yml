@@ -20,4 +20,4 @@ before_install:
   - mix deps.get
   - export ERLPORT_PYTHON=python3
 script:
-  - mix test --color
+  - mix test --color --exclude remote:true

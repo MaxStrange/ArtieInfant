@@ -51,6 +51,7 @@ defmodule PyctopodTest do
     :ok = Pyctopod.stop(pypid1)
   end
 
+  @tag :remote
   test "Can Publish a Message from A to B on Remote Host using PubSub" do
     hostname = :"foo@localhost"
     {:ok, _pid} = Node.start(hostname)
@@ -119,6 +120,7 @@ defmodule PyctopodTest do
     :ok = Pyctopod.stop(pypid1)
   end
 
+  @tag :lengthy
   @tag timeout: 200_000
   test "Pyctopod Does Not Exit While Elixir is Still Around" do
     {:ok, pypid0} = Pyctopod.start(:pyctotest_keepalive_receiver)
