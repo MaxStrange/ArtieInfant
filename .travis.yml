@@ -18,5 +18,6 @@ before_install:
   - mix local.rebar --force
   - mix local.hex --force
   - mix deps.get
+  - export ERLPORT_PYTHON=python3
 script:
   - mix test --color
