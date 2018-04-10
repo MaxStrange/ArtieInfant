@@ -73,9 +73,10 @@ def subscribe(topics, handlers):
         _consumption_thread = threading.Thread(target=_consume)
         _consumption_thread.start()
 
-    topic_as_atom = Atom(topic.encode('utf8'))
-    atom_subscribe = Atom("subscribe".encode('utf8'))
-    cast(_msg_handling_pid, (atom_subscribe, topic_as_atom))
+    for topic in topics:
+        topic_as_atom = Atom(topic.encode('utf8'))
+        atom_subscribe = Atom("subscribe".encode('utf8'))
+        cast(_msg_handling_pid, (atom_subscribe, topic_as_atom))
 
 def publish(topics, msg, from_id='default'):
     """

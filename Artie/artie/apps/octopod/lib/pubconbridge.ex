@@ -11,40 +11,85 @@ defmodule PubConBridge do
   Starts the bridge. `testpid` is a pid to eavesdrop on all
   messages published to :test.
   """
-  def start(pyctopid, testpid \\ nil) do
+  def start(pyctopid, testpid \\ nil, eavesdropper_pid \\ nil) do
     testpid = if (testpid == nil), do: self(), else: testpid
-    pid = spawn fn -> loop(pyctopid, [], testpid) end
+    pid = spawn fn -> loop(pyctopid, [], testpid, eavesdropper_pid) end
     {:ok, pid}
   end
 
-  defp loop(pyctopid, pids, testpid) do
+  defp loop(pyctopid, pids, testpid, eavesdropper_pid) do
     {pyctopid, pids} =
       receive do
         {from, :test, msg} ->
-          # For testing purposes - we listen to the test topic on our test process
-          send(testpid, {from, :test, msg})
-          # Since :test is a perfectly valid topic name, we will also pass it on
-          PubSub.publish(:test, {from, msg})
+          handle_clause({from, :test, msg}, testpid, eavesdropper_pid)
           {pyctopid, pids}
         {from, topic, msg} ->
-          PubSub.publish(topic, {from, msg})
+          handle_clause({from, topic, msg}, eavesdropper_pid)
           {pyctopid, pids}
         {:subscribe, topic} ->
-          pid = spawn_link fn -> subscribe(pyctopid, topic) end
-          PubSub.subscribe(pid, topic)
+          pid = handle_clause({:subscribe, topic}, pyctopid, eavesdropper_pid)
           {pyctopid, [pid | pids]}
         {:pyctopid, pid} ->
-          Enum.each(pids, &(send &1, {:pyctopid, pid})) # update all topics with new pyctopid
+          handle_clause({:pyctopid, pid}, pids, eavesdropper_pid)
           {pid, pids}
         other ->
-          IO.puts "Got unexpected message: #{inspect other}"
+          handle_clause(other)
           {pyctopid, pids}
       after
         5_000 ->
           Pyctopod.write_to_python(pyctopid, :keepalive, :priv_keepalive, 'keepalive')
           {pyctopid, pids}
       end
-    loop(pyctopid, pids, testpid)
+    loop(pyctopid, pids, testpid, eavesdropper_pid)
+  end
+
+  defp handle_clause({from, :test, msg}, testpid, eavesdropper_pid) do
+    ## Outdated test clause - superceded by the eavesdropper
+
+    # For testing purposes - we listen to the test topic on our test process
+    send(testpid, {from, :test, msg})
+
+    # Send the eavesdropper a msg
+    if (eavesdropper_pid != nil), do: send eavesdropper_pid, {from, :test, msg}
+
+    # Since :test is a perfectly valid topic name, we will also pass it on
+    PubSub.publish(:test, {from, msg})
+  end
+
+  defp handle_clause({:subscribe, topic}, pyctopid, eavesdropper_pid) do
+    ## Alert the PubSub module that our python instance wants to subscribe to topic
+
+    # Eavesdrop
+    if (eavesdropper_pid != nil), do: send eavesdropper_pid, {:subscribe, topic}
+
+    pid = spawn_link fn -> subscribe(pyctopid, topic) end
+    PubSub.subscribe(pid, topic)
+
+    pid
+  end
+
+  defp handle_clause({:pyctopid, pid}, pids, eavesdropper_pid) do
+    ## Update the pid for python communication
+
+    # Eavesdrop
+    if (eavesdropper_pid != nil), do: send eavesdropper_pid, {:pyctopid, pid}
+
+    Enum.each(pids, &(send &1, {:pyctopid, pid})) # update all topics with new pyctopid
+  end
+
+  defp handle_clause({from, topic, msg}, eavesdropper_pid) do
+    ## This is the workhorse clause - it publishes the given msg to the given topic
+
+    # Eavesdrop
+    if (eavesdropper_pid != nil), do: send eavesdropper_pid, {from, topic, msg}
+
+    PubSub.publish(topic, {from, msg})
+  end
+
+  defp handle_clause(other) do
+    ## Catchall
+
+    IO.puts "Got unexpected message: #{inspect other}"
   end
 
   defp subscribe(pyctopid, topic) do
