@@ -14,7 +14,6 @@ defmodule Pyctopod do
          {:call_timeout, :infinity},
          {:start_timeout, 10_000},
          {:python_path, @pypath},
-         {:python, 'python3'}
         ]
 
   # Client API
