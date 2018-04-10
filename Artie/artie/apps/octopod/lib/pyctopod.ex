@@ -33,10 +33,10 @@ defmodule Pyctopod do
     true
 
   """
-  def start(mod, msgbox_pid \\ nil) do
-    # Start up the publisher to consumer bridge
+  def start(mod, msgbox_pid \\ nil, eavesdropper_pid \\ nil) do
+    # Start up the publisher-to-consumer bridge
     # self() is wrong - it needs to be updated to pyctopid
-    {:ok, pub_to_con_bridge} = PubConBridge.start(self(), self())
+    {:ok, pub_to_con_bridge} = PubConBridge.start(self(), self(), eavesdropper_pid)
 
     # If we are testing, we may take the messages ourselves
     msgbox_pid = if (msgbox_pid == nil), do: pub_to_con_bridge, else: msgbox_pid
