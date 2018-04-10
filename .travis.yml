@@ -1,7 +1,22 @@
-language: elixir
-elixir:
-  - '1.6.4'
-otp_release:
-  - '19'
+language: python
+python:
+  - '3.5'
+before_install:
+  - wget -o $HOME/erlang.tar.bz2 https://s3.amazonaws.com/travis-otp-releases/binaries/ubuntu/14.04/x86_64/erlang-19.3-nonroot.tar.bz2
+  - mkdir -p ~/otp && tar -xf erlang-19.3-nonroot.tar.bz2 -C ~/otp/
+  - mkdir -p ~/.kerl
+  - echo '19.3,19.3' >> ~/.kerl/otp_builds
+  - echo '19.3 $HOME/otp/19.3' >> ~/.kerl/otp_builds
+  - source $HOME/otp/19.3/activate
+  - wget https://repo.hex.pm/builds/elixir/v1.6.4-otp-19.zip
+  - echo 'export ELIXIR_VERSION=1.6.4
+    export PATH=$HOME/.kiex/elixirs/elixir-1.6.4/bin:$PATH
+    export MIX_ARCHIVES=$HOME/.kiex/mix/elixir-1.6.4' > $HOME/.kiex/elixirs/elixir-1.6.4.env
+# - kiex use 1.6.4
+  - cd ./Artie/artie/apps/octopod
+  - mix local
+  - mix local.rebar --force
+  - mix local.hex --force
+  - mix deps.get
 script:
-  - ./test.sh
+  - mix test --color

@@ -1,4 +1,6 @@
 # ArtieInfant
+[![Build Status](https://travis-ci.org/MaxStrange/ArtieInfant.svg?branch=master)](https://travis-ci.org/MaxStrange/ArtieInfant)
+
 Simulated Infant Babbling
 
 This is the deliverable for my Master's thesis at the University of Washington, Bothell.
