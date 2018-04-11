@@ -61,6 +61,7 @@ defmodule PyctopodTest do
     _pypid1 = Node.spawn_link(hostname, fn -> Pyctopod.start(:pyctotest_pub_one_msg) end)
 
     assert_receive({:pyctotest_consume, :test, "This is a Test FROM PYTHON!"}, 30_000)
+    Node.stop()
   end
 
   test "Can Publish a Message from A to B and C using PubSub" do
@@ -179,7 +180,7 @@ defmodule PyctopodTest do
 
   test "Can Add to Python Path" do
     path = Application.app_dir(:octopod, "priv")
-    {:ok, pypid} = Pyctopod.start(:pyctotest_simple_msg_dif_loc, self(), nil, [python_path: path])
+    {:ok, pypid} = Pyctopod.start(:pyctotest_simple_msg_dif_loc, self(), nil, [python_path: [path]])
 
     assert_receive({:tester, :test_topic, "This is a Test"}, 5_000)
 
