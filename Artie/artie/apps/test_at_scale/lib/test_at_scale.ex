@@ -1,6 +1,5 @@
 defmodule TestAtScale do
   @moduledoc """
-  Documentation for TestAtScale.
   """
 
   @doc """

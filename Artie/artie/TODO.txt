@@ -1,5 +1,0 @@
-Add mix tasks:
-* Starting kafka broker's processes:
-    - kafka_2.12-1.0.0/bin/zookeeper-server-start.sh kafkonfig/zookeeper.properties
-    - kafka-manager-1.3.3.16/bin/kafka-manager
-    - kafka_2.12-1.0.0/bin/kafka-server-start.sh kafkonfig/server.properties
