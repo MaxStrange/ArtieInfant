@@ -115,12 +115,12 @@ def _download(target_path, name, url):
     path = target_path + "/" + name
     os.makedirs(path, exist_ok=True)
 
-#   # Download the playlist to that directory
-#   print("  |-> Executing youtube-dl on the playlist...")
-#   dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G "\
-#                + url + " -o " + path + "/%(title)s-%(id)s.%(ext)s"
-#   subprocess.run(dl_command.split(' '))
-#   # Don't check result, who knows what youtube-dl returns
+    # Download the playlist to that directory
+    print("  |-> Executing youtube-dl on the playlist...")
+    dl_command = "youtube-dl --extract-audio --audio-format wav --yes-playlist --ignore-errors --max-filesize 3G "\
+                 + url + " -o " + path + "/%(title)s-%(id)s.%(ext)s"
+    subprocess.run(dl_command.split(' '))
+    # Don't check result, who knows what youtube-dl returns
     return path
 
 
@@ -138,14 +138,14 @@ if __name__ == "__main__":
     for name, url in names_and_urls:
         print("Working on playlist:", name)
         path = _download(target_path, name, url)
-        #print("  |-> Path to process:", path)
-        #_process_downloaded_playlist(path)
+        print("  |-> Path to process:", path)
+        _process_downloaded_playlist(path)
 
-    #print("::::::::::::::::::::::::::")
-    #print(":: Creating test splits ::")
-    #print("::::::::::::::::::::::::::")
-    #names_and_urls = [map(lambda x: x.strip(), line.split(',')) for line in lines if line.strip()]
-    #for name, _url in names_and_urls:
-    #    print("Working on", name)
-    #    _make_test_split(target_path, name)
+    print("::::::::::::::::::::::::::")
+    print(":: Creating test splits ::")
+    print("::::::::::::::::::::::::::")
+    names_and_urls = [map(lambda x: x.strip(), line.split(',')) for line in lines if line.strip()]
+    for name, _url in names_and_urls:
+        print("Working on", name)
+        _make_test_split(target_path, name)
 
