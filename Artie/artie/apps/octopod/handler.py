@@ -7,3 +7,5 @@ def register_handler(dest):
     set_message_handler(handler)
     return Atom("ok")
 
+def does_a_thing():
+    pass

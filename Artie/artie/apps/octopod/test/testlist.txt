@@ -1,7 +1,5 @@
 TODO:
 
-- initialize three python processes and use pubsub to send file from A to B and C
-
 Scale Testing:
 
 - initialize one process on two different nodes

@@ -176,4 +176,13 @@ defmodule PyctopodTest do
     :ok = Pyctopod.stop(pypid1)
     :ok = Pyctopod.stop(pypid2)
   end
+
+  test "Can Add to Python Path" do
+    path = Application.app_dir(:octopod, "priv")
+    {:ok, pypid} = Pyctopod.start(:pyctotest_simple_msg_dif_loc, self(), nil, [python_path: path])
+
+    assert_receive({:tester, :test_topic, "This is a Test"}, 5_000)
+
+    :ok = Pyctopod.stop(pypid)
+  end
 end

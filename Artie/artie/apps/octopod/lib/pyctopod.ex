@@ -31,8 +31,23 @@ defmodule Pyctopod do
     iex> is_pid(pypid)
     true
 
+  Parameters:
+    - mod:              The python module; if it is not in priv/pyctopod, it needs to
+                        be in the python_path. You can add the module to the python_path
+                        by sending in opts.
+    - msgbox_pid:       Used for testing and should probably be deprecated in favor of
+                        eavesdropper_pid.
+    - eavesdropper_pid: A testing device for listening in on any messages published.
+    - opts:             A keyword list that may include:
+                        compressed: An integer value between 1 and 10 to specify how
+                        much compression to attempt on messages. Defaults to 5.
+                        call_timeout: A timeout (or :infinity - the default) for calling
+                        python functions.
+                        start_timeout: A timeout (or :infinity) for starting python
+                        processes. Defaults to 10_000 (10 seconds).
+                        python_path: A list of strings to include in the python path.
   """
-  def start(mod, msgbox_pid \\ nil, eavesdropper_pid \\ nil) do
+  def start(mod, msgbox_pid \\ nil, eavesdropper_pid \\ nil, opts \\ nil) do
     # Start up the publisher-to-consumer bridge
     # self() is wrong - it needs to be updated to pyctopid
     {:ok, pub_to_con_bridge} = PubConBridge.start(self(), self(), eavesdropper_pid)
@@ -40,7 +55,8 @@ defmodule Pyctopod do
     # If we are testing, we may take the messages ourselves
     msgbox_pid = if (msgbox_pid == nil), do: pub_to_con_bridge, else: msgbox_pid
 
-    {:ok, pid} = GenServer.start_link(__MODULE__, [mod, msgbox_pid])
+    opts = update_default_opts(opts)
+    {:ok, pid} = GenServer.start_link(__MODULE__, [mod, msgbox_pid, opts])
 
     # Alert the bridge to the python process pid
     send pub_to_con_bridge, {:pyctopid, pid}
@@ -49,6 +65,24 @@ defmodule Pyctopod do
     Process.sleep(2_000)
     Octopod.cast(pid, {:ok, :go})
     {:ok, pid}
+  end
+
+  # Updates @opts to include any new opts passed in by the user.
+  defp update_default_opts(nil) do
+    @opts
+  end
+  defp update_default_opts(opts) do
+    opts =
+    if Keyword.has_key?(opts, :python_path) do
+      pypath = Keyword.get_values(@opts, :python_path)
+      opts_pypath = Keyword.get_values(opts, :python_path) |> Enum.map(&(String.to_charlist(&1)))
+      pypath = [pypath | opts_pypath]
+      Keyword.put(opts, :python_path, pypath)
+    else
+      opts
+    end
+    # Other than :python_path, the values should just get overridden
+    Keyword.merge(@opts, opts)
   end
 
   @doc """
@@ -74,9 +108,9 @@ defmodule Pyctopod do
 
   # Server (callbacks)
 
-  def init([module, msgbox_pid]) do
+  def init([module, msgbox_pid, opts]) do
     PubSub.start_link()
-    Octopod.start_cast(module, @opts, msgbox_pid)
+    Octopod.start_cast(module, opts, msgbox_pid)
   end
 
   def handle_call({mod, func, args}, _from, session) do
