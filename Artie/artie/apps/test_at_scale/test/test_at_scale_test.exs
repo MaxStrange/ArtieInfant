@@ -1,6 +1,7 @@
 defmodule TestAtScaleTest do
   use ExUnit.Case
   doctest TestAtScale
+  @moduletag :remote
 
   @hostname :"foo@localhost"
 

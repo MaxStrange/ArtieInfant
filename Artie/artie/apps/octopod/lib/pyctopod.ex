@@ -72,10 +72,14 @@ defmodule Pyctopod do
     @opts
   end
   defp update_default_opts(opts) do
-    if Keyword.has_value?(opts, :python_path) do
+    opts =
+    if Keyword.has_key?(opts, :python_path) do
       pypath = Keyword.get_values(@opts, :python_path)
-      pypath = [pypath | Keyword.get_values(opts, :python_path)]
-      opts = Keyword.put(opts, :python_path, pypath)
+      opts_pypath = Keyword.get_values(opts, :python_path) |> Enum.map(&(String.to_charlist(&1)))
+      pypath = [pypath | opts_pypath]
+      Keyword.put(opts, :python_path, pypath)
+    else
+      opts
     end
     # Other than :python_path, the values should just get overridden
     Keyword.merge(@opts, opts)
