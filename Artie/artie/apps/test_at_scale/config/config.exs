@@ -20,6 +20,8 @@ use Mix.Config
 #
 #     config :logger, level: :info
 #
+config :test_at_scale,
+  nodelist: [:"pi100@pi100", :"pi101@pi101", :"pi102@pi102", :"pi103@pi103"]
 
 # It is also possible to import configuration files, relative to this
 # directory. For example, you can emulate configuration per environment
