@@ -13,11 +13,11 @@ before_install:
     export PATH=$HOME/.kiex/elixirs/elixir-1.6.4/bin:$PATH
     export MIX_ARCHIVES=$HOME/.kiex/mix/elixir-1.6.4' > $HOME/.kiex/elixirs/elixir-1.6.4.env
 # - kiex use 1.6.4
-  - cd ./Artie/artie/apps/octopod
+  - cd ./Artie/artie
   - mix local
   - mix local.rebar --force
   - mix local.hex --force
   - mix deps.get
   - export ERLPORT_PYTHON=python3
 script:
-  - mix test --color --exclude remote:true
+  - mix test --color --exclude remote:true --exclude manual:true
