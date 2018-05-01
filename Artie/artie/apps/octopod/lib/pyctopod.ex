@@ -56,7 +56,6 @@ defmodule Pyctopod do
     msgbox_pid = if (msgbox_pid == nil), do: pub_to_con_bridge, else: msgbox_pid
 
     opts = update_default_opts(opts)
-    IO.puts "Starting Server with module #{inspect mod}, msgbox_pid #{inspect msgbox_pid}, and opts #{inspect opts}"
     {:ok, pid} = GenServer.start_link(__MODULE__, [mod, msgbox_pid, opts])
 
     # Alert the bridge to the python process pid
@@ -78,7 +77,6 @@ defmodule Pyctopod do
       pypath = Keyword.get_values(@opts, :python_path) |> Enum.at(0)
       opts_pypath = Keyword.get_values(opts, :python_path) |> Enum.at(0) |> Enum.map(&(String.to_charlist(&1)))
       pypath = pypath ++ opts_pypath
-      IO.puts "Pypath: #{inspect pypath}"
       Keyword.put(opts, :python_path, pypath)
     else
       opts

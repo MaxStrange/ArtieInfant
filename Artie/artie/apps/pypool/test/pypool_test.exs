@@ -84,7 +84,7 @@ defmodule PypoolTest do
                      Pypool.execute_in_python(@masternode, :testmod, :count, [f], opts))
           end)
 
-    assert_next_receive(^n, 20_000)
+    assert_next_receive(^n, 30_000)
     assert_next_receive(^f, 1_000)
 
     Pypool.stop(pid)
