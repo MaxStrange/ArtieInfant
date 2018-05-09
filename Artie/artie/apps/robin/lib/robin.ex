@@ -12,9 +12,9 @@ defmodule Robin do
 
   Parameters:
     - nodelist:   A list of nodes to execute loopfunc on
-    - loopfunc:   The function that will run each node (must be the same function and
+    - loopfunc:   The function that will run on each node (must be the same function and
                   must loop forever waiting for whatever messages you plan on sending
-                  through Robin.call() and Robin.cast(); it needs to take a pid as an
+                  through Robin.call() and Robin.cast(); it needs to take a pid and a node as an
                   argument and return value to that pid whenever a call is used on it).
   """
   def start_link(nodelist, loopfunc) do
@@ -47,7 +47,7 @@ defmodule Robin do
   end
 
 
-  ################# Callbacks ################# 
+  ################# Callbacks #################
 
   def init({[], _}) do
     {:stop, :no_nodes}
@@ -98,7 +98,7 @@ defmodule Robin do
   end
 
 
-  ################# Helpers ################# 
+  ################# Helpers #################
 
   defp start_loop_on_node(n, func) do
     me = self()

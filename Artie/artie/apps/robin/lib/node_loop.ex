@@ -14,7 +14,7 @@ defmodule Robin.NodeLoop do
   end
 
 
-  ################# Callbacks ################# 
+  ################# Callbacks #################
 
   def init({robin_pid, func}) do
     me = self()
