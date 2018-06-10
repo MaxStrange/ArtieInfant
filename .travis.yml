@@ -23,3 +23,5 @@ before_install:
   - export ERLPORT_PYTHON=python3
 script:
   - mix test --color --exclude remote:true --exclude manual:true
+  - cd ../senses/dataprovider/tests
+  - python -m unittest discover

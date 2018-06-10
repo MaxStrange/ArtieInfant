@@ -30,15 +30,27 @@ use Mix.Config
 #     import_config "#{Mix.env}.exs"
 
 config :artie_main,
-  nodenames: [:"master@localhost", :"pi100@pi100"],
-  function_node_map:
+  nodenames: [:"master@localhost"],
+  function_node_mape:
   %{
     :load_from_file => [:"master@localhost"],
-    :remove_silence => [:"pi100@pi100"],
+    :remove_silence => [:"master@localhost"],
   },
   func_to_pymf:
   %{
     :load_from_file => {:audiosegment, :from_file},
     :remove_silence => {:pyaudio_wrapper, :remove_silence}
   }
+#config :artie_main,
+#  nodenames: [:"master@localhost", :"pi100@pi100"],
+#  function_node_map:
+#  %{
+#    :load_from_file => [:"master@localhost"],
+#    :remove_silence => [:"pi100@pi100"],
+#  },
+#  func_to_pymf:
+#  %{
+#    :load_from_file => {:audiosegment, :from_file},
+#    :remove_silence => {:pyaudio_wrapper, :remove_silence}
+#  }
 config :logger, handle_otp_reports: true, handle_sasl_reports: true, level: :warn
