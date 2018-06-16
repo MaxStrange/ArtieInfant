@@ -14,8 +14,16 @@ defmodule Pypool do
   This is the entry point to the Pypool library. It takes an optional configuration
   for Poolboy, especially important is the maximum number of workers.
   """
-  def start_link(nodename, size \\ 5, max_overflow \\ 2, strategy \\ :lifo) do
-    Supervisor.start_link(__MODULE__, {nodename, size, max_overflow, strategy})
+  def start_link(nodename, size \\ 5, max_overflow \\ 2, strategy \\ :lifo, name \\ nil) do
+    name =
+      if name == nil do
+        str = Node.self() |> Atom.to_string()
+        name = str <> "_PypoolSupervisor"
+        name |> String.to_atom()
+      else
+        name
+      end
+    Supervisor.start_link(__MODULE__, {nodename, size, max_overflow, strategy}, name: name)
   end
 
   @doc """
@@ -56,7 +64,7 @@ defmodule Pypool do
   end
 
 
-  ############ Callbacks ############ 
+  ############ Callbacks ############
 
   def init ({nodename, size, max_overflow, strategy}) do
     poolboy_config = [
