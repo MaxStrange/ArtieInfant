@@ -2,7 +2,7 @@
 This module is responsible for yielding data in the form
 that wil be used in a pipeline or ML model.
 """
-import dataprovider
+import senses.dataproviders.dataprovider as dataprovider
 import numpy as np
 
 class FeatureProvider:
@@ -36,12 +36,15 @@ class FeatureProvider:
         :param label_fn:        Function of the signature fn(fpath) -> numeric label
         :param file_batchsize:  The number of files to batch before creating AudioSegments from them
                                 at random.
-        :yields:                n tuples of the form (label, audio_samples)
+        :yields:                n tuples of the form (audio_samples, label)
         """
+        if n is not None and n <= 0:
+            return
+
         for seg in self.dp.generate_n_segments(n=n, ms=ms, batchsize=file_batchsize):
             label = label_fn(seg.name)
             samples = seg.get_array_of_samples()
-            yield label, samples
+            yield samples, label
 
     def generate_n_ffts(self, n, ms, label_fn, file_batchsize=10, normalize=True):
         """
@@ -61,15 +64,18 @@ class FeatureProvider:
         :param file_batchsize:  The number of files to batch before creating AudioSegments from them
                                 at random.
         :param normalize:       Maps the histogram values to between 0.0 and 1.0.
-        :yields:                n tuples of the form (label, FFT)
+        :yields:                n tuples of the form (FFT, label)
         """
+        if n is not None and n <= 0:
+            return
+
         for seg in self.dp.generate_n_segments(n=n, ms=ms, batchsize=file_batchsize):
             label = label_fn(seg.name)
             _hist_bins, hist_vals = seg.fft()
             real_normed = np.abs(hist_vals) / len(hist_vals)
             if normalize:
                 real_normed = (real_normed - min(real_normed)) / (max(real_normed) + 1E-9)
-            yield label, real_normed
+            yield real_normed, label
 
     def generate_n_spectrograms(self, n, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5):
         """
@@ -91,8 +97,11 @@ class FeatureProvider:
         :param normalize:       Maps the histogram values to between 0.0 and 1.0.
         :param window_length_ms: The length of time to accumulate for each FFT. If None, we take 1/100 of the time.
         :param overlap:         The fraction to overlap each FFT.
-        :yields:                n tuples of the form (label, Spectrogram)
+        :yields:                n tuples of the form (spectrogram, label)
         """
+        if n is not None and n <= 0:
+            return
+
         if window_length_ms is None:
             window_length_ms = ms / 10
         for seg in self.dp.generate_n_segments(n=n, ms=ms, batchsize=file_batchsize):
@@ -102,7 +111,7 @@ class FeatureProvider:
             if normalize:
                 amplitudes_real_normed = np.apply_along_axis(lambda v: (v - min(v)) / (max(v) + 1E-9), 1, amplitudes_real_normed)
 
-            yield label, amplitudes_real_normed
+            yield amplitudes_real_normed, label
 
     def generate_n_sequence_batches(self, n, batchsize, ms, label_fn, file_batchsize=10):
         """
@@ -115,14 +124,23 @@ class FeatureProvider:
         :param ms:              The length of the AudioSegments that will be transformed.
         :param label_fn:        Function of the signature fn(fpath) -> numeric label
         :param file_batchsize:  The number of files to batch before creating AudioSegments from them at random.
-        :yields:                Up to n tuples of the form (label, batch), where batch is shaped: (batchsize, nsamples_of_audio_data)
+        :yields:                Up to n tuples of the form (batch, labels), where batch is shaped: (batchsize, nsamples_of_audio_data)
         """
+        if n is not None and n <= 0:
+            return
+        if batchsize <= 0:
+            return
+
         nbatches_so_far = 0
-        while nbatches_so_far < n:
+        while n is not None and nbatches_so_far < n:
             raw_batch = [tup for tup in self.generate_n_sequences(n=batchsize, ms=ms, label_fn=label_fn, file_batchsize=file_batchsize)]
-            sequences = np.reshape(np.array([seq for _label, seq in raw_batch]), (batchsize, -1))
-            labels = np.array([label for label, _seq in raw_batch])
-            yield labels, sequences
+            if n is not None and not raw_batch:
+                return
+            elif n is None and not raw_batch:
+                continue
+            sequences = np.reshape(np.array([seq for seq, _label in raw_batch]), (batchsize, -1))
+            labels = np.array([label for _seq, label in raw_batch])
+            yield sequences, labels
             nbatches_so_far += 1
 
     def generate_n_fft_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, normalize=True):
@@ -137,14 +155,23 @@ class FeatureProvider:
         :param label_fn:        Function of the signature fn(fpath) -> numeric label
         :param file_batchsize:  The number of files to batch before creating AudioSegments from them at random.
         :param normalize:       Maps the histograms to between 0.0 and 1.0.
-        :yields:                Up to n tuples of the form (label, batch), where batch is shaped: (batchsize, num_bins)
+        :yields:                Up to n tuples of the form (batch, labels), where batch is shaped: (batchsize, num_bins)
         """
+        if n is not None and n <= 0:
+            return
+        if batchsize <= 0:
+            return
+
         nbatches_so_far = 0
-        while nbatches_so_far < n:
+        while n is not None and nbatches_so_far < n:
             raw_batch = [tup for tup in self.generate_n_ffts(n=batchsize, ms=ms, label_fn=label_fn, file_batchsize=file_batchsize, normalize=normalize)]
-            ffts = np.reshape(np.array([fft for _label, fft in raw_batch]), (batchsize, -1))
-            labels = np.array([label for label, _fft in raw_batch])
-            yield labels, ffts
+            if n is not None and not raw_batch:
+                return
+            elif n is None and not raw_batch:
+                continue
+            ffts = np.reshape(np.array([fft for fft, _label in raw_batch]), (batchsize, -1))
+            labels = np.array([label for _fft, label in raw_batch])
+            yield ffts, labels
             nbatches_so_far += 1
 
     def generate_n_spectrogram_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5):
@@ -162,21 +189,23 @@ class FeatureProvider:
         :param normalize:       Maps the histogram values to between 0.0 and 1.0.
         :param window_length_ms: The length of time to accumulate for each FFT. If None, we take 1/100 of the time.
         :param overlap:         The fraction to overlap each FFT.
-        :yields:                Up to n tuples of the form (label, batch), where each batch is shaped: (batchsize, nfbins, ntbins)
+        :yields:                Up to n tuples of the form (batch, label), where each batch is shaped: (batchsize, nfbins, ntbins)
         """
-        if n <= 0:
+        if n is not None and n <= 0:
             return
         if batchsize <= 0:
             return
 
         nbatches_so_far = 0
-        while nbatches_so_far < n:
+        while n is not None and nbatches_so_far < n:
             raw_batch = [tup for tup in self.generate_n_spectrograms(batchsize, ms, label_fn, file_batchsize=file_batchsize, normalize=normalize, window_length_ms=window_length_ms, overlap=overlap)]
-            if not raw_batch:
+            if n is not None and not raw_batch:
                 return
-            nfreqbins = raw_batch[0][1].shape[0]
-            ntimebins = raw_batch[0][1].shape[1]
-            specs = np.reshape(np.array([spec for _label, spec in raw_batch]), (batchsize, nfreqbins, ntimebins))
-            labels = np.array([label for label, _spec in raw_batch])
-            yield labels, specs
+            elif n is None and not raw_batch:
+                continue
+            nfreqbins = raw_batch[0][0].shape[0]
+            ntimebins = raw_batch[0][0].shape[1]
+            specs = np.reshape(np.array([spec for spec, _label in raw_batch]), (batchsize, nfreqbins, ntimebins))
+            labels = np.array([label for _spec, label in raw_batch])
+            yield specs, labels
             nbatches_so_far += 1

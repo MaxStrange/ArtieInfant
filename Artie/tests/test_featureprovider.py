@@ -8,7 +8,7 @@ import unittest
 import warnings
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, path)
-import featureprovider as fp
+import senses.dataproviders.featureprovider as fp # pylint: disable=locally-disabled, import-error
 
 class TestFeatureProvider(unittest.TestCase):
     def setUp(self):
@@ -32,18 +32,18 @@ class TestFeatureProvider(unittest.TestCase):
         """
         Tests yielding a single FFT of 45ms.
         """
-        ffts = [(label, f) for label, f in self.provider.generate_n_ffts(n=1, ms=45, label_fn=self._label_fn)]
+        ffts = [(f, label) for f, label in self.provider.generate_n_ffts(n=1, ms=45, label_fn=self._label_fn)]
         self.assertEqual(len(ffts), 1)
-        _label, fft = ffts[0]
+        fft, _label = ffts[0]
         self.assertEqual(fft.shape, (541,))
 
     def test_generate_more_than_one_ffts(self):
         """
         Tests yielding more than one FFT of 34ms each.
         """
-        ffts = [(label, f) for label, f in self.provider.generate_n_ffts(n=2, ms=34, label_fn=self._label_fn)]
+        ffts = [(f, label) for f, label in self.provider.generate_n_ffts(n=2, ms=34, label_fn=self._label_fn)]
         self.assertEqual(len(ffts), 2)
-        for _label, fft in ffts:
+        for fft, _label in ffts:
             self.assertEqual(fft.shape, (409,))
 
     def test_generate_fft_minibatch(self):
@@ -54,7 +54,7 @@ class TestFeatureProvider(unittest.TestCase):
         batches = [batch for batch in self.provider.generate_n_fft_batches(n=5, batchsize=batchsize, ms=45, label_fn=self._label_fn)]
         self.assertEqual(len(batches), 5)
 
-        label_batch, data_batch = batches[0]
+        data_batch, label_batch = batches[0]
         nbins = 541
         self.assertEqual(data_batch.shape, (batchsize, nbins))
 
@@ -72,7 +72,7 @@ class TestFeatureProvider(unittest.TestCase):
         batches = [batch for batch in self.provider.generate_n_sequence_batches(n=n, batchsize=batchsize, ms=ms, label_fn=self._label_fn)]
         self.assertEqual(len(batches), n)
 
-        label_batch, data_batch = batches[0]
+        data_batch, label_batch = batches[0]
         datapoints = int(self.sample_rate * self.nchannels * (ms / 1000))
         self.assertEqual(data_batch.shape, (batchsize, datapoints))
 
@@ -87,15 +87,16 @@ class TestFeatureProvider(unittest.TestCase):
         batchsize = 12
         ms = 340
         n = 3
-        scalefactor = 10
-        window_length = ms / scalefactor 
-        batches = [batch for batch in self.provider.generate_n_spectrogram_batches(n=n, batchsize=batchsize, ms=ms, label_fn=self._label_fn, window_length_ms=window_length)]
+        nwindows = 10
+        window_length_ms = ms / nwindows 
+        overlap = 0.5
+        batches = [batch for batch in self.provider.generate_n_spectrogram_batches(n=n, batchsize=batchsize, ms=ms, label_fn=self._label_fn, window_length_ms=window_length_ms, overlap=overlap)]
         self.assertEqual(len(batches), n)
 
-        label_batch, data_batch = batches[0]
-        ndatapoints = scalefactor * 2 - 1  # with a 50% overlap
+        data_batch, label_batch = batches[0]
+        ntimebins = nwindows * (1/overlap) - 1  # with a 50% overlap
         nbins = 409
-        self.assertEqual(data_batch.shape, (batchsize, nbins, ndatapoints))
+        self.assertEqual(data_batch.shape, (batchsize, nbins, ntimebins))
 
         labels_that_are_ones = np.where(label_batch == 1)[0]
         labels_that_are_zeros = np.where(label_batch == 0)[0]

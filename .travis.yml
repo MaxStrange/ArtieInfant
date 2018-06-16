@@ -29,5 +29,5 @@ before_install:
   - sudo apt-get install sox
 script:
   #- mix test --color --exclude remote:true --exclude manual:true
-  - cd ../senses/dataproviders/tests
+  - cd ../tests
   - python -m unittest discover

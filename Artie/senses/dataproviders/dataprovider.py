@@ -1,8 +1,5 @@
 """
 This module provides functions for getting data out of a directory of WAV files.
-
-Call init() first to cache all the file locations, then call the other API
-functions.
 """
 import audiosegment
 import math
@@ -88,25 +85,33 @@ class DataProvider:
         segs = [s for s in self.generate_n_segments(n=n, ms=ms, batchsize=batchsize)]
         return segs
 
-    def generate_n_segments(self, n, ms, batchsize=10):
-        """
-        Same as `get_n_segments`, but as a generator, rather than returning a whole list.
-        """
+    def _do_generate_n_segments(self, n, ms, batchsize):
+        # Get a random batch of wavs
         wavs = self.get_n_wavs(batchsize)
+
+        # Convert the ms to seconds
         seconds = ms / 1000
+
+        # Chop up all the wavs into segments of `ms` length and add them to the collection of segments to draw from
         segments = []
         for wav in wavs:
             this_wav_segments = wav.dice(seconds, zero_pad=True)
             segments.extend(this_wav_segments)
         self._current_batch.extend(segments)
 
-        # Now go through and cut up any left-over segments from previous calls that are longer than ms
+        # Now go through and cut up any left-over segments from previous calls that are longer than `ms`
         for seg in self._current_batch:
             if not math.isclose(len(seg), ms) and len(seg) > ms:
                 pieces = seg.dice(seconds, zero_pad=True)
                 self._current_batch.extend(pieces)
 
+        # self._current_batch should now be composed of segments that are at most as long as `ms`, though there
+        # might still be some left-over ones that are shorter - we will filter those out as we iterate through
+
+        # Shuffle the batch of segments before iterating through them
         random.shuffle(self._current_batch)
+
+        # Iterate through all the data and release only those that are the right number of `ms`
         for i, seg in enumerate(self._current_batch):
             if i >= n:
                 self._current_batch = self._current_batch[i:]
@@ -116,3 +121,24 @@ class DataProvider:
                 continue
             else:
                 yield seg
+
+    def generate_n_segments(self, n, ms, batchsize=10):
+        """
+        Same as `get_n_segments`, but as a generator, rather than returning a whole list.
+        """
+        if n is None:
+            yielded_some_this_time = True
+            while yielded_some_this_time:
+                items = [item for item in self._do_generate_n_segments(1000, ms, batchsize)]
+                for item in items:
+                    yield item
+                nyielded = len(items)
+                if nyielded > 0:
+                    yielded_some_this_time = False
+        else:
+            yielded_so_far = 0
+            while yielded_so_far < n:
+                items = [item for item in self._do_generate_n_segments(n, ms, batchsize)]
+                for item in items:
+                    yield item
+                yielded_so_far += len(items)

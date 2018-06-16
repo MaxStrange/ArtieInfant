@@ -7,7 +7,7 @@ import unittest
 import warnings
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, path)
-import dataprovider as dp
+import senses.dataproviders.dataprovider as dp # pylint: disable=locally-disabled, import-error
 
 class TestDataProvider(unittest.TestCase):
     def setUp(self):
@@ -117,6 +117,32 @@ class TestDataProvider(unittest.TestCase):
         self.assertEqual(len(segs1), 1)
         segs2 = [s for s in self.provider.generate_n_wavs(n=2)]
         self.assertEqual(len(segs2), 2)
+        segs3 = [s for s in self.provider.generate_n_wavs(n=None)]
+        self.assertEqual(len(segs3), 0)
+
+        self.provider.reset()
+        segs4 = [s for s in self.provider.generate_n_wavs(n=None)]
+        self.assertEqual(len(segs4), 3)
+
+    def test_iterate_through_all_data(self):
+        """
+        Test to make sure n=None iterates through all the data.
+        """
+        wavs = [s for s in self.provider.generate_n_wavs(n=None)]
+        self.assertEqual(len(wavs), 3)
+
+        self.provider.reset()
+        wavs = self.provider.get_n_wavs(n=None)
+        self.assertEqual(len(wavs), 3)
+
+        self.provider.reset()
+        segs = [s for s in self.provider.generate_n_segments(n=None, ms=1000)]
+        self.assertEqual(sum([len(w) for w in wavs]), sum([len(s) for s in segs]))
+
+        self.provider.reset()
+        segs = self.provider.get_n_segments(n=None, ms=1000)
+        self.assertEqual(sum([len(w) for w in wavs]), sum([len(s) for s in segs]))
+
 
 if __name__ == "__main__":
     unittest.main()
