@@ -6,6 +6,9 @@ import math
 import os
 import random
 
+class GeneratorError(Exception):
+    def __init__(self):
+        pass
 
 class DataProvider:
     def __init__(self, root, sample_rate=None, nchannels=None, bytewidth=None):
@@ -22,22 +25,16 @@ class DataProvider:
         self.sample_rate = sample_rate
         self.nchannels = nchannels
         self.bytewidth = bytewidth
-        self.path_cache = set()
+        self.path_cache = []
         for root, _dirnames, fnames in os.walk(self.root):
             root_path = os.path.abspath(root)
             for fname in fnames:
                 fpath = os.path.join(root_path, fname)
                 if os.path.splitext(fname)[-1].lower() == ".wav":
-                    self.path_cache.add(fpath)
+                    self.path_cache.append(fpath)
+        random.shuffle(self.path_cache)
         self._iterator_cache = set()  # We use this to keep track of which files we have already seen
         self._current_batch = []      # This is the current batch of WAV segments; if we ask for larger filebatch than needed, we have leftover
-
-    def reset(self):
-        """
-        Resets the iterator, allowing calls to this class's functions to access segments that it
-        has already seen.
-        """
-        self._iterator_cache.clear()
 
     def get_n_wavs(self, n):
         """
@@ -47,8 +44,19 @@ class DataProvider:
 
         :param n:   The number of AudioSegment objects to return. If n is None, will return everything in the dataset.
         """
-        wavs = [w for w in self.generate_n_wavs(n)]
-        return wavs
+        print("      Attempting to get", n, "wav files...")
+        if n is not None and (n >= len(self.path_cache)):
+            n = None
+        elif n is not None and (len(self._iterator_cache) + n > len(self.path_cache)):
+            n = None
+
+        if len(self.path_cache) == len(self._iterator_cache):
+            print("      Out of files. Returning no wavs")
+            return []
+        else:
+            wavs = [w for w in self.generate_n_wavs(n)]
+            print("      Generated", len(wavs), "wavs (out of attempted", n, ")")
+            return wavs
 
     def generate_n_wavs(self, n):
         """
@@ -58,6 +66,9 @@ class DataProvider:
 
         :param n:   The number of AudioSegment objects to yield at most. If n is None, will return everything in the dataset.
         """
+        if n is not None and (n >= len(self.path_cache)):
+            n = None
+
         n_yielded = 0
         for fpath in self.path_cache:
             if fpath in self._iterator_cache:
@@ -85,25 +96,40 @@ class DataProvider:
         segs = [s for s in self.generate_n_segments(n=n, ms=ms, batchsize=batchsize)]
         return segs
 
-    def _do_generate_n_segments(self, n, ms, batchsize):
+    def _load_next_batch(self, ms, batchsize):
+        print("    Loading a batch into memory. Will draw from", batchsize, "files and will be", ms, "in length")
         # Get a random batch of wavs
         wavs = self.get_n_wavs(batchsize)
+        if not wavs:
+            print("    Out of wav files, so we are out of additional segments")
+            return 0
+        print("    Got", len(wavs), "wav files to load into memory")
 
         # Convert the ms to seconds
         seconds = ms / 1000
 
         # Chop up all the wavs into segments of `ms` length and add them to the collection of segments to draw from
+        print("    Dicing each wav file into", seconds, "seconds long")
         segments = []
         for wav in wavs:
             this_wav_segments = wav.dice(seconds, zero_pad=True)
             segments.extend(this_wav_segments)
+        print("    Cut up all the wavs into", len(segments), "segments")
         self._current_batch.extend(segments)
+        print("    Segment batch length is now", len(self._current_batch))
 
         # Now go through and cut up any left-over segments from previous calls that are longer than `ms`
+        print("    Now cutting up any previous segments that are too big...")
+        to_extend_by = []
         for seg in self._current_batch:
             if not math.isclose(len(seg), ms) and len(seg) > ms:
+                print("      Found one. Length:", len(seg), "but need", ms)
                 pieces = seg.dice(seconds, zero_pad=True)
-                self._current_batch.extend(pieces)
+                print("      Diced into", len(pieces), "pieces")
+                to_extend_by.extend(pieces)
+        print("    Extending the batch by", len(to_extend_by), "pieces")
+        self._current_batch.extend(to_extend_by)
+        print("    Batch of segments is now", len(self._current_batch))
 
         # self._current_batch should now be composed of segments that are at most as long as `ms`, though there
         # might still be some left-over ones that are shorter - we will filter those out as we iterate through
@@ -111,34 +137,59 @@ class DataProvider:
         # Shuffle the batch of segments before iterating through them
         random.shuffle(self._current_batch)
 
-        # Iterate through all the data and release only those that are the right number of `ms`
-        for i, seg in enumerate(self._current_batch):
-            if i >= n:
-                self._current_batch = self._current_batch[i:]
-                break
-            elif not math.isclose(len(seg), ms):
-                # This segment must be a left-over from a previous call with a different number of ms, let's just skip it
-                continue
-            else:
-                yield seg
+        return len(self._current_batch)
+
+    def _do_generate_n_segments(self, n, ms, batchsize):
+        print("  Generating", n, "segments of", ms, "ms from an attempted batchsize of", batchsize, "...")
+        so_far_yielded = 0
+        while self._load_next_batch(ms, batchsize):
+            # Iterate through all the data and release only those that are the right number of `ms`
+            print("  Iterating through the segment batch, which is of length", len(self._current_batch))
+            for i, seg in enumerate(self._current_batch):
+                assert len(seg) <= ms, "Length of segment is {} but expected no greater than {}".format(len(seg), ms)
+                print("  >", i, ":", seg)
+                if n is not None and so_far_yielded >= n:
+                    print("  > Done iterating because we yielded", so_far_yielded, "which is >=", n)
+                    self._current_batch = self._current_batch[i:]
+                    print("  > Have", len(self._current_batch), "left-over segments in the batch")
+                    # If we are out of wav files and out of segments, we need to let the caller know by raising an exception
+                    raise GeneratorError
+                elif not math.isclose(len(seg), ms):
+                    # This segment must be a left-over from a previous call with a different number of ms, let's just skip it
+                    print("    > This segment is not the right length, so skipping it")
+                    continue
+                else:
+                    print("    > Yielding a segment")
+                    yield seg
+                    so_far_yielded += 1
+                    print("    > Have now yielded", so_far_yielded)
+            if n is None:
+                # If we are yielding everything, we should just dump any leftover tiny pieces in the batch
+                self._current_batch = []
+
+        # If we are out of wav files and out of segments, we need to let the caller know by raising an exception
+        raise GeneratorError
 
     def generate_n_segments(self, n, ms, batchsize=10):
         """
         Same as `get_n_segments`, but as a generator, rather than returning a whole list.
         """
         if n is None:
-            yielded_some_this_time = True
-            while yielded_some_this_time:
-                items = [item for item in self._do_generate_n_segments(1000, ms, batchsize)]
-                for item in items:
+            try:
+                for item in self._do_generate_n_segments(None, ms, batchsize):
                     yield item
-                nyielded = len(items)
-                if nyielded > 0:
-                    yielded_some_this_time = False
+            except GeneratorError:
+                pass
         else:
             yielded_so_far = 0
-            while yielded_so_far < n:
-                items = [item for item in self._do_generate_n_segments(n, ms, batchsize)]
-                for item in items:
-                    yield item
-                yielded_so_far += len(items)
+            try:
+                while yielded_so_far < n:
+                    for item in self._do_generate_n_segments(n, ms, batchsize):
+                        yield item
+                        yielded_so_far += 1
+                        print("Segments yielded so far:", yielded_so_far, "out of", n)
+                        if yielded_so_far >= n:
+                            break
+            except GeneratorError:
+                # We are out of stuff to yield
+                return
