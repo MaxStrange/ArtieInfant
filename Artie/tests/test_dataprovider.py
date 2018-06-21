@@ -105,22 +105,7 @@ class TestDataProvider(unittest.TestCase):
         self.reset()
 
         segs = [s for s in self.provider.generate_n_segments(n=15, ms=60_000, batchsize=2)]
-        self.assertEqual(len(segs), 5)
-
-        furelise = [s for s in segs if "furelise" in s.name]
-        furelise = furelise[0].reduce(furelise[1:])
-        self.assertGreaterEqual(len(furelise), 210_000)
-        self.assertLessEqual(len(furelise), 215_000)
-
-        giggling = [s for s in segs if "giggling" in s.name]
-        giggling = giggling[0].reduce(giggling[1:])
-        self.assertGreaterEqual(len(giggling), 36_000)
-        self.assertLessEqual(len(giggling), 40_000)
-
-        laughter = [s for s in segs if "laughter" in s.name]
-        laughter = laughter[0].reduce(laughter[1:])
-        self.assertGreaterEqual(len(laughter), 18_000)
-        self.assertLessEqual(len(laughter), 20_000)
+        self.assertEqual(len(segs), 3)
 
     def test_reset(self):
         """
@@ -139,6 +124,58 @@ class TestDataProvider(unittest.TestCase):
         self.assertEqual(len(segs1), len(segs2))
         self.assertGreater(len(segs1), 0)
 
+    def test_get_wavs_across_more_than_one_call(self):
+        """
+        Test that we can get different WAVs when we try to generate more than once.
+        """
+        segs1 = [s for s in self.provider.generate_n_wavs(n=1)]
+        self.assertEqual(len(segs1), 1)
+        segs2 = [s for s in self.provider.generate_n_wavs(n=1)]
+        self.assertEqual(len(segs2), 1)
+        segs3 = [s for s in self.provider.generate_n_wavs(n=1)]
+        self.assertEqual(len(segs3), 1)
+        segs4 = [s for s in self.provider.generate_n_wavs(n=1)]
+        self.assertEqual(len(segs4), 0)
+        self.assertNotEqual(segs1[0].name, segs2[0].name)
+        self.assertNotEqual(segs2[0].name, segs3[0].name)
+        self.assertNotEqual(segs1[0].name, segs3[0].name)
+
+    def test_get_segments_accross_more_than_one_call(self):
+        """
+        Test that we can get different data when we try to generate more than once.
+        """
+        segs1 = [s for s in self.provider.generate_n_segments(n=1, ms=1000, batchsize=2)]
+        self.assertEqual(len(segs1), 1)
+        segs2 = [s for s in self.provider.generate_n_segments(n=1, ms=1000, batchsize=2)]
+        self.assertEqual(len(segs2), 1)
+        segs3 = [s for s in self.provider.generate_n_segments(n=1, ms=1000, batchsize=2)]
+        self.assertEqual(len(segs3), 1)
+        segs4 = [s for s in self.provider.generate_n_segments(n=10000, ms=1000, batchsize=2)]
+        self.assertGreater(len(segs4), 10)
+        self.assertLessEqual(len(segs4), 1000)
+        segs5 = [s for s in self.provider.generate_n_segments(n=1, ms=1000, batchsize=2)]
+        self.assertEqual(len(segs5), 0)
+
+        self.reset()
+        segs6 = [s for s in self.provider.generate_n_segments(n=16, ms=45, batchsize=10)]
+        self.assertEqual(len(segs6), 16)
+        segs7 = [s for s in self.provider.generate_n_segments(n=1000, ms=45, batchsize=2)]
+        self.assertEqual(len(segs7), 1000)
+
+        self.reset()
+        segs8 = [s for s in self.provider.generate_n_segments(n=5 * 60 * 1000 / 45, ms=45, batchsize=10)]
+        self.assertGreater(len(segs8), 3 * 60 * 1000/ 45)
+        self.assertLess(len(segs8), 5 * 60 * 1000 / 45)
+        segs9 = [s for s in self.provider.generate_n_segments(n=1, ms=45)]
+        self.assertEqual(len(segs9), 0)
+
+        self.reset()
+        segs = []
+        for _ in range(5 * 60 * 1000 // (45 * 16)):
+            segs.extend([s for s in self.provider.generate_n_segments(n=16, ms=45, batchsize=10)])
+        self.assertGreater(len(segs), 3 * 60 * 1000/ 45)
+        self.assertLess(len(segs), 5 * 60 * 1000 / 45)
+ 
     def test_all_data_is_accounted_for(self):
         """
         Test to make sure that when we get all the data, all the data is accounted for.
@@ -206,6 +243,37 @@ class TestDataProvider(unittest.TestCase):
         segs = self.provider.get_n_segments(n=None, ms=1000)
         ln_ms_segs = sum([len(s) for s in segs])
         self.assertEqual(ln_ms_wavs // ms, ln_ms_segs // ms)
+
+    def test_iterate_forever(self):
+        """
+        Test to iterate forever (tries to go through all the data two times and then
+        sees if we are going through a third time).
+        """
+        wav_names = set()
+        broke_from_loop = False
+        for i, w in enumerate(self.provider.generate_n_wavs(n=None, forever=True)):
+            if i > 3 * 3:  # three times through the data
+                broke_from_loop = True
+                break
+            else:
+                wav_names.add(w.name)
+        self.assertTrue(broke_from_loop)
+        self.assertEqual(len(wav_names), 3)
+
+        self.reset()
+        seg_names = set()
+        ms = 300
+        total_data_ms = 5 * 60 * 1000  # minutes * sec/min * ms/sec
+        total_n_segments_per_go_through = total_data_ms / ms
+        broke_from_loop = False
+        for i, s in enumerate(self.provider.generate_n_segments(n=None, ms=ms, batchsize=2, forever=True)):
+            if i > 2 * total_n_segments_per_go_through:
+                broke_from_loop = True
+                break
+            elif s.name.strip() != "":
+                seg_names.add(s.name)
+        self.assertTrue(broke_from_loop)
+        self.assertEqual(len(seg_names), 3)
 
 
 if __name__ == "__main__":

@@ -143,7 +143,7 @@ class FeatureProvider:
             yield sequences, labels
             nbatches_so_far += 1
 
-    def generate_n_fft_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, normalize=True):
+    def generate_n_fft_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, normalize=True, forever=False):
         """
         Yields up to n batches of numpy arrays of the form:
         (batchsize, num_bins) along with a numpy array of labels.
@@ -155,6 +155,7 @@ class FeatureProvider:
         :param label_fn:        Function of the signature fn(fpath) -> numeric label
         :param file_batchsize:  The number of files to batch before creating AudioSegments from them at random.
         :param normalize:       Maps the histograms to between 0.0 and 1.0.
+        :param forever:         If True, ignores n and yields forever.
         :yields:                Up to n tuples of the form (batch, labels), where batch is shaped: (batchsize, num_bins)
         """
         if n is not None and n <= 0:
@@ -163,11 +164,12 @@ class FeatureProvider:
             return
 
         nbatches_so_far = 0
-        while n is not None and nbatches_so_far < n:
+        while n is None or nbatches_so_far < n:
             raw_batch = [tup for tup in self.generate_n_ffts(n=batchsize, ms=ms, label_fn=label_fn, file_batchsize=file_batchsize, normalize=normalize)]
-            if n is not None and not raw_batch:
+            if not forever and not raw_batch:
+                # We are done with all the data
                 return
-            elif n is None and not raw_batch:
+            elif len(raw_batch) != batchsize:
                 continue
             ffts = np.reshape(np.array([fft for fft, _label in raw_batch]), (batchsize, -1))
             labels = np.array([label for _fft, label in raw_batch])

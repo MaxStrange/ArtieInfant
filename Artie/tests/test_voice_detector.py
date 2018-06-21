@@ -14,11 +14,11 @@ import senses.voice_detector.voice_detector as vd # pylint: disable=locally-disa
 class TestVoiceDetector(unittest.TestCase):
     def setUp(self):
         warnings.simplefilter("ignore", ResourceWarning)
-        root = os.path.abspath("test_data_directory")
+        self.root = os.path.abspath("test_data_directory")
         self.sample_rate = 24_000
         self.nchannels = 1
         self.bytewidth = 2
-        self.provider = fp.FeatureProvider(root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
+        self.provider = fp.FeatureProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
 
     def _label_fn(self, fpath):
         """
@@ -66,11 +66,11 @@ class TestVoiceDetector(unittest.TestCase):
         Test training the FFT model.
         """
         # Create the detector
+        n = None
         ms = 30
         batchsize = 32
-        n = None
+        datagen = self.provider.generate_n_fft_batches(n, batchsize, ms, self._label_fn, normalize=True, forever=True)
         detector = vd.VoiceDetector(sample_rate_hz=self.sample_rate, sample_width_bytes=self.bytewidth, ms=ms, model_type="fft")
-        datagen = self.provider.generate_n_fft_batches(n, batchsize, ms, self._label_fn, normalize=True)
         detector.fit(datagen, batchsize, steps_per_epoch=100)
 
 

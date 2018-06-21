@@ -2,6 +2,7 @@
 Scratch script used for debugging.
 """
 import audiosegment
+import numpy as np
 import os
 import sys
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -18,34 +19,16 @@ def _label_fn(fpath):
 
 if __name__ == "__main__":
     root = os.path.abspath("test_data_directory")
-    #provider = fp.FeatureProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
-    provider = dp.DataProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
+    #provider = dp.DataProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
+    provider = fp.FeatureProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
 
-    n = 15
-    ms = 3000
-    segs = [s for s in provider.generate_n_segments(n=n, ms=ms, batchsize=2)]
-    print("Ultimately got:", len(segs), "segments out of", n)
-
-    ms = 30
-    furelise = [s for s in segs if "furelise" in s.name]
-    furelise = furelise[0].reduce(furelise[1:])
-
-    giggling = [s for s in segs if "giggling" in s.name]
-    giggling = giggling[0].reduce(giggling[1:])
-
-    laughter = [s for s in segs if "laughter" in s.name]
-    laughter = laughter[0].reduce(laughter[1:])
-
-    print(furelise)
-    print(giggling)
-    print(laughter)
-
-    print("====================")
-
-    furelise_raw = audiosegment.from_file("test_data_directory/furelise.wav")
-    giggling_raw = audiosegment.from_file("test_data_directory/babies/baby_giggling.wav")
-    laughter_raw = audiosegment.from_file("test_data_directory/babies/baby_laughter.wav")
-
-    print(furelise_raw)
-    print(giggling_raw)
-    print(laughter_raw)
+    n = None
+    batchsize = 16
+    ms = 45
+    min_ffts_expected = 3 * 60 * 1000 / ms  # (minutes * sec/min * ms/sec) / ms/fft
+    max_ffts_expected = 5 * 60 * 1000 / ms
+    batches = [b for b in provider.generate_n_fft_batches(n=n, batchsize=batchsize, ms=ms, label_fn=_label_fn)]
+    print("Number of FFT batches generated:", len(batches))
+    assert len(batches) > 0
+    assert len(batches) >= min_ffts_expected // batchsize
+    assert len(batches) <= max_ffts_expected // batchsize

@@ -13,11 +13,17 @@ import senses.dataproviders.featureprovider as fp # pylint: disable=locally-disa
 class TestFeatureProvider(unittest.TestCase):
     def setUp(self):
         warnings.simplefilter("ignore", ResourceWarning)
-        root = os.path.abspath("test_data_directory")
+        self.root = os.path.abspath("test_data_directory")
         self.sample_rate = 24_000
         self.nchannels = 1
         self.bytewidth = 2
-        self.provider = fp.FeatureProvider(root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
+        self.provider = fp.FeatureProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
+
+    def _reset(self):
+        """
+        Resets the iterator.
+        """
+        self.provider = fp.FeatureProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
 
     def _label_fn(self, fpath):
         """
@@ -37,7 +43,7 @@ class TestFeatureProvider(unittest.TestCase):
         fft, _label = ffts[0]
         self.assertEqual(fft.shape, (541,))
 
-    def test_generate_more_than_one_ffts(self):
+    def test_generate_more_than_one_fft(self):
         """
         Tests yielding more than one FFT of 34ms each.
         """
@@ -61,6 +67,41 @@ class TestFeatureProvider(unittest.TestCase):
         labels_that_are_ones = np.where(label_batch == 1)[0]
         labels_that_are_zeros = np.where(label_batch == 0)[0]
         self.assertEqual(len(labels_that_are_ones) + len(labels_that_are_zeros), len(label_batch))
+
+    def test_generate_all_ffts(self):
+        """
+        Test yielding all the FFTs in the dataset.
+        """
+        batchsize = 16
+        ms = 45
+        min_ffts_expected = 3 * 60 * 1000 / ms  # (minutes * sec/min * ms/sec) / ms/fft
+        max_ffts_expected = 5 * 60 * 1000 / ms
+        batches = [b for b in self.provider.generate_n_fft_batches(n=None, batchsize=batchsize, ms=ms, label_fn=self._label_fn)]
+        self.assertGreaterEqual(len(batches), min_ffts_expected // batchsize)
+        self.assertLessEqual(len(batches), max_ffts_expected // batchsize)
+
+        self._reset()
+        ffts = [f for f in self.provider.generate_n_ffts(n=None, ms=ms, label_fn=self._label_fn)]
+        self.assertGreaterEqual(len(ffts), min_ffts_expected)
+        self.assertLessEqual(len(ffts), max_ffts_expected)
+
+    def test_generate_ffts_forever(self):
+        """
+        Test yielding all the FFTs in the dataset forever.
+        """
+        batchsize = 16
+        broke = False
+        ms = 45
+        total_segs_to_yield = 5 * 60 * 1000 / ms
+        batches = []
+        for i, b in enumerate(self.provider.generate_n_fft_batches(n=None, batchsize=batchsize, ms=ms, label_fn=self._label_fn, forever=True)):
+            if i >= total_segs_to_yield:
+                broke = True
+                break
+            else:
+                batches.append(b)
+        self.assertTrue(broke)
+        self.assertEqual(len(batches), total_segs_to_yield)
 
     def test_generate_sequence_minibatch(self):
         """
