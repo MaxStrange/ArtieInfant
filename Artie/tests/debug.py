@@ -22,13 +22,18 @@ if __name__ == "__main__":
     #provider = dp.DataProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
     provider = fp.FeatureProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
 
-    n = None
     batchsize = 16
+    broke = False
     ms = 45
-    min_ffts_expected = 3 * 60 * 1000 / ms  # (minutes * sec/min * ms/sec) / ms/fft
-    max_ffts_expected = 5 * 60 * 1000 / ms
-    batches = [b for b in provider.generate_n_fft_batches(n=n, batchsize=batchsize, ms=ms, label_fn=_label_fn)]
-    print("Number of FFT batches generated:", len(batches))
-    assert len(batches) > 0
-    assert len(batches) >= min_ffts_expected // batchsize
-    assert len(batches) <= max_ffts_expected // batchsize
+    total_segs_to_yield = 5 * 60 * 1000 / ms
+    total_batches_to_yield = int(total_segs_to_yield / batchsize)
+    batches = []
+    for i, b in enumerate(provider.generate_n_fft_batches(n=None, batchsize=batchsize, ms=ms, label_fn=_label_fn, forever=True)):
+        print("Batch", i, "out of", total_batches_to_yield)
+        if i >= total_batches_to_yield:
+            broke = True
+            break
+        else:
+            batches.append(b)
+    assert broke
+    assert len(batches) == total_batches_to_yield

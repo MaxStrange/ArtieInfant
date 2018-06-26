@@ -93,15 +93,16 @@ class TestFeatureProvider(unittest.TestCase):
         broke = False
         ms = 45
         total_segs_to_yield = 5 * 60 * 1000 / ms
+        total_batches_to_yield = int(total_segs_to_yield / batchsize)
         batches = []
         for i, b in enumerate(self.provider.generate_n_fft_batches(n=None, batchsize=batchsize, ms=ms, label_fn=self._label_fn, forever=True)):
-            if i >= total_segs_to_yield:
+            if i >= total_batches_to_yield:
                 broke = True
                 break
             else:
                 batches.append(b)
         self.assertTrue(broke)
-        self.assertEqual(len(batches), total_segs_to_yield)
+        self.assertEqual(len(batches), total_batches_to_yield)
 
     def test_generate_sequence_minibatch(self):
         """

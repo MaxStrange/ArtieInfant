@@ -18,7 +18,17 @@ class FeatureProvider:
         :param nchannels:   Will resample all audio files to this number of channels before use.
         :param bytewidth:   Will resample all audio files to this number of bytes data width before use.
         """
-        self.dp = dataprovider.DataProvider(root, sample_rate=sample_rate, nchannels=nchannels, bytewidth=bytewidth)
+        self.root = root
+        self.sample_rate = sample_rate
+        self.nchannels = nchannels
+        self.bytewidth = bytewidth
+        self._reset()
+
+    def _reset(self):
+        """
+        Resets the internal DataProvider.
+        """
+        self.dp = dataprovider.DataProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
 
     def generate_n_sequences(self, n, ms, label_fn, file_batchsize=10):
         """
@@ -46,7 +56,7 @@ class FeatureProvider:
             samples = seg.get_array_of_samples()
             yield samples, label
 
-    def generate_n_ffts(self, n, ms, label_fn, file_batchsize=10, normalize=True):
+    def generate_n_ffts(self, n, ms, label_fn, file_batchsize=10, normalize=True, forever=False):
         """
         Yields n tuples of the form (label, FFT), where:
 
@@ -64,12 +74,13 @@ class FeatureProvider:
         :param file_batchsize:  The number of files to batch before creating AudioSegments from them
                                 at random.
         :param normalize:       Maps the histogram values to between 0.0 and 1.0.
+        :param forever:         If True, yields FFTs forever, ignoring n.
         :yields:                n tuples of the form (FFT, label)
         """
         if n is not None and n <= 0:
             return
 
-        for seg in self.dp.generate_n_segments(n=n, ms=ms, batchsize=file_batchsize):
+        for seg in self.dp.generate_n_segments(n=n, ms=ms, batchsize=file_batchsize, forever=forever):
             label = label_fn(seg.name)
             _hist_bins, hist_vals = seg.fft()
             real_normed = np.abs(hist_vals) / len(hist_vals)
@@ -169,6 +180,10 @@ class FeatureProvider:
             if not forever and not raw_batch:
                 # We are done with all the data
                 return
+            elif forever and not raw_batch:
+                # We are done with all the data, but we want to yield forever, so just reset
+                self._reset()
+                continue
             elif len(raw_batch) != batchsize:
                 continue
             ffts = np.reshape(np.array([fft for fft, _label in raw_batch]), (batchsize, -1))
