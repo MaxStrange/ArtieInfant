@@ -187,7 +187,7 @@ class TestFeatureProvider(unittest.TestCase):
         self.assertTrue(broke)
         self.assertEqual(len(batches), total_batches_to_yield)
 
-    def test_generate_ffts_forever(self):
+    def test_generate_spectrograms_forever(self):
         """
         Test yielding all the spectrograms in the dataset forever.
         """
@@ -219,13 +219,13 @@ class TestFeatureProvider(unittest.TestCase):
         nwindows = 10
         window_length_ms = ms / nwindows 
         overlap = 0.5
-        batches = [batch for batch in self.provider.generate_n_spectrogram_batches(n=n, batchsize=batchsize, ms=ms, label_fn=self._label_fn, window_length_ms=window_length_ms, overlap=overlap)]
+        batches = [batch for batch in self.provider.generate_n_spectrogram_batches(n=n, batchsize=batchsize, ms=ms, label_fn=self._label_fn, window_length_ms=window_length_ms, overlap=overlap, expand_dims=True)]
         self.assertEqual(len(batches), n)
 
         data_batch, label_batch = batches[0]
         ntimebins = nwindows * (1/overlap) - 1  # with a 50% overlap
         nbins = 409
-        self.assertEqual(data_batch.shape, (batchsize, nbins, ntimebins))
+        self.assertEqual(data_batch.shape, (batchsize, nbins, ntimebins, 1))
 
         labels_that_are_ones = np.where(label_batch == 1)[0]
         labels_that_are_zeros = np.where(label_batch == 0)[0]

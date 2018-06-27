@@ -89,7 +89,7 @@ class FeatureProvider:
                 real_normed = (real_normed - min(real_normed)) / (max(real_normed) + 1E-9)
             yield real_normed, label
 
-    def generate_n_spectrograms(self, n, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5, forever=False):
+    def generate_n_spectrograms(self, n, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5, forever=False, expand_dims=False):
         """
         Yields n tuples of the form (label, Spectrogram), where:
 
@@ -110,6 +110,7 @@ class FeatureProvider:
         :param window_length_ms: The length of time to accumulate for each FFT. If None, we take 1/100 of the time.
         :param overlap:         The fraction to overlap each FFT.
         :param forever:         If True, ignore n and yield forever.
+        :param expand_dims:     If True, spectrograms will be of shape (nfreqbins, ntimebins, 1)
         :yields:                n tuples of the form (spectrogram, label)
         """
         if n is not None and n <= 0:
@@ -123,6 +124,8 @@ class FeatureProvider:
             amplitudes_real_normed = np.abs(amplitudes) / len(amplitudes)
             if normalize:
                 amplitudes_real_normed = np.apply_along_axis(lambda v: (v - min(v)) / (max(v) + 1E-9), 1, amplitudes_real_normed)
+            if expand_dims:
+                amplitudes_real_normed = np.expand_dims(amplitudes_real_normed, -1)
 
             yield amplitudes_real_normed, label
 
@@ -198,7 +201,7 @@ class FeatureProvider:
             yield ffts, labels
             nbatches_so_far += 1
 
-    def generate_n_spectrogram_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5, forever=False):
+    def generate_n_spectrogram_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5, forever=False, expand_dims=False):
         """
         Yields up to n batches of numpy arrays of the form:
         (batchsize, num_freq_bins, num_time_bins)
@@ -214,6 +217,7 @@ class FeatureProvider:
         :param window_length_ms: The length of time to accumulate for each FFT. If None, we take 1/100 of the time.
         :param overlap:         The fraction to overlap each FFT.
         :param forever:         If True, ignore n and yield forever.
+        :param expand_dims:     If True, expand the dimension of the batch to be (batchsize, nfbins, ntbins, 1)
         :yields:                Up to n tuples of the form (batch, label), where each batch is shaped: (batchsize, nfbins, ntbins)
         """
         if n is not None and n <= 0:
@@ -223,7 +227,7 @@ class FeatureProvider:
 
         nbatches_so_far = 0
         while n is None or nbatches_so_far < n:
-            raw_batch = [tup for tup in self.generate_n_spectrograms(batchsize, ms, label_fn, file_batchsize=file_batchsize, normalize=normalize, window_length_ms=window_length_ms, overlap=overlap)]
+            raw_batch = [tup for tup in self.generate_n_spectrograms(batchsize, ms, label_fn, file_batchsize=file_batchsize, normalize=normalize, window_length_ms=window_length_ms, overlap=overlap, expand_dims=expand_dims)]
             if not forever and not raw_batch:
                 return
             elif forever and not raw_batch:
@@ -234,7 +238,8 @@ class FeatureProvider:
                 continue
             nfreqbins = raw_batch[0][0].shape[0]
             ntimebins = raw_batch[0][0].shape[1]
-            specs = np.reshape(np.array([spec for spec, _label in raw_batch]), (batchsize, nfreqbins, ntimebins))
+            shape = (batchsize, nfreqbins, ntimebins, 1) if expand_dims else (batchsize, nfreqbins, ntimebins)
+            specs = np.reshape(np.array([spec for spec, _label in raw_batch]), shape)
             labels = np.array([label for _spec, label in raw_batch])
             yield specs, labels
             nbatches_so_far += 1

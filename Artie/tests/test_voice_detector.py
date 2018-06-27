@@ -61,6 +61,29 @@ class TestVoiceDetector(unittest.TestCase):
         # Check that it knows its input shape
         self.assertEqual((None, *input_shape), detector.input_shape)
 
+    def test_fit_ffts(self):
+        """
+        Test training on FFT data.
+        """
+        n = None
+        ms = 30
+        batchsize = 32
+        datagen = self.provider.generate_n_fft_batches(n, batchsize, ms, self._label_fn, normalize=True, forever=True)
+        detector = vd.VoiceDetector(sample_rate_hz=self.sample_rate, sample_width_bytes=self.bytewidth, ms=ms, model_type="fft")
+        detector.fit(datagen, batchsize, steps_per_epoch=100, epochs=2)
+
+    def test_fit_spectrograms(self):
+        """
+        Test training on spectrogram data.
+        """
+        n = None
+        ms = 300
+        batchsize = 32
+        shape = [s for s in self.provider.generate_n_spectrograms(n=1, ms=ms, label_fn=self._label_fn, expand_dims=True)][0][0].shape
+        datagen = self.provider.generate_n_spectrogram_batches(n, batchsize, ms, self._label_fn, normalize=True, forever=True, expand_dims=True)
+        detector = vd.VoiceDetector(sample_rate_hz=self.sample_rate, sample_width_bytes=self.bytewidth, ms=ms, model_type="spec", window_length_ms=0.5, spectrogram_shape=shape)
+        detector.fit(datagen, batchsize, steps_per_epoch=100, epochs=2)
+
 
 if __name__ == "__main__":
     unittest.main()
