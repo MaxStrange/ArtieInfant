@@ -61,18 +61,6 @@ class TestVoiceDetector(unittest.TestCase):
         # Check that it knows its input shape
         self.assertEqual((None, *input_shape), detector.input_shape)
 
-    def test_fit_fft_model(self):
-        """
-        Test training the FFT model.
-        """
-        # Create the detector
-        n = None
-        ms = 30
-        batchsize = 32
-        datagen = self.provider.generate_n_fft_batches(n, batchsize, ms, self._label_fn, normalize=True, forever=True)
-        detector = vd.VoiceDetector(sample_rate_hz=self.sample_rate, sample_width_bytes=self.bytewidth, ms=ms, model_type="fft")
-        detector.fit(datagen, batchsize, steps_per_epoch=100)
-
 
 if __name__ == "__main__":
     unittest.main()

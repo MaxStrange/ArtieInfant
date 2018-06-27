@@ -53,12 +53,6 @@ class VoiceDetector:
         """
         return self._model.input_shape
 
-    def reset_generator(self):
-        """
-        Resets the VoiceDetector's internal data generator.
-        """
-        self.provider = fp.FeatureProvider(self.root, sample_rate=self.sample_rate_hz, nchannels=1, bytewidth=self.sample_width_bytes)
-
     def _build_model_fft(self):
         """
         Builds and returns the compiled Keras network; uses FFTs

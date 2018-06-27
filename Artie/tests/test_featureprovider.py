@@ -104,6 +104,32 @@ class TestFeatureProvider(unittest.TestCase):
         self.assertTrue(broke)
         self.assertEqual(len(batches), total_batches_to_yield)
 
+    def test_generate_all_sequences(self):
+        """
+        Tests getting all the data in sequence form.
+        """
+        batchsize = 16
+        ms = 45
+        min_sequences_expected = 3 * 60 * 1000 / ms  # (minutes * sec/min * ms/sec) / ms/fft
+        max_sequences_expected = 5 * 60 * 1000 / ms
+        batches = [b for b in self.provider.generate_n_sequence_batches(n=None, batchsize=batchsize, ms=ms, label_fn=self._label_fn)]
+        self.assertGreaterEqual(len(batches), min_sequences_expected // batchsize)
+        self.assertLessEqual(len(batches), max_sequences_expected // batchsize)
+
+        self._reset()
+        seqs = [f for f in self.provider.generate_n_sequences(n=None, ms=ms, label_fn=self._label_fn)]
+        self.assertGreaterEqual(len(seqs), min_sequences_expected)
+        self.assertLessEqual(len(seqs), max_sequences_expected)
+
+    def test_generate_n_sequences(self):
+        """
+        Tests yielding n sequences.
+        """
+        ms = 45
+        n = 217
+        seqs = [s for s in self.provider.generate_n_sequences(n=n, ms=ms, label_fn=self._label_fn)]
+        self.assertEqual(len(seqs), n)
+
     def test_generate_sequence_minibatch(self):
         """
         Tests yielding several minibatches of time-domain data.
@@ -121,6 +147,67 @@ class TestFeatureProvider(unittest.TestCase):
         labels_that_are_ones = np.where(label_batch == 1)[0]
         labels_that_are_zeros = np.where(label_batch == 0)[0]
         self.assertEqual(len(labels_that_are_ones) + len(labels_that_are_zeros), len(label_batch))
+
+    def test_generate_all_spectrograms(self):
+        """
+        Tests yielding all the spectrograms in the dataset.
+        """
+        batchsize = 16
+        ms = 45
+        nwindows = 10
+        wndl = ms / nwindows
+        overlap = 0.5
+        min_specs_expected = 3 * 60 * 1000 / ms  # (minutes * sec/min * ms/sec) / ms/fft
+        max_specs_expected = 5 * 60 * 1000 / ms
+        batches = [batch for batch in self.provider.generate_n_spectrogram_batches(n=None, batchsize=batchsize, ms=ms, label_fn=self._label_fn, window_length_ms=wndl, overlap=overlap)]
+        self.assertGreaterEqual(len(batches), min_specs_expected // batchsize)
+        self.assertLessEqual(len(batches), max_specs_expected // batchsize)
+
+        self._reset()
+        seqs = [f for f in self.provider.generate_n_spectrograms(n=None, ms=ms, label_fn=self._label_fn, window_length_ms=wndl, overlap=overlap)]
+        self.assertGreaterEqual(len(seqs), min_specs_expected)
+        self.assertLessEqual(len(seqs), max_specs_expected)
+
+    def test_generate_sequences_forever(self):
+        """
+        Test yielding all the sequences in the dataset forever.
+        """
+        batchsize = 16
+        broke = False
+        ms = 45
+        total_seqs_to_yield = 5 * 60 * 1000 / ms
+        total_batches_to_yield = int(total_seqs_to_yield / batchsize)
+        batches = []
+        for i, b in enumerate(self.provider.generate_n_sequence_batches(n=None, batchsize=batchsize, ms=ms, label_fn=self._label_fn, forever=True)):
+            if i >= total_batches_to_yield:
+                broke = True
+                break
+            else:
+                batches.append(b)
+        self.assertTrue(broke)
+        self.assertEqual(len(batches), total_batches_to_yield)
+
+    def test_generate_ffts_forever(self):
+        """
+        Test yielding all the spectrograms in the dataset forever.
+        """
+        broke = False
+        batchsize = 16
+        ms = 45
+        nwindows = 10
+        wndl = ms / nwindows
+        overlap = 0.5
+        total_segs_to_yield = 5 * 60 * 1000 / ms
+        total_batches_to_yield = int(total_segs_to_yield / batchsize)
+        batches = []
+        for i, b in enumerate(self.provider.generate_n_spectrogram_batches(n=None, batchsize=batchsize, ms=ms, label_fn=self._label_fn, window_length_ms=wndl, overlap=overlap, forever=True)):
+            if i >= total_batches_to_yield:
+                broke = True
+                break
+            else:
+                batches.append(b)
+        self.assertTrue(broke)
+        self.assertEqual(len(batches), total_batches_to_yield)
 
     def test_generate_spectrogram_minibatch(self):
         """

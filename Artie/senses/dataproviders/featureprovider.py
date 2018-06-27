@@ -30,7 +30,7 @@ class FeatureProvider:
         """
         self.dp = dataprovider.DataProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
 
-    def generate_n_sequences(self, n, ms, label_fn, file_batchsize=10):
+    def generate_n_sequences(self, n, ms, label_fn, file_batchsize=10, forever=False):
         """
         Yields n tuples of the form (label, sequence), where:
 
@@ -46,12 +46,13 @@ class FeatureProvider:
         :param label_fn:        Function of the signature fn(fpath) -> numeric label
         :param file_batchsize:  The number of files to batch before creating AudioSegments from them
                                 at random.
+        :param forever:         If True, ignore n and yield forever.
         :yields:                n tuples of the form (audio_samples, label)
         """
         if n is not None and n <= 0:
             return
 
-        for seg in self.dp.generate_n_segments(n=n, ms=ms, batchsize=file_batchsize):
+        for seg in self.dp.generate_n_segments(n=n, ms=ms, batchsize=file_batchsize, forever=forever):
             label = label_fn(seg.name)
             samples = seg.get_array_of_samples()
             yield samples, label
@@ -88,7 +89,7 @@ class FeatureProvider:
                 real_normed = (real_normed - min(real_normed)) / (max(real_normed) + 1E-9)
             yield real_normed, label
 
-    def generate_n_spectrograms(self, n, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5):
+    def generate_n_spectrograms(self, n, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5, forever=False):
         """
         Yields n tuples of the form (label, Spectrogram), where:
 
@@ -108,6 +109,7 @@ class FeatureProvider:
         :param normalize:       Maps the histogram values to between 0.0 and 1.0.
         :param window_length_ms: The length of time to accumulate for each FFT. If None, we take 1/100 of the time.
         :param overlap:         The fraction to overlap each FFT.
+        :param forever:         If True, ignore n and yield forever.
         :yields:                n tuples of the form (spectrogram, label)
         """
         if n is not None and n <= 0:
@@ -115,7 +117,7 @@ class FeatureProvider:
 
         if window_length_ms is None:
             window_length_ms = ms / 10
-        for seg in self.dp.generate_n_segments(n=n, ms=ms, batchsize=file_batchsize):
+        for seg in self.dp.generate_n_segments(n=n, ms=ms, batchsize=file_batchsize, forever=forever):
             label = label_fn(seg.name)
             _hist_bins, _times, amplitudes = seg.spectrogram(window_length_s=window_length_ms/1000, overlap=overlap)
             amplitudes_real_normed = np.abs(amplitudes) / len(amplitudes)
@@ -124,7 +126,7 @@ class FeatureProvider:
 
             yield amplitudes_real_normed, label
 
-    def generate_n_sequence_batches(self, n, batchsize, ms, label_fn, file_batchsize=10):
+    def generate_n_sequence_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, forever=False):
         """
         Yields up to n batches of numpy arrays of the form:
         (batchsize, nsamples) along with a numpy array of labels.
@@ -135,6 +137,7 @@ class FeatureProvider:
         :param ms:              The length of the AudioSegments that will be transformed.
         :param label_fn:        Function of the signature fn(fpath) -> numeric label
         :param file_batchsize:  The number of files to batch before creating AudioSegments from them at random.
+        :param forever:         If True, ignore n and yield forever.
         :yields:                Up to n tuples of the form (batch, labels), where batch is shaped: (batchsize, nsamples_of_audio_data)
         """
         if n is not None and n <= 0:
@@ -143,11 +146,15 @@ class FeatureProvider:
             return
 
         nbatches_so_far = 0
-        while n is not None and nbatches_so_far < n:
+        while n is None or nbatches_so_far < n:
             raw_batch = [tup for tup in self.generate_n_sequences(n=batchsize, ms=ms, label_fn=label_fn, file_batchsize=file_batchsize)]
-            if n is not None and not raw_batch:
+            if not forever and not raw_batch:
                 return
-            elif n is None and not raw_batch:
+            elif forever and not raw_batch:
+                # We are done with the data, but we want to keep going forever
+                self._reset()
+                continue
+            elif len(raw_batch) != batchsize:
                 continue
             sequences = np.reshape(np.array([seq for seq, _label in raw_batch]), (batchsize, -1))
             labels = np.array([label for _seq, label in raw_batch])
@@ -191,7 +198,7 @@ class FeatureProvider:
             yield ffts, labels
             nbatches_so_far += 1
 
-    def generate_n_spectrogram_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5):
+    def generate_n_spectrogram_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5, forever=False):
         """
         Yields up to n batches of numpy arrays of the form:
         (batchsize, num_freq_bins, num_time_bins)
@@ -206,6 +213,7 @@ class FeatureProvider:
         :param normalize:       Maps the histogram values to between 0.0 and 1.0.
         :param window_length_ms: The length of time to accumulate for each FFT. If None, we take 1/100 of the time.
         :param overlap:         The fraction to overlap each FFT.
+        :param forever:         If True, ignore n and yield forever.
         :yields:                Up to n tuples of the form (batch, label), where each batch is shaped: (batchsize, nfbins, ntbins)
         """
         if n is not None and n <= 0:
@@ -214,11 +222,15 @@ class FeatureProvider:
             return
 
         nbatches_so_far = 0
-        while n is not None and nbatches_so_far < n:
+        while n is None or nbatches_so_far < n:
             raw_batch = [tup for tup in self.generate_n_spectrograms(batchsize, ms, label_fn, file_batchsize=file_batchsize, normalize=normalize, window_length_ms=window_length_ms, overlap=overlap)]
-            if n is not None and not raw_batch:
+            if not forever and not raw_batch:
                 return
-            elif n is None and not raw_batch:
+            elif forever and not raw_batch:
+                # We are out of data, but we need to reset
+                self._reset()
+                continue
+            elif len(raw_batch) != batchsize:
                 continue
             nfreqbins = raw_batch[0][0].shape[0]
             ntimebins = raw_batch[0][0].shape[1]
