@@ -19,19 +19,18 @@ def _label_fn(fpath):
         return 1
 
 if __name__ == "__main__":
-    root = os.path.abspath("test_data_directory")
-    #provider = dp.DataProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
-    provider = fp.FeatureProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
+    root = "/mnt/data/thesis_audio/baby_detection/processed"
 
-    root = os.path.abspath("test_data_directory")
+    #root = os.path.abspath("test_data_directory")
+    #provider = dp.DataProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
     sample_rate = 24_000
     nchannels = 1
     bytewidth = 2
     provider = fp.FeatureProvider(root, sample_rate=sample_rate, nchannels=nchannels, bytewidth=bytewidth)
 
-    #n = None
-    #ms = 30
-    #batchsize = 32
+    n = None
+    ms = 30
+    batchsize = 32
     #datagen = provider.generate_n_fft_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True)
     #detector = vd.VoiceDetector(sample_rate_hz=sample_rate, sample_width_bytes=bytewidth, ms=ms, model_type="fft")
     #detector.fit(datagen, batchsize, steps_per_epoch=100, epochs=2)
@@ -43,3 +42,4 @@ if __name__ == "__main__":
     datagen = provider.generate_n_spectrogram_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True, expand_dims=True)
     detector = vd.VoiceDetector(sample_rate_hz=sample_rate, sample_width_bytes=bytewidth, ms=ms, model_type="spec", window_length_ms=0.5, spectrogram_shape=shape)
     detector.fit(datagen, batchsize, steps_per_epoch=100, epochs=2, use_multiprocessing=False, workers=2)
+
