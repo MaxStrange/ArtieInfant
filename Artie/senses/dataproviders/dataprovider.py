@@ -121,6 +121,11 @@ class DataProvider:
         return segs
 
     def _load_next_batch(self, ms, batchsize):
+        # This function may take relatively quite long, due to potentially resampling wav files
+        # So only do it periodically.
+        if len(self._current_batch) >= 100:
+            return len(self._current_batch)
+
         # Get a random batch of wavs
         wavs = self.get_n_wavs(batchsize)
         if not wavs and not self._current_batch:

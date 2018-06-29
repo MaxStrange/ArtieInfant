@@ -42,4 +42,4 @@ if __name__ == "__main__":
     shape = [s for s in provider.generate_n_spectrograms(n=1, ms=ms, label_fn=_label_fn, expand_dims=True)][0][0].shape
     datagen = provider.generate_n_spectrogram_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True, expand_dims=True)
     detector = vd.VoiceDetector(sample_rate_hz=sample_rate, sample_width_bytes=bytewidth, ms=ms, model_type="spec", window_length_ms=0.5, spectrogram_shape=shape)
-    detector.fit(datagen, batchsize, steps_per_epoch=100, epochs=2)
+    detector.fit(datagen, batchsize, steps_per_epoch=100, epochs=2, use_multiprocessing=False, workers=2)
