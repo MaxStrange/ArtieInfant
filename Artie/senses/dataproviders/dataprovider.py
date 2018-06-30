@@ -35,6 +35,8 @@ class DataProvider:
         random.shuffle(self.path_cache)
         self._iterator_cache = set()  # We use this to keep track of which files we have already seen
         self._current_batch = []      # This is the current batch of WAV segments; if we ask for larger filebatch than needed, we have leftover
+        if len(self.path_cache) == 0:
+            raise FileNotFoundError("No WAV files found in root", root)
 
     def get_n_wavs(self, n):
         """

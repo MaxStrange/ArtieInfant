@@ -22,6 +22,12 @@ class TestDataProvider(unittest.TestCase):
     def reset(self):
         self.provider = dp.DataProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
 
+    def test_creating_dp_with_bad_root(self):
+        """
+        Test trying to make a DataProvider with a root that doesn't lead to any WAV files.
+        """
+        self.assertRaises(FileNotFoundError, dp.DataProvider, "test_data_directory/junk_folder")
+
     def test_get_zero_wavs(self):
         """
         Test trying to get 0 wav files from the data directory. Should
