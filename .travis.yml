@@ -24,6 +24,7 @@ before_install:
 #  - export ERLPORT_PYTHON=python3
   - pip install audiosegment
   - pip install keras
+  - pip install tensorflow
   - sudo add-apt-repository ppa:mc3man/trusty-media -y
   - sudo apt-get update
   - sudo apt-get install ffmpeg
