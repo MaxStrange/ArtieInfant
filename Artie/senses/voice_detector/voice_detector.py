@@ -12,6 +12,26 @@ from keras.optimizers import Adam
 from keras.models import Sequential
 from keras.layers import Conv2D, Dense, Dropout, Flatten, MaxPooling2D
 
+class DataStatsCallback(keras.callbacks.Callback):
+    """
+    Callback for recording the spread of the data labels in a batch or epoch.
+    """
+    # TODO: Figure out how to get a breakdown of the labels to check on the split for each batch.
+    #       May have to do it in the FeatureProvider instead.
+    def __init__(self, print_to_screen=True, logfile=None):
+        self._print_to_screen = print_to_screen
+        self._logfile = logfile
+
+    def on_epoch_end(self, epoch, logs={}):
+        print(logs)
+
+    def on_batch_end(self, batch, logs={}):
+        pass
+
+        #if self._print_to_screen:
+        #    print("Negative Samples:", len(neg), percent_negative)
+        #    print("Positive Samples:", len(pos), percent_positive)
+
 class VoiceDetector:
     """
     Class used for detecting voice in an audio stream. First, train it (or load it from a file),
@@ -98,5 +118,6 @@ class VoiceDetector:
     def fit(self, datagen, batch_size, **kwargs):
         """
         """
+        datastats_cb = DataStatsCallback()
         tb = TensorBoard(log_dir='./logs', batch_size=batch_size, write_graph=True, write_grads=True)
-        self._model.fit_generator(datagen, callbacks=[tb], **kwargs)
+        self._model.fit_generator(datagen, callbacks=[tb, datastats_cb], **kwargs)
