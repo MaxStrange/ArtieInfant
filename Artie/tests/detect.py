@@ -24,7 +24,7 @@ if __name__ == "__main__":
     nchannels = 1
     bytewidth = 2
     provider = fp.FeatureProvider(root, sample_rate=sample_rate, nchannels=nchannels, bytewidth=bytewidth)
-    validater = fp.FeatureProvider("/mnt/data/thesis/audio/baby_detection/test", sample_rate=sample_rate, nchannels=nchannels, bytewidth=bytewidth)
+    validater = fp.FeatureProvider("/mnt/data/thesis_audio/baby_detection/test", sample_rate=sample_rate, nchannels=nchannels, bytewidth=bytewidth)
 
     n = None
     ms = 30
