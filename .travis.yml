@@ -23,6 +23,7 @@ before_install:
 #  - mix deps.get
 #  - export ERLPORT_PYTHON=python3
   - pip install audiosegment
+  - pip install keras
   - sudo add-apt-repository ppa:mc3man/trusty-media -y
   - sudo apt-get update
   - sudo apt-get install ffmpeg
