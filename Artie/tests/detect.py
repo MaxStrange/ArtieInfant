@@ -55,8 +55,8 @@ if __name__ == "__main__":
     ms_in_validation_set = _gigabytes_to_ms(root_sizes_in_gb[validation_root], sample_rate, bytewidth)
     steps_per_validation_epoch = ms_in_validation_set / ms_per_batch
 
-    datagen = provider.generate_n_fft_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True)
-    validgen = validater.generate_n_fft_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True)
+    datagen = provider.generate_n_fft_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True, file_batchsize=10)
+    validgen = validater.generate_n_fft_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True, file_batchsize=10)
     detector = vd.VoiceDetector(sample_rate_hz=sample_rate, sample_width_bytes=bytewidth, ms=ms, model_type="fft")
     detector.fit(datagen,
                  batchsize,
