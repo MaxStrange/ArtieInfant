@@ -11,6 +11,15 @@ import senses.dataproviders.dataprovider as dp
 import senses.dataproviders.featureprovider as fp
 import senses.voice_detector.voice_detector as vd
 
+def _gigabytes_to_ms(gb, sample_rate_hz, bytes_per_sample):
+    """
+    Approximately convert GB to ms of WAV data.
+    """
+    total_bytes   = gb * 1E9
+    total_samples = total_bytes / bytes_per_sample
+    total_seconds = total_samples / sample_rate_hz
+    total_ms      = total_seconds * 1E3
+    return total_ms
 
 def _label_fn(fpath):
     if "NOT_" in fpath:
@@ -19,26 +28,41 @@ def _label_fn(fpath):
         return 1
 
 if __name__ == "__main__":
+    root_sizes_in_gb = {
+        "/mnt/data/thesis_audio/baby_detection/processed": 61,
+        "/mnt/data/thesis_audio/engchin/processed": 338,
+        "/mnt/data/thesis_audio/voice_detection/processed": 1300,
+
+        "/mnt/data/thesis_audio/baby_detection/test": 1.5,
+        "/mnt/data/thesis_audio/engchin/test": 13,
+        "/mnt/data/thesis_audio/voice_detection/test": 30,
+    }
+
     root = "/mnt/data/thesis_audio/baby_detection/processed"
+    validation_root = "/mnt/data/thesis_audio/baby_detection/test"
     sample_rate = 24_000
     nchannels = 1
     bytewidth = 2
     provider = fp.FeatureProvider(root, sample_rate=sample_rate, nchannels=nchannels, bytewidth=bytewidth)
-    validater = fp.FeatureProvider("/mnt/data/thesis_audio/baby_detection/test", sample_rate=sample_rate, nchannels=nchannels, bytewidth=bytewidth)
+    validater = fp.FeatureProvider(validation_root, sample_rate=sample_rate, nchannels=nchannels, bytewidth=bytewidth)
 
     n = None
     ms = 30
     batchsize = 32
+    ms_per_batch = batchsize * ms
+    ms_in_dataset = _gigabytes_to_ms(root_sizes_in_gb[root], sample_rate, bytewidth)
+    steps_per_epoch = ms_in_dataset / ms_per_batch
+    ms_in_validation_set = _gigabytes_to_ms(root_sizes_in_gb[validation_root], sample_rate, bytewidth)
+    steps_per_validation_epoch = ms_in_validation_set / ms_per_batch
+
     datagen = provider.generate_n_fft_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True)
     validgen = validater.generate_n_fft_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True)
     detector = vd.VoiceDetector(sample_rate_hz=sample_rate, sample_width_bytes=bytewidth, ms=ms, model_type="fft")
-    detector.fit(datagen, batchsize, steps_per_epoch=100, epochs=200, validation_data=validgen, validation_steps=100, use_multiprocessing=False, workers=1)
-
-    #n = None
-    #ms = 300
-    #batchsize = 32
-    #shape = [s for s in provider.generate_n_spectrograms(n=1, ms=ms, label_fn=_label_fn, expand_dims=True)][0][0].shape
-    #datagen = provider.generate_n_spectrogram_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True, expand_dims=True)
-    #validgen = validater.generate_n_spectrogram_batches(n, batchsize, ms, _label_fn, normalize=True, forever=True, expand_dims=True)
-    #detector = vd.VoiceDetector(sample_rate_hz=sample_rate, sample_width_bytes=bytewidth, ms=ms, model_type="spec", window_length_ms=0.5, spectrogram_shape=shape)
-    #detector.fit(datagen, batchsize, steps_per_epoch=100, epochs=200, validation_data=validgen, validation_steps=100, use_multiprocessing=True, workers=8)
+    detector.fit(datagen,
+                 batchsize,
+                 steps_per_epoch=steps_per_epoch,
+                 epochs=25,
+                 validation_data=validgen,
+                 validation_steps=steps_per_validation_epoch,
+                 use_multiprocessing=False,
+                 workers=1)
