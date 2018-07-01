@@ -21,13 +21,23 @@ class DescriptiveStats:
         Returns a dict of the form {class A: n_items, class B: n_items, etc.} for
         each class of data found in the labeled data.
         """
-        frqs = {}
+        freqs_by_file = {}
         for label, _item in labeled_data:
-            if label not in frqs:
-                frqs[label] = 1
+            if label not in freqs_by_file:
+                freqs_by_file[label] = 1
             else:
-                frqs[label] += 1
-        return frqs
+                freqs_by_file[label] += 1
+
+        freqs_by_size = {}
+        for label, fpath in labeled_data:
+            sz = os.path.getsize(fpath)
+            if label not in freqs_by_size:
+                freqs_by_size[label] = sz
+            else:
+                freqs_by_size[label] += sz
+        for k, v in freqs_by_size.items():
+            freqs_by_size[k] = v / 1E9  # GB
+        return freqs_by_file, freqs_by_size
 
 class GeneratorError(Exception):
     def __init__(self):
