@@ -9,26 +9,28 @@ class FeatureProvider:
     """
     Provides data in the form of Numpy Arrays with labels.
     """
-    def __init__(self, root, sample_rate=None, nchannels=None, bytewidth=None):
+    def __init__(self, root, sample_rate=None, nchannels=None, bytewidth=None, worker_index=None):
         """
         Passes `root` down to a DataProvider and encapsulates it.
 
-        :param root:        The root of the data directory.
-        :param sample_rate: Will resample all audio files to this sample rate (Hz) before use.
-        :param nchannels:   Will resample all audio files to this number of channels before use.
-        :param bytewidth:   Will resample all audio files to this number of bytes data width before use.
+        :param root:         The root of the data directory.
+        :param sample_rate:  Will resample all audio files to this sample rate (Hz) before use.
+        :param nchannels:    Will resample all audio files to this number of channels before use.
+        :param bytewidth:    Will resample all audio files to this number of bytes data width before use.
+        :param worker_index: If integer, will only take every worker_indexth item from the underlying dataset.
         """
-        self.root = root
-        self.sample_rate = sample_rate
-        self.nchannels = nchannels
-        self.bytewidth = bytewidth
+        self.root           = root
+        self.sample_rate    = sample_rate
+        self.nchannels      = nchannels
+        self.bytewidth      = bytewidth
+        self.worker_index   = worker_index
         self._reset()
 
     def _reset(self):
         """
         Resets the internal DataProvider.
         """
-        self.dp = dataprovider.DataProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
+        self.dp = dataprovider.DataProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth, worker_index=self.worker_index)
 
     def generate_n_sequences(self, n, ms, label_fn, file_batchsize=10, forever=False):
         """

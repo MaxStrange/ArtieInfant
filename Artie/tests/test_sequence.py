@@ -1,5 +1,5 @@
 """
-Tests the Multi-Processed Keras Sequence implementation of the FeatureProvider.
+Tests the Multi-Processed Sequence implementation of the FeatureProvider.
 """
 import numpy as np
 import os
@@ -46,7 +46,16 @@ class TestSequence(unittest.TestCase):
             "normalize": True,
             "forever": True,
         }
-        self.sequence = seq.Sequence(self.ms_of_dataset, self.ms_per_batch, self.nworkers, self.provider.generate_n_fft_batches, *args, **kwargs)
+        self.sequence = seq.Sequence(self.ms_of_dataset, 
+                                     self.ms_per_batch,
+                                     self.nworkers,
+                                     self.root,
+                                     self.sample_rate,
+                                     self.nchannels,
+                                     self.bytewidth,
+                                     "generate_n_fft_batches",
+                                     *args,
+                                     **kwargs)
 
     def test_make_sequence(self):
         """

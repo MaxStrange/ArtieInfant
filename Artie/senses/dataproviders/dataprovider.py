@@ -11,15 +11,16 @@ class GeneratorError(Exception):
         pass
 
 class DataProvider:
-    def __init__(self, root, sample_rate=None, nchannels=None, bytewidth=None):
+    def __init__(self, root, sample_rate=None, nchannels=None, bytewidth=None, worker_index=None):
         """
         Crawls the given directory, recursively looking for WAV files. Does this by
         file extension ("WAV", ignoring case).
 
-        :param root:        The root directory to crawl starting at.
-        :param sample_rate: Will resample all audio files to this sample rate (Hz) before use.
-        :param nchannels:   Will resample all audio files to this number of channels before use.
-        :param bytewidth:   Will resample all audio files to this number of bytes data width before use.
+        :param root:         The root directory to crawl starting at.
+        :param sample_rate:  Will resample all audio files to this sample rate (Hz) before use.
+        :param nchannels:    Will resample all audio files to this number of channels before use.
+        :param bytewidth:    Will resample all audio files to this number of bytes data width before use.
+        :param worker_index: If integer, will take only every worker_indexth file from the dataset.
         """
         self.root = root
         self.sample_rate = sample_rate
@@ -32,6 +33,8 @@ class DataProvider:
                 fpath = os.path.join(root_path, fname)
                 if os.path.splitext(fname)[-1].lower() == ".wav":
                     self.path_cache.append(fpath)
+        if worker_index:
+            self.path_cache = self.path_cache[0::worker_index]
         random.shuffle(self.path_cache)
         self._iterator_cache = set()  # We use this to keep track of which files we have already seen
         self._current_batch = []      # This is the current batch of WAV segments; if we ask for larger filebatch than needed, we have leftover
