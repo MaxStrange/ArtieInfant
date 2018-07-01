@@ -10,6 +10,7 @@ path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, path)
 import senses.dataproviders.featureprovider as fp # pylint: disable=locally-disabled, import-error
 import senses.dataproviders.sequence as seq # pylint: disable=locally-disabled, import-error
+import senses.voice_detector.voice_detector as vd # pylint: disable=locally-disabled, import-error
 
 def _mb_to_ms(mb, bytewidth, sample_rate_hz):
     """
@@ -76,6 +77,19 @@ class TestSequence(unittest.TestCase):
         labels_that_are_ones = np.where(label_batch == 1)[0]
         labels_that_are_zeros = np.where(label_batch == 0)[0]
         self.assertEqual(len(labels_that_are_ones) + len(labels_that_are_zeros), len(label_batch))
+
+    def test_train_with_sequence(self):
+        """
+        Test training the network using the Sequence class.
+        """
+        detector = vd.VoiceDetector(self.sample_rate, self.bytewidth, self.ms, "fft")
+        detector.fit(self.sequence,
+                     self.batchsize,
+                     steps_per_epoch=50,
+                     epochs=5,
+                     use_multiprocessing=False,
+                     workers=1)
+
 
 if __name__ == "__main__":
     unittest.main()

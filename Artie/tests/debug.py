@@ -29,12 +29,15 @@ def _mb_to_ms(mb, bytewidth, sample_rate_hz):
     return total_ms
 
 if __name__ == "__main__":
-    #root = os.path.abspath("test_data_directory")
-    #provider = dp.DataProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
+    root = os.path.abspath("test_data_directory")
+    provider = dp.DataProvider(root, sample_rate=24_000, nchannels=1, bytewidth=2)
     #sample_rate = 24_000
     #nchannels = 1
     #bytewidth = 2
     #provider = fp.FeatureProvider(root, sample_rate=sample_rate, nchannels=nchannels, bytewidth=bytewidth)
+
+    stats = provider.get_descriptive_stats(_label_fn)
+    print(stats.frequencies)
 
     #n = None
     #ms = 30
@@ -87,4 +90,12 @@ if __name__ == "__main__":
     labels_that_are_ones = np.where(label_batch == 1)[0]
     labels_that_are_zeros = np.where(label_batch == 0)[0]
     assert len(labels_that_are_ones) + len(labels_that_are_zeros) == len(label_batch)
+
+    detector = vd.VoiceDetector(sample_rate, bytewidth, ms, "fft")
+    detector.fit(sequence,
+                 batchsize,
+                 steps_per_epoch=50,
+                 epochs=25,
+                 use_multiprocessing=False,
+                 workers=1)
 

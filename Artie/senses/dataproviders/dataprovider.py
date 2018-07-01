@@ -6,6 +6,29 @@ import math
 import os
 import random
 
+class DescriptiveStats:
+    """
+    Class used to represent descriptive statistics about a dataset.
+    """
+    def __init__(self, labeled_data):
+        """
+        :param labeled_data:    All the data of interest in the form (label, item)
+        """
+        self.frequencies = self._compute_frequencies(labeled_data)
+
+    def _compute_frequencies(self, labeled_data):
+        """
+        Returns a dict of the form {class A: n_items, class B: n_items, etc.} for
+        each class of data found in the labeled data.
+        """
+        frqs = {}
+        for label, _item in labeled_data:
+            if label not in frqs:
+                frqs[label] = 1
+            else:
+                frqs[label] += 1
+        return frqs
+
 class GeneratorError(Exception):
     def __init__(self):
         pass
@@ -40,6 +63,16 @@ class DataProvider:
         self._current_batch = []      # This is the current batch of WAV segments; if we ask for larger filebatch than needed, we have leftover
         if len(self.path_cache) == 0:
             raise FileNotFoundError("No WAV files found in root", root)
+
+    def get_descriptive_stats(self, label_fn):
+        """
+        Returns a DescriptiveStats object that contains useful information about
+        the dataset, given `label_fn`.
+
+        :param label_fn:    A function of the signature label_fn(wav_path) -> class_index.
+        :returns:           DescriptiveStats object that you can query for information.
+        """
+        return DescriptiveStats([(label_fn(item), item) for item in self.path_cache])
 
     def get_n_wavs(self, n):
         """

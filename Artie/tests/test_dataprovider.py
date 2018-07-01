@@ -281,6 +281,19 @@ class TestDataProvider(unittest.TestCase):
         self.assertTrue(broke_from_loop)
         self.assertEqual(len(seg_names), 3)
 
+    def test_generate_stats(self):
+        """
+        Test getting all the descriptive statistics from the dataset.
+        """
+        def label_fn(fpath):
+            if "babies" in fpath:
+                return 0
+            else:
+                return 1
+
+        stats = self.provider.get_descriptive_stats(label_fn)
+        self.assertDictEqual({0: 2, 1: 1}, stats.frequencies)
+
 
 if __name__ == "__main__":
     unittest.main()
