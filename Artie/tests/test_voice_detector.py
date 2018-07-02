@@ -3,6 +3,7 @@ Tests for the Voice Detector model(s).
 """
 import numpy as np
 import os
+import shutil
 import sys
 import unittest
 import warnings
@@ -14,6 +15,9 @@ import senses.voice_detector.voice_detector as vd # pylint: disable=locally-disa
 class TestVoiceDetector(unittest.TestCase):
     def setUp(self):
         warnings.simplefilter("ignore", ResourceWarning)
+        logpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        if os.path.isdir(logpath):
+            shutil.rmtree(logpath)
         self.root = os.path.abspath("test_data_directory")
         self.sample_rate = 24_000
         self.nchannels = 1

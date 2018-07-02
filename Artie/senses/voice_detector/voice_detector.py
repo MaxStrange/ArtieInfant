@@ -23,7 +23,7 @@ class DataStatsCallback(keras.callbacks.Callback):
         self._logfile = logfile
 
     def on_epoch_end(self, epoch, logs={}):
-        print(logs)
+        pass
 
     def on_batch_end(self, batch, logs={}):
         pass
@@ -118,6 +118,9 @@ class VoiceDetector:
     def fit(self, datagen, batch_size, **kwargs):
         """
         """
+        if not os.path.isdir("models"):
+            os.makedirs("models")
         datastats_cb = DataStatsCallback()
         tb = TensorBoard(log_dir='./logs', batch_size=batch_size, write_graph=True, write_grads=True)
-        self._model.fit_generator(datagen, callbacks=[tb, datastats_cb], **kwargs)
+        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{val_loss:.4f}.hdf5", period=1)
+        self._model.fit_generator(datagen, callbacks=[tb, datastats_cb, saver], **kwargs)
