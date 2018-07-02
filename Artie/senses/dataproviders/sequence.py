@@ -20,7 +20,7 @@ class Sequence():
         self.provider_fun   = provider_fun
         self.args           = args
         self.kwargs         = kwargs
-        self.queue          = multiprocessing.Queue()
+        self.queue          = multiprocessing.Queue(maxsize=2500)  # TODO: it probably makes sense to make this dependent on batchsize instead
 
         for i in range(nworkers):
             proc = multiprocessing.Process(target=self._run_worker, args=(i,), daemon=True)
