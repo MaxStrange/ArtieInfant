@@ -33,3 +33,6 @@ script:
   #- mix test --color --exclude remote:true --exclude manual:true
   - cd ../tests
   - python -m unittest discover
+  - cd ..
+  - python detect.py test -pf fft -ne 2
+  - python detect.py test -pf spectrogram -ne 2
