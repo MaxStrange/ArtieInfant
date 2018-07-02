@@ -104,7 +104,7 @@ if __name__ == "__main__":
     parser.add_argument("-fs", "--file_batchsize", type=int, default=10, help="The number of files to use as a batch for the underlying dataproviders.")
     parser.add_argument("-nz", "--normalize", type=bool, default=True, help="Only valid when provider_fun is 'fft' or 'spectrogram'. Normalize each FFT or spectrogram.")
     parser.add_argument("-so", "--spec_overlap", type=float, default=0.2, help="Only valid when provider_fun is 'spectrogram'. The fraction of overlap of each spectrogram window.")
-    parser.add_argument("-sw", "--ms_per_spec_window", type=float, default=300, help="Only valid when provider_fun is 'spectrogram'. Length of each spectrogram in the time dimension.")
+    parser.add_argument("-sw", "--ms_per_spec_window", type=float, default=None, help="Only valid when provider_fun is 'spectrogram'. Length of each FFT in the time domain used to create the spectrogram. Defaults to 1/100th of the overall window.")
     parser.add_argument("-ne", "--n_epochs", type=int, default=5, help="Number of times to go through the whole dataset.")
     parser.add_argument("-cw", "--use_class_weights", type=int, default=True, help="Use class weights to try to combat class imbalances.")
     args = parser.parse_args()
@@ -176,7 +176,8 @@ if __name__ == "__main__":
 
     # Construct the model
     if model_type == "spec":
-        spectrogram_shape = [s for s in validator.generate_n_spectrograms(n=1, ms=ms_per_model_input, label_fn=label_function, expand_dims=True)][0][0].shape
+        #spectrogram_shape = [s for s in validator.generate_n_spectrograms(n=1, ms=ms_per_model_input, label_fn=label_function, expand_dims=True)][0][0].shape
+        spectrogram_shape = next(sequence)[0].shape[1:]  # Strip batch dimension
     else:
         spectrogram_shape = None
     detector = vd.VoiceDetector(sample_rate_hz=sample_rate_hz,
