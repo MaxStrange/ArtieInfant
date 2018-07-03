@@ -90,7 +90,7 @@ def _label_fn_binary(fpath):
     else:
         return 1
 
-if __name__ == "__main__":
+def main():
     # Argparse to get what model domain and model specifics, plus any hyperparameters to be overridden
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", type=str, choices=("baby", "language", "voice", "test"), help="Model to train.")
@@ -208,3 +208,6 @@ if __name__ == "__main__":
                  shuffle=True,
                  initial_epoch=0
                  )
+
+if __name__ == "__main__":
+    main()
