@@ -74,6 +74,14 @@ class DataProvider:
         if len(self.path_cache) == 0:
             raise FileNotFoundError("No WAV files found in root", root)
 
+    def __repr__(self):
+        return "DataProvider: Root: {}; Len(path_cache): {}; Len(iterator_cache): {}; Len(current_batch): {}".format(
+            self.root, len(self.path_cache), len(self._iterator_cache), len(self._current_batch)
+        )
+
+    def __str__(self):
+        return repr(self)
+
     def get_descriptive_stats(self, label_fn):
         """
         Returns a DescriptiveStats object that contains useful information about
