@@ -27,9 +27,9 @@ class FFTModel(Model):
         real_normed = np.abs(hist_vals) / len(hist_vals)
         if self.normalize:
             real_normed = (real_normed - min(real_normed)) / (max(real_normed) + 1E-9)
-        np.expand_dims(real_normed, axis=0)  # Add batch dimension
-        prediction = self.model.predict(real_normed)
-        return prediction
+        prediction = self.model.predict(np.array([real_normed]), batch_size=1)
+        prediction_as_int = int(round(prediction[0][0]))
+        return prediction_as_int
 
 class SprectrogramModel(Model):
     def __init__(self, modelpath, window_length_ms, overlap, normalize):
@@ -57,6 +57,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("modelpath", type=str, help="Path to model to use.")
     parser.add_argument("mode", type=str, choices=("baby", "language", "voice", "test"), help="Model to train.")
+    parser.add_argument("-fp", "--file_path", type=str, default=None, help="The path to the file to detect the event in. If unspecified, tries to find some in a default location.")
     parser.add_argument("-pf", "--provider_fun", type=str, choices=("fft", "spectrogram", "sequence"), default="fft", help="The type of model to train.")
     parser.add_argument("-el", "--event_length_ms", type=float, default=500, help="The typical length of the event in ms.")
     parser.add_argument("-pv", "--positive_predictive_value", type=float, default=0.5, help="The model's positive predictive value.")
@@ -94,7 +95,14 @@ if __name__ == "__main__":
         "voice": "/mnt/data/thesis_audio/voice_detection/test/VOICE_uk_problems_arguments_etc/Argue_with_Old_man_on_London_Bus-jJeBa2ZzTy8_seg0.wav",
         "test": os.path.join(test_dir, "babies", "baby_laughter.wav"),
     }
-    segment = audiosegment.from_file(golden_reference_data[args.mode])
+    if args.file_path is None:
+        reference_data = golden_reference_data[args.mode]
+    elif os.path.isfile(args.file_path):
+        reference_data = args.file_path
+    else:
+        print("Given file path {}, but does not point to a real file.".format(args.file_path))
+        exit(1)
+    segment = audiosegment.from_file(reference_data)
     segment = segment.resample(sample_rate_Hz=args.sample_rate, sample_width=args.bytewidth, channels=args.nchannels)
 
     # apply the model to the data

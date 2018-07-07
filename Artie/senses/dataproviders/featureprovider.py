@@ -206,8 +206,6 @@ class FeatureProvider:
             labels = np.array([label for _fft, label in raw_batch])
             yield ffts, labels
             nbatches_so_far += 1
-            #if nbatches_so_far % 1000 == 0:
-            #    print("\n" + str(self.dp))
 
     def generate_n_spectrogram_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5, forever=False, expand_dims=False):
         """
