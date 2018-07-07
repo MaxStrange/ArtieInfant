@@ -115,12 +115,12 @@ class VoiceDetector:
         model.compile(loss="binary_crossentropy", optimizer=adam, metrics=["accuracy"])
         return model
 
-    def fit(self, datagen, batch_size, **kwargs):
+    def fit(self, datagen, batch_size, save_models=True, **kwargs):
         """
         """
         if not os.path.isdir("models"):
             os.makedirs("models")
         datastats_cb = DataStatsCallback()
-        tb = TensorBoard(log_dir='./logs', batch_size=batch_size, write_graph=True, write_grads=True)
-        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{val_loss:.4f}.hdf5", period=1)
-        self._model.fit_generator(datagen, callbacks=[tb, datastats_cb, saver], **kwargs)
+        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{accuracy:.4f}.hdf5", period=1)
+        callbacks = [datastats_cb, saver] if save_models else [datastats_cb]
+        self._model.fit_generator(datagen, callbacks=callbacks, **kwargs)

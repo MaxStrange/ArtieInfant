@@ -176,7 +176,6 @@ def main():
 
     # Construct the model
     if model_type == "spec":
-        #spectrogram_shape = [s for s in validator.generate_n_spectrograms(n=1, ms=ms_per_model_input, label_fn=label_function, expand_dims=True)][0][0].shape
         spectrogram_shape = next(sequence)[0].shape[1:]  # Strip batch dimension
     else:
         spectrogram_shape = None

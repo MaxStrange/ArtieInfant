@@ -49,7 +49,7 @@ class SprectrogramModel(Model):
 
         # Add batch dimension
         amplitudes_real_normed = np.expand_dims(amplitudes_real_normed, axis=0)
-        prediction = self.model.predict(amplitudes_real_normed)
+        prediction = self.model.predict(np.array([amplitudes_real_normed]))
         return prediction
  
 

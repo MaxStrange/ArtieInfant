@@ -17,7 +17,12 @@ class TestVoiceDetector(unittest.TestCase):
         warnings.simplefilter("ignore", ResourceWarning)
         logpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
         if os.path.isdir(logpath):
-            shutil.rmtree(logpath)
+            try:
+                shutil.rmtree(logpath)
+            except PermissionError:
+                print("Could not remove logs. Probably because Windows is stupid.")
+            except OSError:
+                print("Could not remove logs. Probably because Windows is stupid.")
         self.root = os.path.abspath("test_data_directory")
         self.sample_rate = 24_000
         self.nchannels = 1
@@ -74,7 +79,7 @@ class TestVoiceDetector(unittest.TestCase):
         batchsize = 32
         datagen = self.provider.generate_n_fft_batches(n, batchsize, ms, self._label_fn, normalize=True, forever=True)
         detector = vd.VoiceDetector(sample_rate_hz=self.sample_rate, sample_width_bytes=self.bytewidth, ms=ms, model_type="fft")
-        detector.fit(datagen, batchsize, steps_per_epoch=100, epochs=2)
+        detector.fit(datagen, batchsize, save_models=False, steps_per_epoch=100, epochs=2)
 
     def test_fit_spectrograms(self):
         """
@@ -86,7 +91,7 @@ class TestVoiceDetector(unittest.TestCase):
         shape = [s for s in self.provider.generate_n_spectrograms(n=1, ms=ms, label_fn=self._label_fn, expand_dims=True)][0][0].shape
         datagen = self.provider.generate_n_spectrogram_batches(n, batchsize, ms, self._label_fn, normalize=True, forever=True, expand_dims=True)
         detector = vd.VoiceDetector(sample_rate_hz=self.sample_rate, sample_width_bytes=self.bytewidth, ms=ms, model_type="spec", window_length_ms=0.5, spectrogram_shape=shape)
-        detector.fit(datagen, batchsize, steps_per_epoch=100, epochs=2)
+        detector.fit(datagen, batchsize, save_models=False, steps_per_epoch=100, epochs=2)
 
 
 if __name__ == "__main__":
