@@ -121,6 +121,6 @@ class VoiceDetector:
         if not os.path.isdir("models"):
             os.makedirs("models")
         datastats_cb = DataStatsCallback()
-        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{accuracy:.4f}.hdf5", period=1)
+        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{val_acc:.4f}.hdf5", period=1)
         callbacks = [datastats_cb, saver] if save_models else [datastats_cb]
         self._model.fit_generator(datagen, callbacks=callbacks, **kwargs)

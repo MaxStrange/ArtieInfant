@@ -47,10 +47,10 @@ class SprectrogramModel(Model):
         if self.normalize:
             amplitudes_real_normed = np.apply_along_axis(lambda v: (v - min(v)) / (max(v) + 1E-9), 1, amplitudes_real_normed)
 
-        # Add batch dimension
-        amplitudes_real_normed = np.expand_dims(amplitudes_real_normed, axis=0)
+        amplitudes_real_normed = np.expand_dims(amplitudes_real_normed, axis=-1)  # Add batch dimension
         prediction = self.model.predict(np.array([amplitudes_real_normed]))
-        return prediction
+        prediction_as_int = int(round(prediction[0][0]))
+        return prediction_as_int
  
 
 if __name__ == "__main__":
