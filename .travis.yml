@@ -25,6 +25,7 @@ before_install:
   - pip install audiosegment
   - pip install keras
   - pip install tensorflow
+  - pip install psutil
   - sudo add-apt-repository ppa:mc3man/trusty-media -y
   - sudo apt-get update
   - sudo apt-get install ffmpeg
