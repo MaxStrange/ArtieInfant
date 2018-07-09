@@ -202,8 +202,8 @@ def main():
                  validation_data=validation_generator,
                  validation_steps=ms_of_validation/ms_per_batch,
                  class_weight=class_weights,
-                 max_queue_size=10,
-                 workers=1,
+                 max_queue_size=10_000,
+                 workers=2,
                  use_multiprocessing=False,
                  shuffle=True,
                  initial_epoch=0

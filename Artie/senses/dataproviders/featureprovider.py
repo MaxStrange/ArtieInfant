@@ -24,12 +24,16 @@ class FeatureProvider:
         self.nchannels      = nchannels
         self.bytewidth      = bytewidth
         self.worker_index   = worker_index
+        self.dp             = None
         self._reset()
 
     def _reset(self):
         """
         Resets the internal DataProvider.
         """
+        if self.dp is not None:
+            del self.dp
+            self.dp = None
         self.dp = dataprovider.DataProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth, worker_index=self.worker_index)
 
     def generate_n_sequences(self, n, ms, label_fn, file_batchsize=10, forever=False):
@@ -202,8 +206,8 @@ class FeatureProvider:
             labels = np.array([label for _fft, label in raw_batch])
             yield ffts, labels
             nbatches_so_far += 1
-            if nbatches_so_far % 1000:
-                print(self.dp)
+            #if nbatches_so_far % 1000 == 0:
+            #    print("\n" + str(self.dp))
 
     def generate_n_spectrogram_batches(self, n, batchsize, ms, label_fn, file_batchsize=10, normalize=True, window_length_ms=None, overlap=0.5, forever=False, expand_dims=False):
         """
