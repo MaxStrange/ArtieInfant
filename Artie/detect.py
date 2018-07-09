@@ -106,7 +106,7 @@ def main():
     parser.add_argument("-so", "--spec_overlap", type=float, default=0.2, help="Only valid when provider_fun is 'spectrogram'. The fraction of overlap of each spectrogram window.")
     parser.add_argument("-sw", "--ms_per_spec_window", type=float, default=None, help="Only valid when provider_fun is 'spectrogram'. Length of each FFT in the time domain used to create the spectrogram. Defaults to 1/100th of the overall window.")
     parser.add_argument("-ne", "--n_epochs", type=int, default=5, help="Number of times to go through the whole dataset.")
-    parser.add_argument("-cw", "--use_class_weights", type=int, default=True, help="Use class weights to try to combat class imbalances.")
+    parser.add_argument("-cw", "--use_class_weights", type=bool, default=True, help="Use class weights to try to combat class imbalances.")
     args = parser.parse_args()
 
     # Convert user-friendly command line arguments to forms used internally
