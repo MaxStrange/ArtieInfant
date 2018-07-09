@@ -292,7 +292,7 @@ class TestDataProvider(unittest.TestCase):
                 return 1
 
         stats = self.provider.get_descriptive_stats(label_fn)
-        self.assertDictEqual({0: 2, 1: 1}, stats.frequencies)
+        self.assertDictEqual({0: 2, 1: 1}, stats.frequencies_by_file)
 
 
 if __name__ == "__main__":

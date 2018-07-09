@@ -85,6 +85,7 @@ class TestSequence(unittest.TestCase):
         detector = vd.VoiceDetector(self.sample_rate, self.bytewidth, self.ms, "fft")
         detector.fit(self.sequence,
                      self.batchsize,
+                     save_models=False,
                      steps_per_epoch=50,
                      epochs=5,
                      use_multiprocessing=False,

@@ -14,7 +14,7 @@ class DescriptiveStats:
         """
         :param labeled_data:    All the data of interest in the form (label, item)
         """
-        self.frequencies = self._compute_frequencies(labeled_data)
+        self.frequencies_by_file, self.frequencies_by_size = self._compute_frequencies(labeled_data)
 
     def _compute_frequencies(self, labeled_data):
         """
