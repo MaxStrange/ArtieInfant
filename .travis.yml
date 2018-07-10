@@ -33,7 +33,8 @@ before_install:
 script:
   #- mix test --color --exclude remote:true --exclude manual:true
   - cd ../tests
-  - python -m unittest discover
+  - export TRAVIS_CI="True"   # Allow the unit tests to know they are being run in Travis
+  - python -m unittest discover --verbose 
   - cd ..
-  - python detect.py test -pf fft -ne 2
+  #- python detect.py test -pf fft -ne 2                         # This test takes too much memory for poor CI
   #- python detect.py test -pf spectrogram -ne 2 -ms 300 -sw 10  # This test takes too much memory for poor CI

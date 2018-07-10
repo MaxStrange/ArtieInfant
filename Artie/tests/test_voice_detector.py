@@ -81,6 +81,7 @@ class TestVoiceDetector(unittest.TestCase):
         detector = vd.VoiceDetector(sample_rate_hz=self.sample_rate, sample_width_bytes=self.bytewidth, ms=ms, model_type="fft")
         detector.fit(datagen, batchsize, save_models=False, steps_per_epoch=100, epochs=2)
 
+    @unittest.skipIf("TRAVIS_CI" in os.environ, "Travis CI's memory allowances are too small for this test.")
     def test_fit_spectrograms(self):
         """
         Test training on spectrogram data.
