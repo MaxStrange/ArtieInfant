@@ -36,4 +36,4 @@ script:
   - python -m unittest discover
   - cd ..
   - python detect.py test -pf fft -ne 2
-  - python detect.py test -pf spectrogram -ne 2 -ms 300 -sw 10
+  #- python detect.py test -pf spectrogram -ne 2 -ms 300 -sw 10  # This test takes too much memory for poor CI
