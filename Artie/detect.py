@@ -28,12 +28,12 @@ root_sizes_in_gb = {
 
 # These are the ratio of NEG/POS or CHINESE/ENG, by bytes of data (not number of files)
 class_imbalances = {
-    "/mnt/data/thesis_audio/baby_detection/processed": 3.55667,
+    "/mnt/data/thesis_audio/baby_detection/processed": 3.673,
     "/mnt/data/thesis_audio/engchin/processed": 5.6394,
     "/mnt/data/thesis_audio/voice_detection/processed": 1.3565,
     test_dir: 1.0,
 
-    "/mnt/data/thesis_audio/baby_detection/test": 2.8887,
+    "/mnt/data/thesis_audio/baby_detection/test": 4.758,
     "/mnt/data/thesis_audio/engchin/test": 4.43341,
     "/mnt/data/thesis_audio/voice_detection/test": 0.63616,
 }
