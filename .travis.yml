@@ -23,11 +23,18 @@ before_install:
 #  - mix deps.get
 #  - export ERLPORT_PYTHON=python3
   - pip install audiosegment
+  - pip install keras
+  - pip install tensorflow
+  - pip install psutil
   - sudo add-apt-repository ppa:mc3man/trusty-media -y
   - sudo apt-get update
   - sudo apt-get install ffmpeg
   - sudo apt-get install sox
 script:
   #- mix test --color --exclude remote:true --exclude manual:true
-  - cd ../senses/dataproviders/tests
-  - python -m unittest discover
+  - cd ../tests
+  - export TRAVIS_CI="True"   # Allow the unit tests to know they are being run in Travis
+  - python -m unittest discover --verbose 
+  - cd ..
+  #- python detect.py test -pf fft -ne 2                         # This test takes too much memory for poor CI
+  #- python detect.py test -pf spectrogram -ne 2 -ms 300 -sw 10  # This test takes too much memory for poor CI
