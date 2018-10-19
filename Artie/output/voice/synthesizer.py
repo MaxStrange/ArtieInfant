@@ -127,6 +127,9 @@ def make_seg_from_synthmat(synthmat, duration, times):
                         removed from disk.
     """
     assert len(synthmat.shape) == 2, "Wrong number of dimensions for synthmat. Expected 2, but got {}".format(len(synthmat.shape))
+    for idx, time in enumerate(times):
+        if time < 0 or time > duration:
+            raise ValueError("Time", idx, "is invalid. Times must be non-negative and less than or equal to the duration, which is", duration)
     script = _make_praat_script(synthmat, duration, times)
     fpath = _run_praat_script(script)
     seg = audiosegment.from_file(fpath)
