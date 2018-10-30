@@ -6,6 +6,7 @@ import collections
 import numpy as np
 import random
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
+import warnings
 
 Step = collections.namedtuple("Step", "state action")
 ObservationSpace = collections.namedtuple("ObservationSpace", "dtype high low shape")
@@ -112,6 +113,18 @@ class SomEnvironment:
                                                   high=np.array([(self.nclusters - 1)], dtype=np.int32),
                                                   low=np.array([0], dtype=np.int32),
                                                   shape=(1,))
+        self._inference_mode = False
+        self._previous_inferred_index = -1
+
+    @property
+    def inference_mode(self):
+        """Inference mode = True means that we cycle through the observations rather than sampling them randomly"""
+        return self._inference_mode
+
+    @inference_mode.setter
+    def inference_mode(self, v):
+        """Inference mode = True means that we cycle through the observations rather than sampling them randomly"""
+        self._inference_mode = v
 
     @property
     def phase(self):
@@ -163,9 +176,15 @@ class SomEnvironment:
         Will NOT clear the audio buffer as well.
 
         :returns:           The first observation of the environment, a uniform random scalar
-                            from the distribution [0, self.nclusters].
+                            from the distribution [0, self.nclusters]. If we are in inference mode
+                            however, we will return 0 first, then 1, ..., self.nclusters - 1, then 0, etc.
         """
-        self.observed_cluster_index = random.choice([n for n in range(0, self.nclusters)])
+        if self.inference_mode:
+            self.observed_cluster_index = (self._previous_inferred_index + 1) % self.nclusters
+        else:
+            self.observed_cluster_index = random.choice([n for n in range(0, self.nclusters)])
+
+        self._previous_inferred_index = self.observed_cluster_index
         return np.array([self.observed_cluster_index], dtype=self.observation_space.dtype)
 
     def step(self, action):
@@ -185,6 +204,7 @@ class SomEnvironment:
         done = True # We are always done after the first step in this environment
         info = {}   # Info dict is just an empty dict, kept for compliance with OpenAI Gym
 
+        warnings.simplefilter(action='ignore', category=ResourceWarning)
         seg = synth.make_seg_from_synthmat(action, self.articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self.time_points_ms])
         if self.retain_audio:
             self._audio_buffer.append(seg)

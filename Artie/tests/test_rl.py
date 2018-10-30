@@ -238,6 +238,7 @@ class TestRL(unittest.TestCase):
                                         action_shape=TestRL.action_shape(),
                                         observation_space=TestRL.observation_space())
         rlagent = agent.Agent(env, actor=self._xor_actor(env), critic=self._xor_critic(env))
+        warnings.simplefilter(action='ignore', category=UserWarning)
         rlagent.fit(nsteps=5000, nmaxsteps=4)
         score = rlagent.inference()
         raw_episode_reward_vals = score.history['episode_reward']
@@ -256,6 +257,7 @@ class TestRL(unittest.TestCase):
         rlagent = agent.Agent(env, actor=self._xor_actor(env), critic=self._xor_critic(env))
 
         # Train for a little bit
+        warnings.simplefilter(action='ignore', category=UserWarning)
         rlagent.fit(nsteps=2500, nmaxsteps=4)
 
         # Save the agent
@@ -268,6 +270,7 @@ class TestRL(unittest.TestCase):
         # Train for a little longer and make sure the reward is as good as it otherwise would have been
         os.remove("tmpagent_actor.hdf5")
         os.remove("tmpagent_critic.hdf5")
+        warnings.simplefilter(action='ignore', category=UserWarning)
         rlagent.fit(nsteps=2500, nmaxsteps=4)
 
         score = rlagent.inference()
@@ -301,6 +304,7 @@ class TestRL(unittest.TestCase):
         # Train the agent. Each step takes a long time in this environment, but we seem to be able to actually
         # teach it to make some noises pretty quickly.
         warnings.simplefilter(action='ignore', category=DeprecationWarning)
+        warnings.simplefilter(action='ignore', category=UserWarning)
         rlagent.fit(nsteps=175, nmaxsteps=1)
 
         # Do inference to get a score history. If you want to dump the audio to disk, uncomment the line before and after.
@@ -343,6 +347,7 @@ class TestRL(unittest.TestCase):
 
         # Train the Agent to mimic the sound as best as it can
         warnings.simplefilter(action='ignore', category=DeprecationWarning)
+        warnings.simplefilter(action='ignore', category=UserWarning)
         rlagent.fit(nsteps=500, nmaxsteps=1)
 
         # Check on the output now that the Agent is trained
@@ -354,6 +359,46 @@ class TestRL(unittest.TestCase):
         raw_episode_reward_vals = score.history['episode_reward']
         avg_episode_reward = sum(raw_episode_reward_vals) / len(raw_episode_reward_vals)
         self.assertGreaterEqual(avg_episode_reward, 0.5)  # TODO: this value is arbitrary right now
+
+    def test_somenvironment_inference_mode(self):
+        """
+        Test to make sure we cycle through the observations on resets when in inference mode.
+        """
+        nclusters = 5
+        assert nclusters > 0
+        prototypes = [audiosegment.silent() for _ in range(nclusters)]
+        artic_dur_ms = prototypes[0].duration_seconds * 1000.0
+
+        ntimepoints = 3
+        timebase = artic_dur_ms / ntimepoints
+        time_point_list_ms = [timebase * i for i in range(ntimepoints)]
+
+        env = environment.SomEnvironment(nclusters, artic_dur_ms, time_point_list_ms, prototypes)
+        env.phase = 1  # Set to mimic the input file, rather than try to learn to output noise
+        env.inference_mode = True
+
+        action = np.random.rand(*env.action_shape)
+
+        obs = env.reset()
+        self.assertTrue(np.all(obs == np.array([0])))
+
+        obs = env.reset()
+        self.assertTrue(np.all(obs == np.array([1])))
+
+        obs = env.reset()
+        self.assertTrue(np.all(obs == np.array([2])))
+
+        obs = env.reset()
+        self.assertTrue(np.all(obs == np.array([3])))
+
+        obs = env.reset()
+        self.assertTrue(np.all(obs == np.array([4])))
+
+        obs = env.reset()
+        self.assertTrue(np.all(obs == np.array([0])))
+
+        obs = env.reset()
+        self.assertTrue(np.all(obs == np.array([1])))
 
 
 if __name__ == "__main__":
