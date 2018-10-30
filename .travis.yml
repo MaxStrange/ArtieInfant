@@ -2,6 +2,8 @@
 language: python
 python:
   - '3.6'
+cache:
+  - pip
 before_install:
 #  - wget -o $HOME/erlang.tar.bz2 https://s3.amazonaws.com/travis-otp-releases/binaries/ubuntu/14.04/x86_64/erlang-19.3-nonroot.tar.bz2
 #  - mkdir -p ~/otp && tar -xf erlang-19.3-nonroot.tar.bz2 -C ~/otp/
@@ -26,6 +28,8 @@ before_install:
   - pip install keras
   - pip install tensorflow
   - pip install psutil
+  - pip install keras-rl
+  - pip install pandas
   - sudo add-apt-repository ppa:mc3man/trusty-media -y
   - sudo apt-get update
   - sudo apt-get install ffmpeg
