@@ -1,6 +1,8 @@
 """
 This is the main entry point for the ArtieInfant experiment.
 """
+from experiment.thesis import phase1
+import argparse
 import os
 import sys
 import instinct
@@ -9,12 +11,12 @@ import output
 import senses
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--test", action="store_true", help="Runs the experiment using the test configuration.")
+    args = parser.parse_args()
+
     # Phase 1
-    # TODO: pretrain RL algo to vocalize
-    # TODO: train VAE
-    # TODO: Mean Shift Cluster on the VAE latent vectors to determine number of clusters ('phonemes')
-    # TODO: Determine prototype WAV for each phoneme
-    # TODO: reinforce RL agent based on utterances similar to prototypes
+    phase1.run(test=args.test)
 
     # Phase 2
     # TODO: train language model (RNN)
@@ -25,4 +27,3 @@ if __name__ == "__main__":
 
     # Phase 4
     # TODO: babble
-    pass
