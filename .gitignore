@@ -53,3 +53,6 @@ CATKIN_IGNORE
 *.egg-info
 */dist
 *.hdf5
+
+# VS Code
+*.vscode/
