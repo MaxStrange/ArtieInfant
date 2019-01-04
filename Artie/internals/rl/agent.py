@@ -10,7 +10,7 @@ from rl.random import OrnsteinUhlenbeckProcess
 from rl.agents import DDPGAgent
 
 class Agent:
-    def __init__(self, env, actor=None, critic=None, weights=None, warmup_actor=100, warmup_critic=100, gamma=0.99):
+    def __init__(self, env, actor=None, critic=None, weights=None, warmup_actor=1, warmup_critic=1, gamma=0.99):
         """
         Constructs a model to learn the given environment.
 
@@ -61,6 +61,7 @@ class Agent:
         :param nmaxsteps:   The maximum number of steps to take in a single episode before resetting the environment.
         :returns:           A keras.callbacks.history object.
         """
+        warnings.simplefilter(action="ignore", category=DeprecationWarning)
         return self.agent.fit(self.env, nb_steps=nsteps, visualize=False, verbose=1, nb_max_episode_steps=nmaxsteps)
 
     def save(self, fpath):

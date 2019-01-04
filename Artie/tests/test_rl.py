@@ -10,6 +10,7 @@ import enum
 import logging
 import numpy as np
 import os
+import random
 import sys
 import unittest
 
@@ -21,12 +22,12 @@ import internals.rl.environment as environment  # pylint: disable=locally-disabl
 # Configure the logger
 logging.basicConfig(filename="TestLog.log", filemode='w', level=logging.DEBUG)
 
-
-class TestRL(unittest.TestCase):
-    __skip_the_long_ones = False
-
-    class FirstObs(enum.Enum):
-        XOR = np.array([0, 0], dtype=np.float32)
+class XORSingleStepTestRig:
+    """
+    XOR environment where each step is terminal and randomly drawn from the four possible inputs.
+    """
+    def __init__(self):
+        pass
 
     @staticmethod
     def observation_space():
@@ -41,7 +42,88 @@ class TestRL(unittest.TestCase):
         return (1,)
 
     @staticmethod
-    def xor_behavior(obs, action, lastobs):
+    def sample():
+        """
+        Return one of the four possible observations with uniform random chance.
+        """
+        choices = [
+            np.array([1, 1], dtype=np.float32),
+            np.array([1, 0], dtype=np.float32),
+            np.array([0, 1], dtype=np.float32),
+            np.array([0, 0], dtype=np.float32)
+        ]
+
+        return random.choice(choices)
+
+    @staticmethod
+    def behavior(obs, action, lastobs):
+        """
+         Create an environment of the form:
+        {
+            Step.state of [1, 1]:
+            Step.state of [0, 0]:
+                Step.action == 0      => Reward = +1, end
+                Step.action otherwise => Reward = -1, end
+
+            Step.state of [1, 0]:
+            Step.state of [0, 1]:
+                Step.action == 1      => Reward = +1, end
+                Step.action otherwise => Reward = -1, end
+        }
+
+        Every step is terminal, regardless of action chosen. Each observation
+        is randomly drawn from the four possibilities at reset.
+        """
+        if not hasattr(action, 'shape'):
+            action = np.array([action], dtype=np.float32)
+        assert action.shape == (1,)
+
+        obslist = [int(round(i)) for i in obs.tolist()]
+
+        if obslist == [1, 1] or obslist == [0, 0]:
+            if int(round(action[0])) == 0:
+                o = lastobs
+                r = 1
+                d = True
+            else:
+                o = lastobs
+                r = -1
+                d = True
+        else:
+            if int(round(action[0])) == 1:
+                o = lastobs
+                r = 1
+                d = True
+            else:
+                o = lastobs
+                r = -1
+                d = True
+
+        logging.debug("Observation: {} -> Action: {} -> Reward: {}".format(o, int(round(action[0])), r))
+        return o, r, d
+
+
+class XORTestRig:
+    """
+    XOR environment that goes through all four possible XOR inputs in order.
+    """
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def observation_space():
+        dtype = np.float32
+        high = np.array([1, 1], dtype=np.float32)
+        low = np.array([0, 0], dtype=np.float32)
+        shape = (2,)
+        return environment.ObservationSpace(dtype, high, low, shape)
+
+    @staticmethod
+    def action_shape():
+        return (1,)
+
+    @staticmethod
+    def behavior(obs, action, lastobs):
         """
         Create an environment of the form:
         {
@@ -68,10 +150,12 @@ class TestRL(unittest.TestCase):
             action = np.array([action], dtype=np.float32)
         assert action.shape == (1,)
 
-        if obs.tolist() == [1, 1] or obs.tolist() == [0, 0]:
+        obslist = [int(round(i)) for i in obs.tolist()]
+
+        if obslist == [1, 1] or obslist == [0, 0]:
             if int(round(action[0])) == 0:
-                nextobs = lastobs if obs.tolist() == [1, 1] else np.array([0, 1], dtype=np.float32)
-                done = obs.tolist() == [1, 1]
+                nextobs = lastobs if obslist == [1, 1] else np.array([0, 1], dtype=np.float32)
+                done = obslist == [1, 1]
                 o = nextobs
                 r = 1
                 d = done
@@ -81,7 +165,7 @@ class TestRL(unittest.TestCase):
                 d = True
         else:
             if int(round(action[0])) == 1:
-                nextobs = np.array([1, 0], dtype=np.float32) if obs.tolist() == [0, 1] else np.array([1, 1], dtype=np.float32)
+                nextobs = np.array([1, 0], dtype=np.float32) if obslist == [0, 1] else np.array([1, 1], dtype=np.float32)
                 o = nextobs
                 r = 1
                 d = False
@@ -93,6 +177,12 @@ class TestRL(unittest.TestCase):
         logging.debug("Observation: {} -> Action: {} -> Reward: {}".format(o, int(round(action[0])), r))
         return o, r, d
 
+class TestRL(unittest.TestCase):
+    __skip_the_long_ones = False
+
+    class FirstObs(enum.Enum):
+        XOR = np.array([0, 0], dtype=np.float32)
+
     def setUp(self):
         pass
 
@@ -100,11 +190,11 @@ class TestRL(unittest.TestCase):
         """
         Tests that the environment test harness is working properly.
         """
-        env = environment.TestEnvironment(TestRL.xor_behavior,
+        env = environment.TestEnvironment(XORTestRig.behavior,
                                         nsteps=4,
                                         first_obs=TestRL.FirstObs.XOR.value,
-                                        action_shape=TestRL.action_shape(),
-                                        observation_space=TestRL.observation_space())
+                                        action_shape=XORTestRig.action_shape(),
+                                        observation_space=XORTestRig.observation_space())
         obs00 = env.reset()
 
         # Assert that the first observation we get is what we loaded as the first observation
@@ -247,15 +337,33 @@ class TestRL(unittest.TestCase):
         """
         Test constructing an Agent and then learning the XOR environment with it.
         """
-        env = environment.TestEnvironment(TestRL.xor_behavior,
+        env = environment.TestEnvironment(XORTestRig.behavior,
                                         nsteps=4,
                                         first_obs=TestRL.FirstObs.XOR.value,
-                                        action_shape=TestRL.action_shape(),
-                                        observation_space=TestRL.observation_space())
+                                        action_shape=XORTestRig.action_shape(),
+                                        observation_space=XORTestRig.observation_space())
         rlagent = agent.Agent(env, actor=self._xor_actor(env), critic=self._xor_critic(env))
         warnings.simplefilter(action='ignore', category=UserWarning)
         rlagent.fit(nsteps=15000, nmaxsteps=4)
         score = rlagent.inference(nepisodes=4)
+        raw_episode_reward_vals = score.history['episode_reward']
+        avg_episode_reward = sum(raw_episode_reward_vals)/len(raw_episode_reward_vals)
+        self.assertGreaterEqual(avg_episode_reward, 0.0)
+
+    def test_single_step_xor_via_agent(self):
+        """
+        Test the single step XOR environment. This test assures us that the RL algorithm used
+        actually works even if every single step is terminal.
+        """
+        env = environment.TestEnvironment(XORSingleStepTestRig.behavior,
+                                        nsteps=1,
+                                        first_obs=XORSingleStepTestRig.sample,
+                                        action_shape=XORSingleStepTestRig.action_shape(),
+                                        observation_space=XORSingleStepTestRig.observation_space())
+        rlagent = agent.Agent(env, actor=self._xor_actor(env), critic=self._xor_critic(env))
+        warnings.simplefilter(action='ignore', category=UserWarning)
+        rlagent.fit(nsteps=15000, nmaxsteps=1)
+        score = rlagent.inference(nepisodes=16)
         raw_episode_reward_vals = score.history['episode_reward']
         avg_episode_reward = sum(raw_episode_reward_vals)/len(raw_episode_reward_vals)
         self.assertGreaterEqual(avg_episode_reward, 2.0)
@@ -264,11 +372,11 @@ class TestRL(unittest.TestCase):
         """
         Test saving the XOR agent, then loading it and training it some more.
         """
-        env = environment.TestEnvironment(TestRL.xor_behavior,
+        env = environment.TestEnvironment(XORTestRig.behavior,
                                           nsteps=4,
                                           first_obs=TestRL.FirstObs.XOR.value,
-                                          action_shape=TestRL.action_shape(),
-                                          observation_space=TestRL.observation_space())
+                                          action_shape=XORTestRig.action_shape(),
+                                          observation_space=XORTestRig.observation_space())
         rlagent = agent.Agent(env, actor=self._xor_actor(env), critic=self._xor_critic(env))
 
         # Train for a little bit
@@ -403,7 +511,7 @@ class TestRL(unittest.TestCase):
         env.phase = 1  # Set to mimic the input file, rather than try to learn to output noise
         env.inference_mode = True
 
-        action = np.random.rand(*env.action_shape)
+        _action = np.random.rand(*env.action_shape)
 
         obs = env.reset()
         self.assertTrue(np.all(obs == np.array([0])))

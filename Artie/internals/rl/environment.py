@@ -23,7 +23,7 @@ class TestEnvironment:
                                     This function is what our step() function actually calls under the hood.
         :param nsteps:              The number of steps before we return 'done' for step(). If this parameter
                                     is None, an episode will only terminate if the behavior yields a done.
-        :param first_obs:           The first observation, returned by calling reset().
+        :param first_obs:           The first observation that should be returned by calling reset(). This may be a callable.
         :param action_shape:        The shape of an action in this environment.
         :param observation_space:   An ObservationSpace.
         """
@@ -42,8 +42,13 @@ class TestEnvironment:
         :returns:           The first observation of the environment.
         """
         self.nsteps_so_far_taken = 0
-        self.most_recent_obs = self.first_obs
-        return self.first_obs
+
+        if callable(self.first_obs):
+            obs = self.first_obs()
+        else:
+            obs = self.first_obs
+        self.most_recent_obs = obs
+        return obs
 
     def step(self, action):
         """
@@ -219,6 +224,7 @@ class SomEnvironment:
         ##############################################################################################################
 
         if self.phase == 0:
+            # TODO: Ask Dr. Stiber what a good check for loudness/humanness/voiceness might be
             # During phase 0, the reward is based on whether or not we vocalized at all
             arr = seg.to_numpy_array()
             assert len(arr) > 0
