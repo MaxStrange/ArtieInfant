@@ -22,22 +22,41 @@ import matplotlib.pyplot as plt
 import argparse
 import os
 
+def _sampling(args):
+    """Reparameterization trick by sampling fr an isotropic unit Gaussian.
+    # Arguments:
+        args (tensor): mean and log of variance of Q(z|X)
+    # Returns:
+        z (tensor): sampled latent vector
+    """
+    z_mean, z_log_var = args
+    batch = K.shape(z_mean)[0]
+    dim = K.int_shape(z_mean)[1]
+    # by default, random_normal has mean=0 and std=1.0
+    epsilon = K.random_normal(shape=(batch, dim))
+    return z_mean + K.exp(0.5 * z_log_var) * epsilon
+
 class VariationalAutoEncoder:
     """
     A class to represent an encoder and decoder such that the encoder
     is constrained to learning an embedding of the input vectors
-    that conforms to a particular distribution.
+    that conforms to a normal distribution.
     """
-    def __init__(self, input_shape, intermediate_dim, latent_dim, optimizer, loss):
+    def __init__(self, input_shape, latent_dim, optimizer, loss, encoder=None, decoder=None):
         """
         :param input_shape:         The shape of the input data.
-        :param intermediate_dim:    The intermediate layer length.
         :param latent_dim:          The dimensionality of the latent vector space.
         :param optimizer:           String representation of the optimizer.
         :param loss:                String representation of the loss function.
+        :param encoder:             A Keras functional layer that will take an Inputs layer as its parameter
+                                    and will be hooked up to the latent portion. If None provided, we use a
+                                    reasonable default for the MNIST dataset. This is probably not what you want.
+        :param decoder:             A keras functional layer that will take an Inputs layer of shape (latent_dim,)
+                                    as its parameter. If None provided, we use a reasonable default for the MNIST
+                                    dataset. This is probably not what you want.
         """
-        self._encoder, self._inputs, z_mean, z_log_var = self._build_encoder(input_shape, intermediate_dim, latent_dim)
-        self._decoder = self._build_decoder(input_shape, intermediate_dim, latent_dim)
+        self._encoder, self._inputs, z_mean, z_log_var = self._build_encoder(input_shape, latent_dim, encoder=encoder)
+        self._decoder = self._build_decoder(input_shape, latent_dim, decoder=decoder)
         self._outputs = self._decoder(self._encoder(self._inputs)[2])
         self._vae = Model(self._inputs, self._outputs, name='vae_mlp')
         flattened_input_shape = (np.product(np.array(input_shape)),)
@@ -93,72 +112,62 @@ class VariationalAutoEncoder:
         reconstruction_loss *= flattened_input_shape
         return reconstruction_loss
 
-    def _build_encoder(self, input_shape, intermediate_dim, latent_dim):
+    def _build_encoder(self, input_shape, latent_dim, encoder=None):
         """
         Builds the encoder portion of the model and returns it.
+
+        The default encoder is good for MNIST.
         """
-        inputs = Input(shape=input_shape, name="encoder_input")             # (-1, 28, 28, 1)
-        x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)   # (-1, 28, 28, 16)
-        x = MaxPooling2D((2, 2), padding='same')(x)                         # (-1, 14, 14, 16)
-        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)         # (-1, 14, 14, 8)
-        x = MaxPooling2D((2, 2), padding='same')(x)                         # (-1, 7, 7, 8)
-        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)         # (-1, 7, 7, 8)
-        x = MaxPooling2D((2, 2), padding='same')(x)                         # (-1, 4, 4, 8)
-        x = Flatten()(x)                                                    # (-1, 128)
-        x = Dense(32, activation='relu')(x)                                 # (-1, 32)
+        #                                                                       # MNIST dimensionality
+        inputs = Input(shape=input_shape, name="encoder_input")                 # (-1, 28, 28, 1)
+        if encoder is None:
+            x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)   # (-1, 28, 28, 16)
+            x = MaxPooling2D((2, 2), padding='same')(x)                         # (-1, 14, 14, 16)
+            x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)         # (-1, 14, 14, 8)
+            x = MaxPooling2D((2, 2), padding='same')(x)                         # (-1, 7, 7, 8)
+            x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)         # (-1, 7, 7, 8)
+            x = MaxPooling2D((2, 2), padding='same')(x)                         # (-1, 4, 4, 8)
+            x = Flatten()(x)                                                    # (-1, 128)
+            x = Dense(32, activation='relu')(x)                                 # (-1, 32)
+        else:
+            x = encoder(inputs)
+
         z_mean = Dense(latent_dim, name='z_mean')(x)
         z_log_var = Dense(latent_dim, name='z_log_var')(x)
 
         # use reparameterization trick to push the sampling out as input
-        # note that "output_shape" isn't necessary with the TensorFlow backend
-        z = Lambda(sampling, output_shape=(latent_dim,), name='z')([z_mean, z_log_var])  # (-1, 2)
+        z = Lambda(_sampling, output_shape=(latent_dim,), name='z')([z_mean, z_log_var])  # (-1, 2)
 
-        encoder = Model(inputs, [z_mean, z_log_var, z], name='encoder')
-        encoder.summary()
+        complete_encoder = Model(inputs, [z_mean, z_log_var, z], name='encoder')
+        complete_encoder.summary()
 
-        return encoder, inputs, z_mean, z_log_var
+        return complete_encoder, inputs, z_mean, z_log_var
 
-    def _build_decoder(self, input_shape, intermediate_dim, latent_dim):
+    def _build_decoder(self, input_shape, latent_dim, decoder=None):
         """
         Builds the decoder portion of the model and returns it.
         """
-        intermediate_dim = (4, 4, 8)  # TODO: This is hard-coded to MNIST and is whatever the last shape is before the Dense portion of then encoder
-
-        # build decoder model
         latent_inputs = Input(shape=(latent_dim,), name='z_sampling')        # (-1, 2)
-        x = Dense(32, activation='relu')(latent_inputs)                      # (-1, 32)
-        x = Dense(np.product(intermediate_dim), activation='relu')(x)        # (-1, 128)
-        x = Reshape(target_shape=intermediate_dim)(x)                        # (-1, 4, 4, 8)
-        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)          # (-1, 4, 4, 8)
-        x = UpSampling2D((2, 2))(x)                                          # (-1, 8, 8, 8)
-        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)          # (-1, 8, 8, 8)
-        x = UpSampling2D((2, 2))(x)                                          # (-1, 16, 16, 8)
-        x = Conv2D(16, (3, 3), activation='relu')(x)                         # (-1, 14, 14, 16)
-        x = UpSampling2D((2, 2))(x)                                          # (-1, 28, 28, 16)
+        if decoder is None:
+            intermediate_dim = (4, 4, 8)  # hard-coded to MNIST
+            x = Dense(32, activation='relu')(latent_inputs)                      # (-1, 32)
+            x = Dense(np.product(intermediate_dim), activation='relu')(x)        # (-1, 128)
+            x = Reshape(target_shape=intermediate_dim)(x)                        # (-1, 4, 4, 8)
+            x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)          # (-1, 4, 4, 8)
+            x = UpSampling2D((2, 2))(x)                                          # (-1, 8, 8, 8)
+            x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)          # (-1, 8, 8, 8)
+            x = UpSampling2D((2, 2))(x)                                          # (-1, 16, 16, 8)
+            x = Conv2D(16, (3, 3), activation='relu')(x)                         # (-1, 14, 14, 16)
+            x = UpSampling2D((2, 2))(x)                                          # (-1, 28, 28, 16)
+        else:
+            x = decoder(latent_inputs)
         outputs = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x) # (-1, 28, 28, 1)
 
         # instantiate decoder model
-        decoder = Model(latent_inputs, outputs, name='decoder')
-        decoder.summary()
+        completed_decoder = Model(latent_inputs, outputs, name='decoder')
+        completed_decoder.summary()
 
-        return decoder
-
-# reparameterization trick
-# instead of sampling from Q(z|X), sample eps = N(0,I)
-# z = z_mean + sqrt(var)*eps
-def sampling(args):
-    """Reparameterization trick by sampling fr an isotropic unit Gaussian.
-    # Arguments:
-        args (tensor): mean and log of variance of Q(z|X)
-    # Returns:
-        z (tensor): sampled latent vector
-    """
-    z_mean, z_log_var = args
-    batch = K.shape(z_mean)[0]
-    dim = K.int_shape(z_mean)[1]
-    # by default, random_normal has mean=0 and std=1.0
-    epsilon = K.random_normal(shape=(batch, dim))
-    return z_mean + K.exp(0.5 * z_log_var) * epsilon
+        return completed_decoder
 
 if __name__ == '__main__':
     # If this module is run as a script, do a smoke test
@@ -193,7 +202,6 @@ if __name__ == '__main__':
 
     # Create the VAE
     vae = VariationalAutoEncoder(input_shape=original_dim,
-                                 intermediate_dim=512,
                                  latent_dim=args.latentdim,
                                  optimizer=args.optimizer,
                                  loss=args.loss)
