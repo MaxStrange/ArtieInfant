@@ -42,21 +42,31 @@ class VariationalAutoEncoder:
     is constrained to learning an embedding of the input vectors
     that conforms to a normal distribution.
     """
-    def __init__(self, input_shape, latent_dim, optimizer, loss, encoder=None, decoder=None):
+    def __init__(self, input_shape, latent_dim, optimizer, loss, encoder=None, decoder=None, inputlayer=None, decoderinputlayer=None):
         """
-        :param input_shape:         The shape of the input data.
-        :param latent_dim:          The dimensionality of the latent vector space.
+        :param input_shape:         (tuple) The shape of the input data.
+        :param latent_dim:          (int) The dimensionality of the latent vector space.
         :param optimizer:           String representation of the optimizer.
         :param loss:                String representation of the loss function.
-        :param encoder:             A Keras functional layer that will take an Inputs layer as its parameter
-                                    and will be hooked up to the latent portion. If None provided, we use a
-                                    reasonable default for the MNIST dataset. This is probably not what you want.
-        :param decoder:             A keras functional layer that will take an Inputs layer of shape (latent_dim,)
-                                    as its parameter. If None provided, we use a reasonable default for the MNIST
-                                    dataset. This is probably not what you want.
+        :param encoder:             The encoder layer. This must be the result of a sequence of Keras functional calls.
+                                    You will also need to pass in the encoder's inputlayer.
+                                    If None provided, we use a reasonable default for the MNIST dataset.
+                                    This is probably not what you want.
+        :param decoder:             The decoder layer. This must be the result of a sequence of Keras functional calls.
+                                    You will also need to pass in decoderinputlayer. The input shape must be (latent_dim,)
+                                    and the output shape must be `input_shape`.
+                                    If None provided, we use a reasonable default for the MNIST dataset.
+                                    This is probably not what you want.
+        :param inputlayer:          Necessary if encoder is not None. This must be a Keras Inputs layer.
+        :param decoderinputlayer:   Necessary if decoder is not None. This must be a Keras Inputs layer.
         """
-        self._encoder, self._inputs, z_mean, z_log_var = self._build_encoder(input_shape, latent_dim, encoder=encoder)
-        self._decoder = self._build_decoder(input_shape, latent_dim, decoder=decoder)
+        if encoder is not None and inputlayer is None:
+            raise ValueError("If `encoder` is not None, you must also pass in `inputlayer`.")
+        if decoder is not None and decoderinputlayer is None:
+            raise ValueError("If `decoder` is not None, you must also pass in `decoderinputlayer`.")
+
+        self._encoder, self._inputs, z_mean, z_log_var = self._build_encoder(input_shape, latent_dim, encoder=encoder, inputlayer=inputlayer)
+        self._decoder = self._build_decoder(input_shape, latent_dim, decoder=decoder, decoderinputs=decoderinputlayer)
         self._outputs = self._decoder(self._encoder(self._inputs)[2])
         self._vae = Model(self._inputs, self._outputs, name='vae_mlp')
         flattened_input_shape = (np.product(np.array(input_shape)),)
@@ -112,15 +122,15 @@ class VariationalAutoEncoder:
         reconstruction_loss *= flattened_input_shape
         return reconstruction_loss
 
-    def _build_encoder(self, input_shape, latent_dim, encoder=None):
+    def _build_encoder(self, input_shape, latent_dim, encoder=None, inputlayer=None):
         """
         Builds the encoder portion of the model and returns it.
 
         The default encoder is good for MNIST.
         """
         #                                                                       # MNIST dimensionality
-        inputs = Input(shape=input_shape, name="encoder_input")                 # (-1, 28, 28, 1)
         if encoder is None:
+            inputs = Input(shape=input_shape, name="encoder_input")                 # (-1, 28, 28, 1)
             x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)   # (-1, 28, 28, 16)
             x = MaxPooling2D((2, 2), padding='same')(x)                         # (-1, 14, 14, 16)
             x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)         # (-1, 14, 14, 8)
@@ -130,7 +140,8 @@ class VariationalAutoEncoder:
             x = Flatten()(x)                                                    # (-1, 128)
             x = Dense(32, activation='relu')(x)                                 # (-1, 32)
         else:
-            x = encoder(inputs)
+            x = encoder
+            inputs = inputlayer
 
         z_mean = Dense(latent_dim, name='z_mean')(x)
         z_log_var = Dense(latent_dim, name='z_log_var')(x)
@@ -143,13 +154,13 @@ class VariationalAutoEncoder:
 
         return complete_encoder, inputs, z_mean, z_log_var
 
-    def _build_decoder(self, input_shape, latent_dim, decoder=None):
+    def _build_decoder(self, input_shape, latent_dim, decoder=None, decoderinputs=None):
         """
         Builds the decoder portion of the model and returns it.
         """
-        latent_inputs = Input(shape=(latent_dim,), name='z_sampling')        # (-1, 2)
         if decoder is None:
             intermediate_dim = (4, 4, 8)  # hard-coded to MNIST
+            latent_inputs = Input(shape=(latent_dim,), name='z_sampling')        # (-1, 2)
             x = Dense(32, activation='relu')(latent_inputs)                      # (-1, 32)
             x = Dense(np.product(intermediate_dim), activation='relu')(x)        # (-1, 128)
             x = Reshape(target_shape=intermediate_dim)(x)                        # (-1, 4, 4, 8)
@@ -159,9 +170,10 @@ class VariationalAutoEncoder:
             x = UpSampling2D((2, 2))(x)                                          # (-1, 16, 16, 8)
             x = Conv2D(16, (3, 3), activation='relu')(x)                         # (-1, 14, 14, 16)
             x = UpSampling2D((2, 2))(x)                                          # (-1, 28, 28, 16)
+            outputs = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x) # (-1, 28, 28, 1)
         else:
-            x = decoder(latent_inputs)
-        outputs = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x) # (-1, 28, 28, 1)
+            latent_inputs = decoderinputs
+            outputs = decoder
 
         # instantiate decoder model
         completed_decoder = Model(latent_inputs, outputs, name='decoder')
