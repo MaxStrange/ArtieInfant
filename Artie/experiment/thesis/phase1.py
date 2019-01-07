@@ -28,9 +28,26 @@ def run(test=False):
 
     # TODO:
     #   VAE - train then run over a suitable sample of audio to save enough embeddings for the prototypes/clustering
+    #       # Train the VAE to a suitable level of accuracy
+    #       # Use the trained VAE on ~1,000 (or more?) audio samples, saving each audio sample along with its embedding.
     #   Mean Shift Cluster - cluster the saved embeddings using sklearn.mean_shift_cluster (or whatever it's called). This will tell us how many clusters.
+    #       # Load the saved embeddings into a dataset
+    #       # Run the SKLearn algorithm over the dataset to determine how many clusters and to get cluster indexes.
     #   Determine prototypes - Go through and send each embedding into the clusterer to get its cluster index. Take one from each cluster to form a prototype.
+    #       # Determine each saved embedding's cluster index.
+    #       # Take 'quintessential' embeddings from each cluster and save them as prototypes.
     #   Finish training rl agent - Set up the environment with these prototypes and the weights of the pretrained agent. Train until it can mimic the prototypes given a cluster index.
+    #       # Train the RL agent to mimic the given prototypes
+    #   Inference: Save the trained RL agent and then you can use it to make noises based on cluster index inputs.
+    #   You now have trained this:
+    #   [1]  ->  /a/
+    #   [2]  ->  /g/
+    #   [.]  ->  ..
+    #   [9]  ->  /b/
+    #   [.]  ->  ..
+    #   Which means that you now have a map of phonemes.
+    #   You also have an embedding space that can be sampled from. That sample could then be run through the clusterer to determine
+    #   the index of the sample, which would then determine which sound it was. I'm not sure what this gives you... but it seems like it might be important.
 
     # Clean up the weights
     os.remove(weightpathbasename + "_actor" + ".hdf5")
