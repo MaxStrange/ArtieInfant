@@ -48,6 +48,23 @@ class TestVAE(unittest.TestCase):
 
         return vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss, encoder=encoder, inputlayer=inputs, decoder=decoder, decoderinputlayer=decoderinputs)
 
+    def _get_mnist_data(self):
+        """
+        Returns the x_train and x_test split of the MNIST dataset,
+        reshaped into flat np arrays of float32, normalized into [0.0, 1.0].
+        """
+        # Get the MNIST data, along with some parameters about it
+        (x_train, _y_train), (x_test, _y_test) = mnist.load_data()
+        original_dim = (28, 28, 1)
+
+        # Reshape into the appropriate shapes and types
+        x_train = np.reshape(x_train, [-1, *original_dim])
+        x_test = np.reshape(x_test, [-1, *original_dim])
+        x_train = x_train.astype('float32') / 255.0
+        x_test = x_test.astype('float32') / 255.0
+
+        return x_train, x_test
+
     def test_make_vae_with_defaults(self):
         """
         Test simply creating a VAE with default values.
@@ -83,15 +100,7 @@ class TestVAE(unittest.TestCase):
         compiling the model or bugs that prevent the model from training
         on the data provided. We don't worry about loss score.
         """
-        # Get the MNIST data, along with some parameters about it
-        (x_train, _y_train), (x_test, _y_test) = mnist.load_data()
-        original_dim = (28, 28, 1)
-
-        # Reshape into the appropriate shapes and types
-        x_train = np.reshape(x_train, [-1, *original_dim])
-        x_test = np.reshape(x_test, [-1, *original_dim])
-        x_train = x_train.astype('float32') / 255.0
-        x_test = x_test.astype('float32') / 255.0
+        x_train, x_test = self._get_mnist_data()
 
         # Create and train the VAE
         vae = self._build_mnist_vae(latent_dim=2)
@@ -101,8 +110,18 @@ class TestVAE(unittest.TestCase):
         """
         Test creating, training, saving, loading, then training the VAE to
         completion. Uses the MNIST dataset.
+
+        This is just a basic smoke test - it merely checks to make sure the above
+        actions do not fail.
         """
-        raise NotImplementedError
+        testpath = "__test_vae_weights_delete_me__.h5"
+        x_train, x_test = self._get_mnist_data()
+        vae = self._build_mnist_vae(latent_dim=2)
+        vae.fit(x_train, epochs=1, batch_size=128, validation_data=(x_test, None))
+        vae.save_weights(testpath)
+        vae.load_weights(testpath)
+        os.remove(testpath)
+        vae.fit(x_train, epochs=1, batch_size=128, validation_data=(x_test, None))
 
     def test_train_vae_on_custom_data(self):
         """
@@ -117,6 +136,8 @@ class TestVAE(unittest.TestCase):
         """
         Test training the VAE on some custom data, then saving it, loading it,
         and then sampling some random values from latent space.
+
+        For an example of this (with visualization!) using MNIST, see the vae.py's __main__.
         """
         raise NotImplementedError
 
