@@ -1,6 +1,7 @@
 """
 This module contains all the tests for the VAE.
 """
+from keras.datasets import mnist
 from keras.layers import Lambda, Input, Dense, Conv2D, UpSampling2D, MaxPooling2D, Flatten, Reshape
 import numpy as np
 import os
@@ -14,32 +15,11 @@ class TestVAE(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_make_vae_with_defaults(self):
+    def _build_mnist_vae(self, latent_dim=2, optimizer="adam", loss="mse"):
         """
-        Test simply creating a VAE with default values.
+        Builds a default MNIST VAE and returns it.
         """
-        input_shape = (28, 28, 1)  # Must be this when encoder and decoder are None
-        latent_dim = 2
-        optimizer = "adam"
-        loss = "mse"
-        # Simply try to make it - that's all. We fail if it crashes.
-        _autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss)
-
-        # Create another VAE with slightly different args
-        latent_dim = 7
-        optimizer = "adadelta"
-        _autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss)
-
-    def test_make_vae_with_custom_args(self):
-        """
-        Test simply creating a VAE, but in this test, we create
-        the encoder and the decoder externally and pass them in.
-        """
-        # Some misc variables
-        latent_dim = 2
         input_shape = (28, 28, 1)
-        optimizer = "adam"
-        loss = "mse"
 
         # Encoder model
         inputs = Input(shape=input_shape, name="encoder_inputs")
@@ -66,8 +46,35 @@ class TestVAE(unittest.TestCase):
         x = UpSampling2D((2, 2))(x)                                          # (-1, 28, 28, 16)
         decoder = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x) # (-1, 28, 28, 1)
 
-        # Just try to create a VAE. If it fails, it will be because it fails to compile the model.
-        _ = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss, encoder=encoder, inputlayer=inputs, decoder=decoder, decoderinputlayer=decoderinputs)
+        return vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss, encoder=encoder, inputlayer=inputs, decoder=decoder, decoderinputlayer=decoderinputs)
+
+    def test_make_vae_with_defaults(self):
+        """
+        Test simply creating a VAE with default values.
+        """
+        input_shape = (28, 28, 1)  # Must be this when encoder and decoder are None
+        latent_dim = 2
+        optimizer = "adam"
+        loss = "mse"
+        # Simply try to make it - that's all. We fail if it crashes.
+        _autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss)
+
+        # Create another VAE with slightly different args
+        latent_dim = 7
+        optimizer = "adadelta"
+        _autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss)
+
+    def test_make_vae_with_custom_args(self):
+        """
+        Test simply creating a VAE, but in this test, we create
+        the encoder and the decoder externally and pass them in.
+        """
+        # Some misc variables
+        latent_dim = 2
+        optimizer = "adam"
+        loss = "mse"
+
+        _ = self._build_mnist_vae(latent_dim=latent_dim, optimizer=optimizer, loss=loss)
 
     def test_train_vae_to_completion_on_mnist(self):
         """
@@ -76,7 +83,19 @@ class TestVAE(unittest.TestCase):
         compiling the model or bugs that prevent the model from training
         on the data provided. We don't worry about loss score.
         """
-        raise NotImplementedError
+        # Get the MNIST data, along with some parameters about it
+        (x_train, _y_train), (x_test, _y_test) = mnist.load_data()
+        original_dim = (28, 28, 1)
+
+        # Reshape into the appropriate shapes and types
+        x_train = np.reshape(x_train, [-1, *original_dim])
+        x_test = np.reshape(x_test, [-1, *original_dim])
+        x_train = x_train.astype('float32') / 255.0
+        x_test = x_test.astype('float32') / 255.0
+
+        # Create and train the VAE
+        vae = self._build_mnist_vae(latent_dim=2)
+        vae.fit(x_train, epochs=2, batch_size=128, validation_data=(x_test, None))
 
     def test_train_vae_save_then_train_some_more(self):
         """
