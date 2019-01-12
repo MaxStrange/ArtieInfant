@@ -2,6 +2,7 @@
 Module for exposing Sequence implementation.
 """
 import senses.dataproviders.featureprovider as fp
+import logging
 import multiprocessing
 import os
 import psutil
@@ -12,6 +13,19 @@ class Sequence():
     yield from is hopefully never empty.
     """
     def __init__(self, ms_of_dataset, ms_per_batch, nworkers, root, sample_rate_hz, nchannels, bytewidth, provider_fun, *args, **kwargs):
+        """
+        :param ms_of_dataset:  The total number of ms in the dataset
+        :param ms_per_batch:   The number of ms per batch
+        :param nworkers:       The number of worker processes we will spawn using multiprocessing
+        :param root:           The root directory to walk looking for data
+        :param sample_rate_hz: The sample rate in Hz to resample any audio into
+        :param nchannels:      The number of audio channels to resample into
+        :param bytewidth:      The sample width in bytes to resample audio into
+        :param provider_fun:   A str, which should be the function name of one of the batch provider functions in FeatureProvider, such as
+                               'generate_n_fft_batches'.
+        :param args:           Passed into `provider_fun`.
+        :param kwargs:         Passed into `provider_fun`.
+        """
         self.ms_of_dataset  = ms_of_dataset
         self.ms_per_batch   = ms_per_batch
         self.nworkers       = nworkers
@@ -46,6 +60,6 @@ class Sequence():
             self.queue.put(batch)
             if idx % 1000 == 0:
                 thisproc = psutil.Process(os.getpid())
-                msg = "MEM USAGE {}: {} MB".format(worker_idx, thisproc.memory_info().rss/1E8)
+                msg = "MEM USAGE FOR WORKER {}: {} MB".format(worker_idx, thisproc.memory_info().rss/1E8)
                 spaces = " " * len(msg) * worker_idx
-                #log(spaces, msg)
+                logging.debug("{} {}".format(spaces, msg))

@@ -11,6 +11,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import keras
 from keras.layers import Lambda, Input, Dense, Conv2D, UpSampling2D, MaxPooling2D, Flatten, Reshape
 from keras.models import Model
 from keras.datasets import mnist
@@ -88,6 +89,15 @@ class VariationalAutoEncoder:
         Train the VAE on the given data. See the Keras fit() method's documentation: https://keras.io/models/model/#fit
         """
         return self._vae.fit(*args, **kwargs)
+
+    def fit_generator(self, datagen, batch_size, save_models=True, **kwargs):
+        """
+        Train the VAE on the given Sequence (data generator).
+        """
+        if not os.path.isdir("models"):
+            os.makedirs("models")
+        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{val_acc:.4f}.hdf5", period=1)
+        return self._vae.fit_generator(datagen, callbacks=[saver], **kwargs)
 
     def load_weights(self, weightfpath):
         """

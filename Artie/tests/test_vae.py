@@ -36,6 +36,9 @@ class TestVAE(unittest.TestCase):
         kwargs = {
             "normalize": True,
             "forever": True,
+            "window_length_ms": None,
+            "overlap": 0.5,
+            "expand_dims": True,
         }
         self.sequence = seq.Sequence(self.ms_of_dataset,
                                      self.ms_per_batch,
@@ -44,7 +47,7 @@ class TestVAE(unittest.TestCase):
                                      self.sample_rate,
                                      self.nchannels,
                                      self.bytewidth,
-                                     "generate_n_fft_batches",
+                                     "generate_n_spectrogram_batches",
                                      *args,
                                      **kwargs)
 
@@ -164,7 +167,13 @@ class TestVAE(unittest.TestCase):
         against what we actually want to train it against.
         """
         vae = self._build_mnist_vae(latent_dim=2)
-        vae.fit(self.sequence, epochs=1, batch_size=self.batchsize)
+        vae.fit_generator(self.sequence,
+                          self.batchsize,
+                          epochs=1,
+                          save_models=False,
+                          steps_per_epoch=50,
+                          use_multiprocessing=False,
+                          workers=1)
 
     def test_train_save_load_sample(self):
         """

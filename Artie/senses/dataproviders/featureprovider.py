@@ -104,7 +104,7 @@ class FeatureProvider:
         - Spectrograms are created from AudioSegments of length ms each. The segments are chosen from a
           batch of `file_batchsize` files. The batch is chosen at random from the data directory.
           If the AudioSegment happens to fall at the end of the WAV file and does not line
-          up neatly, it will be zero padded to reach `ms` length before being FFT'd. The FFTs that 
+          up neatly, it will be zero padded to reach `ms` length before being FFT'd. The FFTs that
           make up the spectrogram are real and normed.
 
         :param n:               The number of labeled spectrograms to yield
@@ -227,9 +227,9 @@ class FeatureProvider:
         :yields:                Up to n tuples of the form (batch, label), where each batch is shaped: (batchsize, nfbins, ntbins)
         """
         if n is not None and n <= 0:
-            return
+            raise ValueError("n must be either None or greater than zero but is {}".format(n))
         if batchsize <= 0:
-            return
+            raise ValueError("batchsize must be greater than zero but is {}".format(batchsize))
 
         nbatches_so_far = 0
         while n is None or nbatches_so_far < n:
