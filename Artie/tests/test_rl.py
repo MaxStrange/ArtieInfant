@@ -7,6 +7,7 @@ import keras
 
 import audiosegment
 import enum
+import logging
 import numpy as np
 import os
 import sys
@@ -16,6 +17,9 @@ path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, path)
 import internals.rl.agent as agent              # pylint: disable=locally-disabled, import-error
 import internals.rl.environment as environment  # pylint: disable=locally-disabled, import-error
+
+# Configure the logger
+logging.basicConfig(filename="TestLog.log", filemode='w', level=logging.DEBUG)
 
 
 class TestRL(unittest.TestCase):
@@ -68,15 +72,26 @@ class TestRL(unittest.TestCase):
             if int(round(action[0])) == 0:
                 nextobs = lastobs if obs.tolist() == [1, 1] else np.array([0, 1], dtype=np.float32)
                 done = obs.tolist() == [1, 1]
-                return nextobs, 1, done
+                o = nextobs
+                r = 1
+                d = done
             else:
-                return lastobs, -1, True
+                o = lastobs
+                r = -1
+                d = True
         else:
             if int(round(action[0])) == 1:
                 nextobs = np.array([1, 0], dtype=np.float32) if obs.tolist() == [0, 1] else np.array([1, 1], dtype=np.float32)
-                return nextobs, 1, False
+                o = nextobs
+                r = 1
+                d = False
             else:
-                return lastobs, -1, True
+                o = lastobs
+                r = -1
+                d = True
+
+        logging.debug("Observation: {} -> Action: {} -> Reward: {}".format(o, int(round(action[0])), r))
+        return o, r, d
 
     def setUp(self):
         pass
@@ -239,11 +254,11 @@ class TestRL(unittest.TestCase):
                                         observation_space=TestRL.observation_space())
         rlagent = agent.Agent(env, actor=self._xor_actor(env), critic=self._xor_critic(env))
         warnings.simplefilter(action='ignore', category=UserWarning)
-        rlagent.fit(nsteps=5000, nmaxsteps=4)
-        score = rlagent.inference()
+        rlagent.fit(nsteps=15000, nmaxsteps=4)
+        score = rlagent.inference(nepisodes=4)
         raw_episode_reward_vals = score.history['episode_reward']
         avg_episode_reward = sum(raw_episode_reward_vals)/len(raw_episode_reward_vals)
-        self.assertGreaterEqual(avg_episode_reward, 0.0)
+        self.assertGreaterEqual(avg_episode_reward, 2.0)
 
     def test_save_load_and_keep_training(self):
         """
@@ -258,7 +273,7 @@ class TestRL(unittest.TestCase):
 
         # Train for a little bit
         warnings.simplefilter(action='ignore', category=UserWarning)
-        rlagent.fit(nsteps=2500, nmaxsteps=4)
+        rlagent.fit(nsteps=7500, nmaxsteps=4)
 
         # Save the agent
         rlagent.save("tmpagent.hdf5")
@@ -271,29 +286,40 @@ class TestRL(unittest.TestCase):
         os.remove("tmpagent_actor.hdf5")
         os.remove("tmpagent_critic.hdf5")
         warnings.simplefilter(action='ignore', category=UserWarning)
-        rlagent.fit(nsteps=2500, nmaxsteps=4)
+        rlagent.fit(nsteps=7500, nmaxsteps=4)
 
-        score = rlagent.inference()
+        # Save again
+        rlagent.save("tmpagent.hdf5")
+
+        # Kill the Agent, then reload again
+        rlagent = None
+        rlagent = agent.Agent(env, actor=self._xor_actor(env), critic=self._xor_critic(env), weights="tmpagent.hdf5")
+
+        # Remove the weights files and do inference
+        os.remove("tmpagent_actor.hdf5")
+        os.remove("tmpagent_critic.hdf5")
+        score = rlagent.inference(nepisodes=4)
         raw_episode_reward_vals = score.history['episode_reward']
         avg_episode_reward = sum(raw_episode_reward_vals)/len(raw_episode_reward_vals)
-        self.assertGreaterEqual(avg_episode_reward, 0.0)
+        self.assertGreaterEqual(avg_episode_reward, 2.0)
 
     @unittest.skipIf(__skip_the_long_ones, "")
     @unittest.skipIf("TRAVIS_CI" in os.environ, "This test takes forever. Run as part of full suite, but not part of Travis.")
     def test_somenvironment_ph0(self):
         """
-        Test the SomEnvironment (the voice synthesis environment) via the Agent.
+        Test the SomEnvironment (the voice synthesis environment) via the Agent in phase 0.
+        This attempts to produce a sound that is as loud as possible.
         """
         # Make two fake clusters
         nclusters = 2
         prototypes = [audiosegment.silent(), audiosegment.silent()]
 
         # We'll do this long of an articulation. Half a second is the minimum really to hear anything.
-        artic_dur_ms = 500
+        artic_dur_ms = 1000
 
         # Let's do these time points for articulation control. We should really keep this number pretty small. It takes forever
         # otherwise and the learning process also takes longer, even if it has more ultimate control.
-        time_point_list_ms = [0, 150, 500]
+        time_point_list_ms = [0, 500, 1000]
 
         # Make the SOM Environment with our fake clusters. We won't use them since we'll only be using phase 0 training.
         env = environment.SomEnvironment(nclusters, artic_dur_ms, time_point_list_ms, prototypes)
@@ -305,7 +331,7 @@ class TestRL(unittest.TestCase):
         # teach it to make some noises pretty quickly.
         warnings.simplefilter(action='ignore', category=DeprecationWarning)
         warnings.simplefilter(action='ignore', category=UserWarning)
-        rlagent.fit(nsteps=175, nmaxsteps=1)
+        rlagent.fit(nsteps=400, nmaxsteps=1)
 
         # Do inference to get a score history. If you want to dump the audio to disk, uncomment the line before and after.
         env.retain_audio = True  # Uncomment this line and the one after inference() to dump some files for human consumption
@@ -348,7 +374,7 @@ class TestRL(unittest.TestCase):
         # Train the Agent to mimic the sound as best as it can
         warnings.simplefilter(action='ignore', category=DeprecationWarning)
         warnings.simplefilter(action='ignore', category=UserWarning)
-        rlagent.fit(nsteps=500, nmaxsteps=1)
+        rlagent.fit(nsteps=10000, nmaxsteps=1)
 
         # Check on the output now that the Agent is trained
         env.retain_audio = True  # Uncomment for human consumption

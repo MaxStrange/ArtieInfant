@@ -9,7 +9,7 @@ path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, path)
 import internals.som.som as som # pylint: disable=locally-disabled, import-error
 
-class TestSequence(unittest.TestCase):
+class TestSOM(unittest.TestCase):
     def setUp(self):
         pass
 
@@ -357,4 +357,3 @@ class TestSequence(unittest.TestCase):
             node = other_ns[i]
             for b, a in zip(before, after):
                 self.assertAlmostEqual(b, a, "Node {} changed value. Before {}, after {}".format(node, before, after))
-

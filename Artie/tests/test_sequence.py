@@ -12,7 +12,7 @@ import senses.dataproviders.featureprovider as fp # pylint: disable=locally-disa
 import senses.dataproviders.sequence as seq # pylint: disable=locally-disabled, import-error
 import senses.voice_detector.voice_detector as vd # pylint: disable=locally-disabled, import-error
 
-def _mb_to_ms(mb, bytewidth, sample_rate_hz):
+def mb_to_ms(mb, bytewidth, sample_rate_hz):
     """
     Convert MB of single channel WAV file to ms.
     """
@@ -22,7 +22,7 @@ def _mb_to_ms(mb, bytewidth, sample_rate_hz):
     total_ms      = total_seconds * 1E3
     return total_ms
 
-def _label_fn(fpath):
+def label_fn(fpath):
     if "babies" in fpath:
         return 0
     else:
@@ -38,16 +38,16 @@ class TestSequence(unittest.TestCase):
         mb_of_testdata = 28
         self.ms = 45
         self.batchsize = 32
-        self.ms_of_dataset = _mb_to_ms(mb_of_testdata, self.bytewidth, self.sample_rate)
+        self.ms_of_dataset = mb_to_ms(mb_of_testdata, self.bytewidth, self.sample_rate)
         self.ms_per_batch = self.ms * self.batchsize
         self.nworkers = 6
         self.provider = fp.FeatureProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
-        args = (None, self.batchsize, self.ms, _label_fn)
+        args = (None, self.batchsize, self.ms, label_fn)
         kwargs = {
             "normalize": True,
             "forever": True,
         }
-        self.sequence = seq.Sequence(self.ms_of_dataset, 
+        self.sequence = seq.Sequence(self.ms_of_dataset,
                                      self.ms_per_batch,
                                      self.nworkers,
                                      self.root,

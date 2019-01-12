@@ -48,5 +48,4 @@ class Sequence():
                 thisproc = psutil.Process(os.getpid())
                 msg = "MEM USAGE {}: {} MB".format(worker_idx, thisproc.memory_info().rss/1E8)
                 spaces = " " * len(msg) * worker_idx
-                #print(spaces, msg)
-
+                #log(spaces, msg)

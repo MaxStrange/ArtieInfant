@@ -1,6 +1,7 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import keras
+import logging
 import numpy as np
 import os
 import rl
@@ -16,8 +17,8 @@ class Agent:
         :param env:             An environment from environment.py.
         :param actor:           The actor portion of the model or None, in which case a default is supplied.
         :param critic:          The critic portion of the model or None, in which case a default is supplied.
-        :param weights:         If not None, will load the weights from two files named <weights>_actor<extension>
-                                and <critic>_critic<extension>.
+        :param weights:         If not None, will load the weights from two files named <weights>_actor.<extension>
+                                and <weights>_critic.<extension>.
         :param warmup_actor:    The number of steps to take before training the actor.
         :param warmup_critic:   The number of steps to take before training the critic.
         :param gamma:           The discount factor.
@@ -67,8 +68,15 @@ class Agent:
         Saves the Agent into a file at `fpath`.
         Uses hdf5.
 
+        If `fpath` is <name>.<ext>, this will actually
+        save two files like <name_actor>.<ext> and
+        <name_critic>.<ext>.
+
+        It is somewhat confusing.
+
         :param fpath:       The path to save the file.
         """
+        logging.info("Saving agent with filepath={}".format(fpath))
         self.agent.save_weights(fpath, overwrite=True)
 
     def inference(self, nepisodes=50, nmaxsteps=200):

@@ -58,29 +58,28 @@ def _make_environment():
     Make and return a default SOM Environment suitable for the testing. It uses two
     files to try to mimic.
     """
-    # We have two files that we want to replicate
-    nclusters = 2
-
     # Load the files and figure out the length of the longest one. That's how long all our
     # articulations will be
     seg0 = audiosegment.from_file("a_simple_sound.wav")
-    seg1 = audiosegment.from_file("another_simple_sound.wav")
-    prototypes = [seg0, seg1]
+    #seg1 = audiosegment.from_file("another_simple_sound.wav")
+    prototypes = [seg0]#[seg0, seg1]
     artic_dur_ms = max([seg.duration_seconds * 1000.0 for seg in prototypes])
+    print("::::::::::::: ONLY USING A SINGLE PROTOTYPE ::::::::::::::::::")
 
     # Figure out the time points that we will allow the agent to change its muscle activations
     # We will just evenly space them across time
     ntimepoints = 3
-    timebase = artic_dur_ms / ntimepoints
+    timebase = float(artic_dur_ms) / float(ntimepoints)
     time_point_list_ms = [timebase * i for i in range(ntimepoints)]
 
     # Create the SOM Env
-    env = environment.SomEnvironment(nclusters, artic_dur_ms, time_point_list_ms, prototypes)
-    env.phase = 1  # Set to mimic the input file, rather than try to learn to output noise
+    env = environment.SomEnvironment(len(prototypes), artic_dur_ms, time_point_list_ms, prototypes)
+    #env.phase = 1  # Set to mimic the input file, rather than try to learn to output noise
+    env.phase = 0  # Set to just try to make noise, rather than to try to mimic
 
     return env
 
-def train():
+def train(nsteps):
     """
     Test the SomEnvironment (the voice synthesis environment) via the Agent, Phase 1. This
     attempts to produce a sound that is similar to one on disk.
@@ -93,7 +92,7 @@ def train():
     # Train the Agent to mimic the sound as best as it can
     warnings.simplefilter(action='ignore', category=DeprecationWarning)
     warnings.simplefilter(action='ignore', category=UserWarning)
-    rlagent.fit(nsteps=10_000, nmaxsteps=1)
+    rlagent.fit(nsteps=nsteps, nmaxsteps=1)
 
     # Save the agent's weights
     rlagent.save("weights")
@@ -134,10 +133,10 @@ def inference():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", action="store_true", help="Test instead of train")
+    parser.add_argument("--nsteps", type=int, default=15, help="Number of steps to train for.")
     args = parser.parse_args()
 
     if args.test:
         inference()
     else:
-        train()
-
+        train(args.nsteps)

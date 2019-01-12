@@ -6,14 +6,47 @@ from keras.layers import Lambda, Input, Dense, Conv2D, UpSampling2D, MaxPooling2
 import numpy as np
 import os
 import sys
+import test_sequence
 import unittest
+import warnings
+
 path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, path)
 import internals.vae.vae as vae # pylint: disable=locally-disabled, import-error
+import senses.dataproviders.featureprovider as fp # pylint: disable=locally-disabled, import-error
+import senses.dataproviders.sequence as seq # pylint: disable=locally-disabled, import-error
+
 
 class TestVAE(unittest.TestCase):
     def setUp(self):
-        pass
+        warnings.simplefilter("ignore", ResourceWarning)
+        self.root = os.path.abspath("test_data_directory")
+        self.sample_rate = 24_000
+        self.nchannels = 1
+        self.bytewidth = 2
+        mb_of_testdata = 28
+        self.ms = 45
+        self.batchsize = 32
+        self.ms_of_dataset = test_sequence.mb_to_ms(mb_of_testdata, self.bytewidth, self.sample_rate)
+        self.ms_per_batch = self.ms * self.batchsize
+        self.nworkers = 6
+        self.provider = fp.FeatureProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
+
+        args = (None, self.batchsize, self.ms, test_sequence.label_fn)
+        kwargs = {
+            "normalize": True,
+            "forever": True,
+        }
+        self.sequence = seq.Sequence(self.ms_of_dataset,
+                                     self.ms_per_batch,
+                                     self.nworkers,
+                                     self.root,
+                                     self.sample_rate,
+                                     self.nchannels,
+                                     self.bytewidth,
+                                     "generate_n_fft_batches",
+                                     *args,
+                                     **kwargs)
 
     def _build_mnist_vae(self, latent_dim=2, optimizer="adam", loss="mse"):
         """
@@ -130,7 +163,8 @@ class TestVAE(unittest.TestCase):
         care about loss score here, we just want to make a VAE that can train
         against what we actually want to train it against.
         """
-        raise NotImplementedError
+        vae = self._build_mnist_vae(latent_dim=2)
+        vae.fit(self.sequence, epochs=1, batch_size=self.batchsize)
 
     def test_train_save_load_sample(self):
         """

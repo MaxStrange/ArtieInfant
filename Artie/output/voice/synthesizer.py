@@ -3,6 +3,7 @@ This script generates a random set of parameters to use in
 Praat's articulatory synthesizer.
 """
 import audiosegment
+import logging
 import numpy as np
 import os
 import pandas
@@ -66,6 +67,7 @@ def _make_praat_script(synthmat, duration, times):
     scripttext = scripttemplate.format(
         duration=duration, resultfname=resultfname, articulatory_string=articulatory_string
     )
+    logging.debug("Generated the following script for Praat: {}".format(scripttext))
     return scripttext
 
 def _run_praat_script(script):
@@ -86,6 +88,7 @@ def make_seg_from_synthmat(synthmat, duration, times):
 
     An example synthmat looks like this (this synthmat makes a sound similar to "ubbah"):
 
+    ```
     duration = 0.5  # half a second
     times =                  0.00  0.10  0.25  0.50
 
@@ -117,7 +120,7 @@ def make_seg_from_synthmat(synthmat, duration, times):
     Mylohyoid                 0.0   0.0   0.0   0.0
     LateralPterygoid          0.0   0.0   0.0   0.0
     Buccinator                0.0   0.0   0.0   0.0
-
+    ```
     :param synthmat:    Numpy array of shape (len(articularizers), ntime_samples) that shows the activity
                         of each articularizer at each time point (Praat will linearly interpolate the activity
                         between the time points as appropriate).
