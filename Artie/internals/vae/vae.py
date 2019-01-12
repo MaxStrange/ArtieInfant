@@ -37,6 +37,7 @@ def _sampling(args):
     epsilon = K.random_normal(shape=(batch, dim))
     return z_mean + K.exp(0.5 * z_log_var) * epsilon
 
+
 class VariationalAutoEncoder:
     """
     A class to represent an encoder and decoder such that the encoder
@@ -71,11 +72,22 @@ class VariationalAutoEncoder:
         self._outputs = self._decoder(self._encoder(self._inputs)[2])
         self._vae = Model(self._inputs, self._outputs, name='vae_mlp')
         flattened_input_shape = (np.product(np.array(input_shape)),)
-        reconstruction_loss = self._build_loss(loss, flattened_input_shape)
-        kl_loss = self._build_kl_loss(z_log_var, z_mean)
-        vae_loss = K.mean(reconstruction_loss + kl_loss)
-        self._vae.add_loss(vae_loss)
-        self._vae.compile(optimizer=optimizer)
+        #reconstruction_loss = self._build_loss(loss, flattened_input_shape)
+        #kl_loss = self._build_kl_loss(z_log_var, z_mean)
+        #vae_loss = K.mean(reconstruction_loss + kl_loss)
+        #self._vae.add_loss(vae_loss)
+        def _vae_loss(y_true, y_pred):
+            """
+            VAE loss that is broken out as a separate function. It is required to be broken
+            out as a separate function for reasons not well understood. See:
+            https://github.com/keras-team/keras/issues/10137
+            """
+            reconstruction_loss = self._build_loss(loss, flattened_input_shape)
+            kl_loss = - 0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
+            vae_loss = K.mean(reconstruction_loss + kl_loss)
+            return vae_loss
+
+        self._vae.compile(optimizer=optimizer, loss=_vae_loss)
         self._vae.summary()
 
     def predict(self, *args, **kwargs):
@@ -96,7 +108,7 @@ class VariationalAutoEncoder:
         """
         if not os.path.isdir("models"):
             os.makedirs("models")
-        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{val_acc:.4f}.hdf5", period=1)
+        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{loss:.4f}.hdf5", period=1)
         return self._vae.fit_generator(datagen, callbacks=[saver], **kwargs)
 
     def load_weights(self, weightfpath):

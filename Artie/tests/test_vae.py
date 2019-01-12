@@ -32,7 +32,7 @@ class TestVAE(unittest.TestCase):
         self.nworkers = 6
         self.provider = fp.FeatureProvider(self.root, sample_rate=self.sample_rate, nchannels=self.nchannels, bytewidth=self.bytewidth)
 
-        args = (None, self.batchsize, self.ms, test_sequence.label_fn)
+        args = (None, self.batchsize, self.ms, None)
         kwargs = {
             "normalize": True,
             "forever": True,
@@ -81,6 +81,38 @@ class TestVAE(unittest.TestCase):
         x = Conv2D(16, (3, 3), activation='relu')(x)                         # (-1, 14, 14, 16)
         x = UpSampling2D((2, 2))(x)                                          # (-1, 28, 28, 16)
         decoder = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x) # (-1, 28, 28, 1)
+
+        return vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss, encoder=encoder, inputlayer=inputs, decoder=decoder, decoderinputlayer=decoderinputs)
+
+    def _build_spectrogram_vae(self, latent_dim=10, optimizer="adam", loss="mse"):
+        """
+        Builds a default spectrogram VAE and returns it. The input dimensionality of this VAE is
+        based on the Sequence created as part of setUp.
+        """
+        input_shape = (55, 19, 1)
+
+        # Encoder model
+        inputs = Input(shape=input_shape, name="encoder_inputs")
+        x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)           # (-1, 55, 19, 16)
+        x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 28, 10, 16)
+        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 28, 10, 8)
+        x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 14, 5, 8)
+        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 14, 5, 8)
+        x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 7, 3, 8)
+        x = Flatten()(x)                                                            # (-1, 168)
+        encoder = Dense(32, activation='relu')(x)                                   # (-1, 32)
+
+        # Decoder model
+        intermediate_dim = (14, 5, 8)
+        decoderinputs = Input(shape=(latent_dim,), name="decoder_inputs")
+        x = Dense(np.product(intermediate_dim), activation='relu')(decoderinputs)   # (-1, 560)
+        x = Reshape(target_shape=intermediate_dim)(x)                               # (-1, 14, 5, 8)
+        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 14, 5, 8)
+        x = UpSampling2D((2, 2))(x)                                                 # (-1, 28, 10, 8)
+        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 28, 10, 8)
+        x = Conv2D(16, (2, 2), activation='relu', padding='same')(x)                # (-1, 28, 10, 16)
+        x = UpSampling2D((2, 2))(x)                                                 # (-1, 56, 20, 16)
+        decoder = Conv2D(1, (2, 2), activation='sigmoid', padding='valid')(x)       # (-1, 55, 19, 1)
 
         return vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss, encoder=encoder, inputlayer=inputs, decoder=decoder, decoderinputlayer=decoderinputs)
 
@@ -166,7 +198,7 @@ class TestVAE(unittest.TestCase):
         care about loss score here, we just want to make a VAE that can train
         against what we actually want to train it against.
         """
-        vae = self._build_mnist_vae(latent_dim=2)
+        vae = self._build_spectrogram_vae()
         vae.fit_generator(self.sequence,
                           self.batchsize,
                           epochs=1,
