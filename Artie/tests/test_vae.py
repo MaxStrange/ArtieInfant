@@ -191,6 +191,7 @@ class TestVAE(unittest.TestCase):
         os.remove(testpath)
         vae.fit(x_train, x_train, epochs=1, batch_size=128, validation_data=(x_test, x_test))
 
+    @unittest.skipIf("TRAVIS_CI" in os.environ, "This test can't be run on Travis. Too much memory required.")
     def test_train_vae_on_custom_data(self):
         """
         Test training the VAE on some custom data. The data should be awfully
@@ -207,6 +208,7 @@ class TestVAE(unittest.TestCase):
                           use_multiprocessing=False,
                           workers=1)
 
+    @unittest.skipIf("TRAVIS_CI" in os.environ, "This test can't be run on Travis. Too much memory required.")
     def test_train_save_load_sample(self):
         """
         Test training the VAE on some custom data, then saving it, loading it,
