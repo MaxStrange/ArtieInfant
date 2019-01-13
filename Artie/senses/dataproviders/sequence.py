@@ -60,6 +60,6 @@ class Sequence():
             self.queue.put(batch)
             if idx % 1000 == 0:
                 thisproc = psutil.Process(os.getpid())
-                msg = "MEM USAGE FOR WORKER {}: {} MB".format(worker_idx, thisproc.memory_info().rss/1E8)
-                spaces = " " * len(msg) * worker_idx
-                logging.debug("{} {}".format(spaces, msg))
+                msg = "MEM USAGE FOR WORKER {}: {} MB. Queue length: {}".format(worker_idx, thisproc.memory_info().rss/1E8, self.queue.qsize())
+                print(msg)
+                #logging.debug("{} {}".format(spaces, msg))

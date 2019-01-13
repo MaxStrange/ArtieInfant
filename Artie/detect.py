@@ -16,41 +16,41 @@ test_dir = os.path.join(script_path, "tests", "test_data_directory")
 
 # These are how many GB of data are present in each root, recursively
 root_sizes_in_gb = {
-    "/mnt/data/thesis_audio/baby_detection/processed": 61,
-    "/mnt/data/thesis_audio/engchin/processed": 338,
-    "/mnt/data/thesis_audio/voice_detection/processed": 1300,
+    "/media/max/seagate8TB/thesis_audio/baby_detection/processed": 18,
+    "/media/max/seagate8TB/thesis_audio/engchin/processed": 106,
+    "/media/max/seagate8TB/thesis_audio/voice_detection/processed": 358,
     test_dir: 0.0278,
 
-    "/mnt/data/thesis_audio/baby_detection/test": 1.5,
-    "/mnt/data/thesis_audio/engchin/test": 13,
-    "/mnt/data/thesis_audio/voice_detection/test": 30,
+    "/media/max/seagate8TB/thesis_audio/baby_detection/test": 1.5,
+    "/media/max/seagate8TB/thesis_audio/engchin/test": 13,
+    "/media/max/seagate8TB/thesis_audio/voice_detection/test": 30,
 }
 
 # These are the ratio of NEG/POS or CHINESE/ENG, by bytes of data (not number of files)
 class_imbalances = {
-    "/mnt/data/thesis_audio/baby_detection/processed": 3.673,
-    "/mnt/data/thesis_audio/engchin/processed": 5.6394,
-    "/mnt/data/thesis_audio/voice_detection/processed": 1.3565,
+    "/media/max/seagate8TB/thesis_audio/baby_detection/processed": 3.784,
+    "/media/max/seagate8TB/thesis_audio/engchin/processed": 5.686,
+    "/media/max/seagate8TB/thesis_audio/voice_detection/processed": 1.346,
     test_dir: 1.0,
 
-    "/mnt/data/thesis_audio/baby_detection/test": 4.758,
-    "/mnt/data/thesis_audio/engchin/test": 4.43341,
-    "/mnt/data/thesis_audio/voice_detection/test": 0.63616,
+    "/media/max/seagate8TB/thesis_audio/baby_detection/test": 3.325,
+    "/media/max/seagate8TB/thesis_audio/engchin/test": 4.783,
+    "/media/max/seagate8TB/thesis_audio/voice_detection/test": 0.632,
 }
 
 # These are the roots of the datasets for the various models I want to train
 roots = {
-    "BABY_DETECTION": "/mnt/data/thesis_audio/baby_detection/processed",
-    "LANGUAGE_DETERMINATION": "/mnt/data/thesis_audio/engchin/processed",
-    "VOICE_DETECTION": "/mnt/data/thesis_audio/voice_detection/processed",
+    "BABY_DETECTION":         "/media/max/seagate8TB/thesis_audio/baby_detection/processed",
+    "LANGUAGE_DETERMINATION": "/media/max/seagate8TB/thesis_audio/engchin/processed",
+    "VOICE_DETECTION":        "/media/max/seagate8TB/thesis_audio/voice_detection/processed",
     "TEST": test_dir,
 }
 
 # These are the roots of the validation sets for the various models I want to train
 validation_roots = {
-    "BABY_DETECTION": "/mnt/data/thesis_audio/baby_detection/test",
-    "LANGUAGE_DETERMINATION": "/mnt/data/thesis_audio/engchin/test",
-    "VOICE_DETECTION": "/mnt/data/thesis_audio/voice_detection/test",
+    "BABY_DETECTION":         "/media/max/seagate8TB/thesis_audio/baby_detection/test",
+    "LANGUAGE_DETERMINATION": "/media/max/seagate8TB/thesis_audio/engchin/test",
+    "VOICE_DETECTION":        "/media/max/seagate8TB/thesis_audio/voice_detection/test",
     "TEST": test_dir,
 }
 
@@ -141,6 +141,30 @@ def main():
     use_class_weights   = args.use_class_weights
     fn_args = (None, batchsize, ms_per_model_input, label_function)
 
+    # Dump the hyperparameters/etc. to a file for safe-keeping by a human
+    with open("model_hyperparameters.txt", 'w') as f:
+        logstring = ""
+        logstring += "ROOT: {}\n".format(root)
+        logstring += "VALIDATION ROOT: {}\n".format(validation_root)
+        logstring += "SAMPLE RATE HZ: {}\n".format(sample_rate_hz)
+        logstring += "NUM CHANNELS: {}\n".format(nchannels)
+        logstring += "BYTE WIDTH: {}\n".format(bytewidth)
+        logstring += "BATCH SIZE: {}\n".format(batchsize)
+        logstring += "MS PER MODEL INPUT: {}\n".format(ms_per_model_input)
+        logstring += "MS OF DATASET: {}\n".format(ms_of_dataset)
+        logstring += "MS OF VALIDATION: {}\n".format(ms_of_validation)
+        logstring += "MS PER BATCH: {}\n".format(ms_per_batch)
+        logstring += "NUM WORKERS: {}\n".format(nworkers)
+        logstring += "PROVIDER FUNCTION: {}\n".format(provider_fun)
+        logstring += "LABEL FUNCTION: {}\n".format(label_function)
+        logstring += "FILE BATCHSIZE: {}\n".format(file_batchsize)
+        logstring += "NORMALIZE: {}\n".format(normalize)
+        logstring += "SPECTROGRAM OVERLAP: {}\n".format(spec_overlap)
+        logstring += "MS PER SPECTROGRAM WINDOW: {}\n".format(ms_per_spec_window)
+        logstring += "NUM EPOCHS: {}\n".format(n_epochs)
+        logstring += "USE CLASS WEIGHTS: {}\n".format(use_class_weights)
+        f.write(logstring)
+
     if provider_fun == "generate_n_fft_batches":
         kwargs = {"file_batchsize": file_batchsize, "normalize": normalize, "forever": True}
         model_type = "fft"
@@ -203,7 +227,7 @@ def main():
                  class_weight=class_weights,
                  max_queue_size=10_000,
                  workers=2,
-                 use_multiprocessing=False,
+                 use_multiprocessing=True,
                  shuffle=True,
                  initial_epoch=0
                  )

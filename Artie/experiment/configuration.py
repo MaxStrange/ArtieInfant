@@ -63,7 +63,12 @@ class Configuration:
                     raise ConfigError(msg)
             ret.append(item)
         return ret
-            
+
+    def getstr(self, section, value):
+        """Attempts to get the value from section as a str."""
+        self._sanity_check_args(section, value)
+        return self.rawconfig[section][value]
+
 def load(experiment_name, fpath=None):
     """
     Loads the given `fpath` if not None. If None, loads the configuration
