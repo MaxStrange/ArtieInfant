@@ -67,15 +67,12 @@ class VariationalAutoEncoder:
         if decoder is not None and decoderinputlayer is None:
             raise ValueError("If `decoder` is not None, you must also pass in `decoderinputlayer`.")
 
+        self._latent_dim = latent_dim
         self._encoder, self._inputs, z_mean, z_log_var = self._build_encoder(input_shape, latent_dim, encoder=encoder, inputlayer=inputlayer)
         self._decoder = self._build_decoder(input_shape, latent_dim, decoder=decoder, decoderinputs=decoderinputlayer)
         self._outputs = self._decoder(self._encoder(self._inputs)[2])
         self._vae = Model(self._inputs, self._outputs, name='vae_mlp')
         flattened_input_shape = (np.product(np.array(input_shape)),)
-        #reconstruction_loss = self._build_loss(loss, flattened_input_shape)
-        #kl_loss = self._build_kl_loss(z_log_var, z_mean)
-        #vae_loss = K.mean(reconstruction_loss + kl_loss)
-        #self._vae.add_loss(vae_loss)
         def _vae_loss(y_true, y_pred):
             """
             VAE loss that is broken out as a separate function. It is required to be broken
@@ -89,6 +86,21 @@ class VariationalAutoEncoder:
 
         self._vae.compile(optimizer=optimizer, loss=_vae_loss)
         self._vae.summary()
+
+    def sample(self):
+        """
+        Returns a vector sampled from the latent VAE space. If you want to decode it using predict(),
+        you must wrap it in a list:
+
+        ```python
+        sample = vae.sample()
+        decoded_sample = vae.predict([sample])
+        ```
+        """
+        mu = 0.0
+        sigma = 1.0
+        size = self._latent_dim
+        return np.random.normal(mu, sigma, size)
 
     def predict(self, *args, **kwargs):
         """
@@ -123,15 +135,6 @@ class VariationalAutoEncoder:
         """
         self._vae.save_weights(fpath)
 
-    def _build_kl_loss(self, z_log_var, z_mean):
-        """
-        Builds and returns the KL loss function.
-        """
-        kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var)
-        kl_loss = K.sum(kl_loss, axis=-1)
-        kl_loss *= -0.5
-        return kl_loss
-
     def _build_loss(self, loss, flattened_input_shape):
         """
         Builds and returns the loss function.
@@ -152,7 +155,7 @@ class VariationalAutoEncoder:
         """
         #                                                                       # MNIST dimensionality
         if encoder is None:
-            inputs = Input(shape=input_shape, name="encoder_input")                 # (-1, 28, 28, 1)
+            inputs = Input(shape=input_shape, name="encoder_input")             # (-1, 28, 28, 1)
             x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)   # (-1, 28, 28, 16)
             x = MaxPooling2D((2, 2), padding='same')(x)                         # (-1, 14, 14, 16)
             x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)         # (-1, 14, 14, 8)
@@ -244,7 +247,7 @@ if __name__ == '__main__':
         vae.load_weights(args.weights)
     else:
         # train the autoencoder
-        vae.fit(x_train, epochs=args.nepochs, batch_size=args.batchsize, validation_data=(x_test, None))
+        vae.fit(x_train, x_train, epochs=args.nepochs, batch_size=args.batchsize, validation_data=(x_test, x_test))
         if args.save:
             vae.save_weights(args.save)
 

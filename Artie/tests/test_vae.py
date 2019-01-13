@@ -172,7 +172,7 @@ class TestVAE(unittest.TestCase):
 
         # Create and train the VAE
         vae = self._build_mnist_vae(latent_dim=2)
-        vae.fit(x_train, epochs=2, batch_size=128, validation_data=(x_test, None))
+        vae.fit(x_train, x_train, epochs=2, batch_size=128, validation_data=(x_test, x_test))
 
     def test_train_vae_save_then_train_some_more(self):
         """
@@ -185,11 +185,11 @@ class TestVAE(unittest.TestCase):
         testpath = "__test_vae_weights_delete_me__.h5"
         x_train, x_test = self._get_mnist_data()
         vae = self._build_mnist_vae(latent_dim=2)
-        vae.fit(x_train, epochs=1, batch_size=128, validation_data=(x_test, None))
+        vae.fit(x_train, x_train, epochs=1, batch_size=128, validation_data=(x_test, x_test))
         vae.save_weights(testpath)
         vae.load_weights(testpath)
         os.remove(testpath)
-        vae.fit(x_train, epochs=1, batch_size=128, validation_data=(x_test, None))
+        vae.fit(x_train, x_train, epochs=1, batch_size=128, validation_data=(x_test, x_test))
 
     def test_train_vae_on_custom_data(self):
         """
@@ -214,7 +214,17 @@ class TestVAE(unittest.TestCase):
 
         For an example of this (with visualization!) using MNIST, see the vae.py's __main__.
         """
-        raise NotImplementedError
+        vae = self._build_spectrogram_vae()
+        _history = vae.fit_generator(self.sequence,
+                                   self.batchsize,
+                                   epochs=2,
+                                   save_models=False,
+                                   steps_per_epoch=50,
+                                   use_multiprocessing=False,
+                                   workers=1)
+        sample = vae.sample()
+        decoded_sample = vae.predict(np.array([sample]))
+        self.assertEqual(decoded_sample.shape, (1, 55, 19, 1))
 
 if __name__ == "__main__":
     unittest.main()
