@@ -161,6 +161,7 @@ class TestVAE(unittest.TestCase):
 
         _ = self._build_mnist_vae(latent_dim=latent_dim, optimizer=optimizer, loss=loss)
 
+    @unittest.skipIf("TRAVIS_CI" in os.environ, "This test can't be run on Travis. Too much memory required.")
     def test_train_vae_to_completion_on_mnist(self):
         """
         Test creating and then training a simple VAE for MNIST.
@@ -174,6 +175,7 @@ class TestVAE(unittest.TestCase):
         vae = self._build_mnist_vae(latent_dim=2)
         vae.fit(x_train, x_train, epochs=2, batch_size=128, validation_data=(x_test, x_test))
 
+    @unittest.skipIf("TRAVIS_CI" in os.environ, "This test can't be run on Travis. Too much memory required.")
     def test_train_vae_save_then_train_some_more(self):
         """
         Test creating, training, saving, loading, then training the VAE to
