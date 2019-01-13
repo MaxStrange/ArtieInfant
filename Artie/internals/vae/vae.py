@@ -19,7 +19,6 @@ from keras.losses import mse, binary_crossentropy
 from keras import backend as K
 
 import numpy as np
-import matplotlib.pyplot as plt
 import argparse
 import os
 
@@ -209,6 +208,8 @@ class VariationalAutoEncoder:
 if __name__ == '__main__':
     # If this module is run as a script, do a smoke test
     # Further tests are present in the tests directory of this project
+
+    import matplotlib.pyplot as plt
 
     # Put together argparse
     parser = argparse.ArgumentParser()
