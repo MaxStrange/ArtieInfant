@@ -3,6 +3,8 @@ This module provides the observations and rewards for testing and
 for training the RL agent to vocalize.
 """
 import collections
+import logging
+import math
 import numpy as np
 import random
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
@@ -21,7 +23,7 @@ class TestEnvironment:
                                     This function is what our step() function actually calls under the hood.
         :param nsteps:              The number of steps before we return 'done' for step(). If this parameter
                                     is None, an episode will only terminate if the behavior yields a done.
-        :param first_obs:           The first observation, returned by calling reset().
+        :param first_obs:           The first observation that should be returned by calling reset(). This may be a callable.
         :param action_shape:        The shape of an action in this environment.
         :param observation_space:   An ObservationSpace.
         """
@@ -40,8 +42,13 @@ class TestEnvironment:
         :returns:           The first observation of the environment.
         """
         self.nsteps_so_far_taken = 0
-        self.most_recent_obs = self.first_obs
-        return self.first_obs
+
+        if callable(self.first_obs):
+            obs = self.first_obs()
+        else:
+            obs = self.first_obs
+        self.most_recent_obs = obs
+        return obs
 
     def step(self, action):
         """
@@ -78,9 +85,9 @@ class SomEnvironment:
     observation that is given is a random (uniform) scalar that represents the cluster index of a sound,
     as clustered by: Sound -> Preprocessing -> VAE -> Mean Shift Clustering over all latent vectors produced during VAE training.
     The action space is len(articularizers) (continuous). The reward function depends on if this environment
-    is in phase 1 or phase 2 of training. During phase 1, a reward is given based on whether or not an
+    is in phase 0 or phase 1 of training. During phase 0, a reward is given based on whether or not an
     audible sound is produced via the chosen action, as fed into the articulatory synthesizer controller.
-    During phase 2, the reward is conditioned on the resulting sound sounding like the prototype of the
+    During phase 1, the reward is conditioned on the resulting sound sounding like the prototype of the
     cluster observed, probably via a correlation DSP function.
     """
     def __init__(self, nclusters, articulation_duration_ms, time_points_ms, cluster_prototypes):
@@ -115,6 +122,8 @@ class SomEnvironment:
                                                   shape=(1,))
         self._inference_mode = False
         self._previous_inferred_index = -1
+        self._xcor_component_max = 0.0
+        self._step = 0
 
     @property
     def inference_mode(self):
@@ -209,19 +218,59 @@ class SomEnvironment:
         if self.retain_audio:
             self._audio_buffer.append(seg)
 
-        if self.phase == 0:
-            # During phase 0, the reward is based on whether or not we vocalized at all
-            spl = seg.spl
-            spl /= np.max(np.abs(spl), axis=0)
-            rew = np.sum(spl, axis=None) / len(spl)
-        else:
-            # During phase 1, the reward is based on whether or not we match the cluster index
-            our_sound = seg.to_numpy_array().astype(float)
-            our_sound /= np.max(np.abs(our_sound), axis=0)  # normalize signal
-            prototype = self.cluster_prototypes[int(self.observed_cluster_index)].to_numpy_array().astype(float)
-            prototype /= np.max(np.abs(prototype), axis=0)  # normalize signal
-            rew = np.correlate(our_sound, prototype, mode='valid')
-            rew /= np.max(np.abs(rew), axis=0)  # normalize the xcorrelation signal (which should only be a single value if mode='valid' anyway)
-            rew = np.sum(rew) / len(rew)        # Return the average of the xcorrelation signal. Should be between -1 and 1.
+        ##################### Used to Debug. Should not be retained while actually using this ########################
+        if self._step % 50 == 0:
+            seg.export("mimicry-{}-{}-debug-delete-me.wav".format(self.observed_cluster_index, self._step), format='wav')
+        ##############################################################################################################
 
+        if self.phase == 0:
+            # TODO: Ask Dr. Stiber what a good check for loudness/humanness/voiceness might be
+            # During phase 0, the reward is based on whether or not we vocalized at all
+            arr = seg.to_numpy_array()
+            assert len(arr) > 0
+            squares = np.square(arr)
+            assert len(squares) == len(arr)
+            sum_of_squares = np.sum(squares[squares >= 0], axis=0)
+            assert sum_of_squares >= 0.0, "Len: {}, Sum of squares: {}".format(len(arr), np.sum(squares, axis=0))
+            mean_square = sum_of_squares / len(arr)
+            assert mean_square > 0.0
+            rms = np.sqrt(mean_square)
+            rew = rms
+            if math.isnan(rew):
+                rew = 0.0
+            rew /= 100.0  # Get it into a more reasonable domain
+        else:
+            # During phase 1, the reward is based on how well we match the prototype sound
+            # for the given cluster index
+
+            # Shift the wave form up by most negative value
+            ours = seg.to_numpy_array().astype(float)
+            most_neg_val = min(ours)
+            ours += abs(most_neg_val)
+
+            prototype = self.cluster_prototypes[int(self.observed_cluster_index)].to_numpy_array().astype(float)
+            most_neg_val = min(prototype)
+            prototype += abs(most_neg_val)
+
+            assert sum(ours[ours < 0]) == 0
+            assert sum(prototype[prototype < 0]) == 0
+
+            # Divide by the amplitude
+            if max(ours) != min(ours):
+                ours /= max(ours) - min(ours)
+            if max(prototype) != min(prototype):
+                prototype /= max(prototype) - min(prototype)
+
+            # Now you have values in the interval [0, 1]
+
+            # XCorr with some amount of zero extension
+            xcor = np.correlate(ours, prototype, mode='full')
+
+            # Find the single maximum value along the xcor vector
+            # This is the place at which the waves match each other best
+            # Take the xcor value at this location as the reward
+            rew = max(xcor)
+
+        logging.debug("Observation: {} -> Action: {} -> Reward: {}".format(obs, action, rew))
+        self._step += 1
         return obs, rew, done, info

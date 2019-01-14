@@ -100,16 +100,19 @@ class FeatureProvider:
         Yields n tuples of the form (label, Spectrogram), where:
 
         - labels are created from label_fn, by applying it to the file path (must be a function
-          that takes a file path and returns a numeric value, which is the label)
+          that takes a file path and returns a numeric value, which is the label). If label_fn is None,
+          we actually simply copy the spectrograms and present those as the labels. This is what you
+          want if you are training an autoencoder.
         - Spectrograms are created from AudioSegments of length ms each. The segments are chosen from a
           batch of `file_batchsize` files. The batch is chosen at random from the data directory.
           If the AudioSegment happens to fall at the end of the WAV file and does not line
-          up neatly, it will be zero padded to reach `ms` length before being FFT'd. The FFTs that 
+          up neatly, it will be zero padded to reach `ms` length before being FFT'd. The FFTs that
           make up the spectrogram are real and normed.
 
         :param n:               The number of labeled spectrograms to yield
         :param ms:              The length of the AudioSegments that will be transformed, in ms
-        :param label_fn:        Function of the signature fn(fpath) -> numeric label
+        :param label_fn:        Function of the signature fn(fpath) -> numeric label, or None for training
+                                an autoencoder.
         :param file_batchsize:  The number of files to batch before creating AudioSegments from them
                                 at random.
         :param normalize:       Maps the histogram values to between 0.0 and 1.0.
@@ -120,18 +123,31 @@ class FeatureProvider:
         :yields:                n tuples of the form (spectrogram, label)
         """
         if n is not None and n <= 0:
-            return
-
+            raise ValueError("n must either be None or positive, but is {}".format(n))
         if window_length_ms is None:
             window_length_ms = ms / 10
+
+        durs = []
+        amplitudes_shapes = []
         for seg in self.dp.generate_n_segments(n=n, ms=ms, batchsize=file_batchsize, forever=forever):
-            label = label_fn(seg.name)
+            durs.append(seg.duration_seconds)
+            assert len(set(durs)) == 1, "Got a duration that was not the same as all the others: {}".format(durs)
+
             _hist_bins, _times, amplitudes = seg.spectrogram(window_length_s=window_length_ms/1000, overlap=overlap)
+            amplitudes_shapes.append(amplitudes.shape)
+            assert len(set(amplitudes_shapes)) == 1, "Got a spectrogram that is not the same shape as the others: {}".format(amplitudes_shapes)
+
             amplitudes_real_normed = np.abs(amplitudes) / len(amplitudes)
+            assert amplitudes_real_normed.shape == amplitudes.shape, "Normalization changed the shape from {} to {}.".format(amplitudes.shape, amplitudes_real_normed.shape)
+
             if normalize:
                 amplitudes_real_normed = np.apply_along_axis(lambda v: (v - min(v)) / (max(v) + 1E-9), 1, amplitudes_real_normed)
             if expand_dims:
                 amplitudes_real_normed = np.expand_dims(amplitudes_real_normed, -1)
+            if label_fn is None:
+                label = np.copy(amplitudes_real_normed)
+            else:
+                label = label_fn(seg.name)
 
             yield amplitudes_real_normed, label
 
@@ -216,7 +232,8 @@ class FeatureProvider:
         :param batchsize:       The number of spectrograms in a batch. Batches are composed of random spectrograms
                                 taken from a cache batch of size file_batchsize.
         :param ms:              The length of the AudioSegments that will be transformed, in ms
-        :param label_fn:        Function of the signature fn(fpath) -> numeric label
+        :param label_fn:        Function of the signature fn(fpath) -> numeric label. If this is None, the label
+                                will be identical to the batch, which is what you want if you are training an autoencoder.
         :param file_batchsize:  The number of files to batch before creating AudioSegments from them
                                 at random.
         :param normalize:       Maps the histogram values to between 0.0 and 1.0.
@@ -227,9 +244,9 @@ class FeatureProvider:
         :yields:                Up to n tuples of the form (batch, label), where each batch is shaped: (batchsize, nfbins, ntbins)
         """
         if n is not None and n <= 0:
-            return
+            raise ValueError("n must be either None or greater than zero but is {}".format(n))
         if batchsize <= 0:
-            return
+            raise ValueError("batchsize must be greater than zero but is {}".format(batchsize))
 
         nbatches_so_far = 0
         while n is None or nbatches_so_far < n:

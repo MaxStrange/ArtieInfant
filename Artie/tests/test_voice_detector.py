@@ -70,6 +70,7 @@ class TestVoiceDetector(unittest.TestCase):
         # Check that it knows its input shape
         self.assertEqual((None, *input_shape), detector.input_shape)
 
+    @unittest.skipIf("TRAVIS_CI" in os.environ, "Travis CI's memory allowances are too small for this test.")
     def test_fit_ffts(self):
         """
         Test training on FFT data.

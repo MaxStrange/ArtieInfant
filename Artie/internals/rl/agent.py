@@ -1,6 +1,7 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import keras
+import logging
 import numpy as np
 import os
 import rl
@@ -9,15 +10,15 @@ from rl.random import OrnsteinUhlenbeckProcess
 from rl.agents import DDPGAgent
 
 class Agent:
-    def __init__(self, env, actor=None, critic=None, weights=None, warmup_actor=100, warmup_critic=100, gamma=0.99):
+    def __init__(self, env, actor=None, critic=None, weights=None, warmup_actor=1, warmup_critic=1, gamma=0.99):
         """
         Constructs a model to learn the given environment.
 
         :param env:             An environment from environment.py.
         :param actor:           The actor portion of the model or None, in which case a default is supplied.
         :param critic:          The critic portion of the model or None, in which case a default is supplied.
-        :param weights:         If not None, will load the weights from two files named <weights>_actor<extension>
-                                and <critic>_critic<extension>.
+        :param weights:         If not None, will load the weights from two files named <weights>_actor.<extension>
+                                and <weights>_critic.<extension>.
         :param warmup_actor:    The number of steps to take before training the actor.
         :param warmup_critic:   The number of steps to take before training the critic.
         :param gamma:           The discount factor.
@@ -60,6 +61,7 @@ class Agent:
         :param nmaxsteps:   The maximum number of steps to take in a single episode before resetting the environment.
         :returns:           A keras.callbacks.history object.
         """
+        warnings.simplefilter(action="ignore", category=DeprecationWarning)
         return self.agent.fit(self.env, nb_steps=nsteps, visualize=False, verbose=1, nb_max_episode_steps=nmaxsteps)
 
     def save(self, fpath):
@@ -67,8 +69,15 @@ class Agent:
         Saves the Agent into a file at `fpath`.
         Uses hdf5.
 
+        If `fpath` is <name>.<ext>, this will actually
+        save two files like <name_actor>.<ext> and
+        <name_critic>.<ext>.
+
+        It is somewhat confusing.
+
         :param fpath:       The path to save the file.
         """
+        logging.info("Saving agent with filepath={}".format(fpath))
         self.agent.save_weights(fpath, overwrite=True)
 
     def inference(self, nepisodes=50, nmaxsteps=200):
