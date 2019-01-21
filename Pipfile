@@ -7,6 +7,10 @@ url = "https://pypi.org/simple"
 pylint = "*"
 
 [packages]
+numpy = "*"
+tqdm = "*"
+audiosegment = "*"
+keras = "*"
 
 [requires]
 python_version = "3.6"
