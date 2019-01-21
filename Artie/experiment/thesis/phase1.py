@@ -4,8 +4,13 @@ This is the phase 1 file.
 This file's API consists simply of the function run(), which will run phase 1 of the thesis experiment.
 """
 from internals.specifics import rl                      # pylint: disable=locally-disabled, import-error
+from internals.vae import vae                           # pylint: disable=locally-disabled, import-error
 from experiment import configuration                    # pylint: disable=locally-disabled, import-error
 from senses.voice_detector import voice_detector as vd  # pylint: disable=locally-disabled, import-error
+from senses.dataproviders import sequence as seq        # pylint: disable=locally-disabled, import-error
+
+from keras.layers import Lambda, Input, Dense, Conv2D, UpSampling2D, MaxPooling2D, Flatten, Reshape
+
 import audiosegment
 import logging
 import multiprocessing as mp
@@ -85,9 +90,15 @@ def _preproc_worker_fn(q, destination_folder, baby_detector_kwargs, language_det
             try:
                 # -- Remove silence --
                 # The required duration of silence for removal eligibility is 1/100th of the length of the slice,
-                # but with a minimum of 0.5 seconds and a maximum of 1.0 seconds
-                silence_duration_s = min(max(next_q_item.duration_seconds / 100.0, 1.0), 0.5)
-                segment = next_q_item.filter_silence(duration_s=silence_duration_s, threshold_percentage=1)
+                # but with a minimum of x seconds and a maximum of y seconds
+                silence_duration_s = 10.0#min(max(next_q_item.duration_seconds / 100.0, 5.0), 5.0)
+
+                # If the segment is not as long as the amount of silence necessary to be eligible for trimming,
+                # we should give up on this segment
+                if next_q_item.duration_seconds <= silence_duration_s:
+                    continue
+
+                segment = next_q_item.filter_silence(duration_s=silence_duration_s, threshold_percentage=0.5)
 
                 # If we only have a little bit of sound left after silence removal, we should give up on it
                 if segment.duration_seconds < 1.0:
@@ -240,13 +251,13 @@ def _run_preprocessing_pipeline(config):
     nworkers = config.getint('preprocessing', 'nworkers')
 
     # Make a process that crawls the root directory looking for WAVs
-    producer = mp.Process(target=_preproc_producer_fn, args=(q, root_folder, sample_rate, nchannels, bytewidth, dice_to_seconds, nworkers, fraction_to_preprocess))
+    producer = mp.Process(target=_preproc_producer_fn, daemon=True, args=(q, root_folder, sample_rate, nchannels, bytewidth, dice_to_seconds, nworkers, fraction_to_preprocess))
     producer.start()
 
     # Make a pool of processes that each sit around waiting for segments of audio on the queue
     worker_args = (q, destination_folder, baby_detector_kwargs, language_detector_kwargs, baby_matrix, baby_model_stats, baby_raw_yes,
                         baby_event_length_s, language_matrix, language_model_stats, language_event_length_s)
-    consumers = [mp.Process(target=_preproc_worker_fn, args=worker_args, name="preproc_worker_{}".format(i)) for i in range(nworkers)]
+    consumers = [mp.Process(target=_preproc_worker_fn, daemon=True, args=worker_args, name="preproc_worker_{}".format(i)) for i in range(nworkers)]
     for c in consumers:
         c.start()
 
@@ -255,7 +266,123 @@ def _run_preprocessing_pipeline(config):
     for c in consumers:
         c.join()
 
-def run(preprocess=False, test=False):
+def _build_vae(config):
+    """
+    Builds the Variational AutoEncoder and returns it. Uses parameters from the config file.
+    """
+    # Get the input shape that the Encoder layer expects
+    input_shape = config.getlist('autoencoder', 'input_shape', type=int)
+
+    # Get the dimensionality of the embedding space
+    latent_dim = config.getint('autoencoder', 'nembedding_dims')
+
+    # Get the optimizer
+    optimizer = config.getstr('autoencoder', 'optimizer')
+
+    # Get the loss function
+    loss = config.getstr('autoencoder', 'loss')
+
+    # Encoder model
+    inputs = Input(shape=input_shape, name="encoder_inputs")
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)           # (-1, 55, 19, 16)
+    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 28, 10, 16)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 28, 10, 8)
+    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 14, 5, 8)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 14, 5, 8)
+    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 7, 3, 8)
+    x = Flatten()(x)                                                            # (-1, 168)
+    encoder = Dense(32, activation='relu')(x)                                   # (-1, 32)
+
+    # Decoder model
+    intermediate_dim = (14, 5, 8)
+    decoderinputs = Input(shape=(latent_dim,), name="decoder_inputs")
+    x = Dense(np.product(intermediate_dim), activation='relu')(decoderinputs)   # (-1, 560)
+    x = Reshape(target_shape=intermediate_dim)(x)                               # (-1, 14, 5, 8)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 14, 5, 8)
+    x = UpSampling2D((2, 2))(x)                                                 # (-1, 28, 10, 8)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 28, 10, 8)
+    x = Conv2D(16, (2, 2), activation='relu', padding='same')(x)                # (-1, 28, 10, 16)
+    x = UpSampling2D((2, 2))(x)                                                 # (-1, 56, 20, 16)
+    decoder = Conv2D(1, (2, 2), activation='sigmoid', padding='valid')(x)       # (-1, 55, 19, 1)
+
+    autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss, encoder, decoder, inputs, decoderinputs)
+    return autoencoder
+
+def _train_vae(autoencoder, config):
+    """
+    Train the given `autoencoder` according to parameters listed in `config`.
+    """
+    # TODO: Remove this line if you don't need the warning filter
+    #warnings.simplefilter("ignore", ResourceWarning)
+
+    # The root of the preprocessed data directory
+    root = config.getstr('autoencoder', 'preprocessed_data_root')
+
+    # The sample rate in Hz that the model expects
+    sample_rate_hz = config.getfloat('autoencoder', 'sample_rate_hz')
+
+    # The number of channels of audio the model expects
+    nchannels = config.getint('autoencoder', 'nchannels')
+
+    # The number of bytes per sample of the audio
+    bytewidth = config.getint('autoencoder', 'bytewidth')
+
+    # The total number of bytes in the preprocessed data directory
+    total_bytes = 0 # TODO: Get this from the directory
+
+    # Since WAV is uncompressed, we can get a fair approximation of the total sound duration
+    # in the directory by doing some simple math
+    ms_of_dataset = ((total_bytes / bytewidth) / sample_rate_hz) * 1000
+
+    # The total ms per spectrogram
+    ms = config.getfloat('autoencoder', 'ms')
+
+    # The number of spectrograms per batch size
+    batchsize = config.getint('autoencoder', 'batchsize')
+
+    # The number of ms per batch
+    ms_per_batch = ms * batchsize
+
+    # The number of workers to help with the data collection and feeding
+    nworkers = config.getint('autoencoder', 'nworkers')
+
+    # The number of epochs to train. Note that we define how long an epoch is manually
+    nepochs = config.getint('autoencoder', 'nepochs')
+
+    # The number of steps we have in an epoch
+    steps_per_epoch = config.getint('autoencoder', 'steps_per_epoch')
+
+    # These args are passed into generate_n_spectrogram_batches(): (num batches to yield, batchsize, ms, label function)
+    args = (None, batchsize, ms, None)
+
+    # These are the keyword arguments to pass into generate_n_spectrogram_batches
+    kwargs = {
+        "normalize": True,
+        "forever": True,
+        "window_length_ms": None,
+        "overlap": 0.5,
+        "expand_dims": True,
+    }
+    sequence = seq.Sequence(ms_of_dataset,
+                            ms_per_batch,
+                            nworkers,
+                            root,
+                            sample_rate_hz,
+                            nchannels,
+                            bytewidth,
+                            "generate_n_spectrogram_batches",
+                            *args,
+                            **kwargs)
+
+    autoencoder.fit_generator(sequence,
+                              batchsize,
+                              epochs=nepochs,
+                              save_models=True,
+                              steps_per_epoch=steps_per_epoch,
+                              use_multiprocessing=False,
+                              workers=1)
+
+def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, train_synth=False):
     """
     Entry point for Phase 1.
 
@@ -267,6 +394,9 @@ def run(preprocess=False, test=False):
 
     If `test` is True, we will load the testthesis.cfg config file instead of the thesis config.
     If `preprocess` is True, we will preprocess all the data as part of the experiment. See the config file for details.
+    If `pretrain_synth` is True, we will pretrain the voice synthesizer to make noise.
+    If `train_vae` is True, we will train the variational autoencoder on the preprocessed data.
+    If `train_synth` is True, we will train the voice synthesizer to mimic the prototypical proto phonemes.
     """
     # Load the right experiment configuration
     configname = "testthesis" if test else "thesis"
@@ -275,14 +405,22 @@ def run(preprocess=False, test=False):
     # Potentially preprocess the audio
     if preprocess:
         _run_preprocessing_pipeline(config)
-    exit()
 
     # Pretrain the voice synthesizer to make non-specific noise
-    weightpathbasename, actor, critic = rl.pretrain(config)
+    if pretrain_synth:
+        weightpathbasename, actor, critic = rl.pretrain(config)
+
+    # -- VAE -- train then run over a suitable sample of audio to save enough embeddings for the prototypes/clustering
+    # Train the VAE to a suitable level of accuracy
+    autoencoder = _build_vae(config)
+    autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
+    if train_vae:
+        _train_vae(autoencoder, config)
+        autoencoder.save_weights(autoencoder_weights_fpath)
+    else:
+        autoencoder.load_weights(autoencoder_weights_fpath)
 
     # TODO:
-    #   VAE - train then run over a suitable sample of audio to save enough embeddings for the prototypes/clustering
-    #       # Train the VAE to a suitable level of accuracy
     #       # Use the trained VAE on ~1,000 (or more?) audio samples, saving each audio sample along with its embedding.
     #   Mean Shift Cluster - cluster the saved embeddings using sklearn.mean_shift_cluster (or whatever it's called). This will tell us how many clusters.
     #       # Load the saved embeddings into a dataset

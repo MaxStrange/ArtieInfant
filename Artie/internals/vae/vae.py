@@ -111,6 +111,9 @@ class VariationalAutoEncoder:
         """
         Train the VAE on the given data. See the Keras fit() method's documentation: https://keras.io/models/model/#fit
         """
+        if not os.path.isdir("models"):
+            os.makedirs("models")
+        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{loss:.4f}.hdf5", period=1)
         return self._vae.fit(*args, **kwargs)
 
     def fit_generator(self, datagen, batch_size, save_models=True, **kwargs):
