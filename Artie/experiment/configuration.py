@@ -55,6 +55,7 @@ class Configuration:
                 continue
             if type is not None:
                 try:
+                    item = item.strip('[](),')
                     item = type(item)
                 except ValueError as e:
                     msg = "Cannot convert {}:{} to a list because we could not convert {} to {}. Original error message: {}".format(

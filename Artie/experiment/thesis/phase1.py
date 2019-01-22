@@ -14,6 +14,7 @@ from keras.layers import Lambda, Input, Dense, Conv2D, UpSampling2D, MaxPooling2
 import audiosegment
 import logging
 import multiprocessing as mp
+import numpy as np
 import os
 import random
 import tqdm
@@ -175,14 +176,10 @@ def _run_preprocessing_pipeline(config):
     logging.info("Preprocessing...")
 
     # This is the folder we will get stuff from
-    root_folder = config.getstr('preprocessing', 'root')  # TODO: For some reason, getting a path from the config file results in a string that can't be interpreted as a path...
+    root_folder = config.getstr('preprocessing', 'root')
 
     # This is the folder we will put stuff in after we are done preprocessing
     destination_folder = config.getstr('preprocessing', 'destination')
-
-    # TODO: Remove these two lines:
-    root_folder = "/media/max/seagate8TB/thesis_audio/gold_data_do_not_modify"
-    destination_folder = "/media/max/seagate8TB/thesis_audio/preprocessed_gold_data"
 
     # This is the fraction of the files in the root that we will actually bother to preprocess - others are ignored. Useful for testing.
     fraction_to_preprocess = config.getfloat('preprocessing', 'fraction_to_preprocess')
@@ -283,6 +280,7 @@ def _build_vae(config):
     loss = config.getstr('autoencoder', 'loss')
 
     # Encoder model
+    # TODO: Need to get this to work for the new shape
     inputs = Input(shape=input_shape, name="encoder_inputs")
     x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)           # (-1, 55, 19, 16)
     x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 28, 10, 16)
@@ -312,11 +310,9 @@ def _train_vae(autoencoder, config):
     """
     Train the given `autoencoder` according to parameters listed in `config`.
     """
-    # TODO: Remove this line if you don't need the warning filter
-    #warnings.simplefilter("ignore", ResourceWarning)
-
     # The root of the preprocessed data directory
     root = config.getstr('autoencoder', 'preprocessed_data_root')
+    assert os.path.isdir(root), "{} is not a valid path.".format(root)
 
     # The sample rate in Hz that the model expects
     sample_rate_hz = config.getfloat('autoencoder', 'sample_rate_hz')
@@ -328,7 +324,11 @@ def _train_vae(autoencoder, config):
     bytewidth = config.getint('autoencoder', 'bytewidth')
 
     # The total number of bytes in the preprocessed data directory
-    total_bytes = 0 # TODO: Get this from the directory
+    total_bytes = 0
+    for dirpath, _dirnames, filenames in os.walk(root):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            total_bytes += os.path.getsize(fp)
 
     # Since WAV is uncompressed, we can get a fair approximation of the total sound duration
     # in the directory by doing some simple math
@@ -414,6 +414,7 @@ def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, tra
     # Train the VAE to a suitable level of accuracy
     autoencoder = _build_vae(config)
     autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
+    assert os.path.isdir(autoencoder_weights_fpath), "{} is not a valid directory.".format(autoencoder_weights_fpath)
     if train_vae:
         _train_vae(autoencoder, config)
         autoencoder.save_weights(autoencoder_weights_fpath)
