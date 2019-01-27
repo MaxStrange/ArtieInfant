@@ -1,0 +1,1 @@
+python testvae.py /home/max/repos/ArtieInfant/Artie/models/vae/test_date-2019-02-11-time-21-05.h5 /media/max/seagate8TB/thesis_audio/test_spectrogram_images/one/useless_subdirectory/english_10016.wav_0.png

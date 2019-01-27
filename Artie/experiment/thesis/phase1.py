@@ -9,8 +9,9 @@ from experiment import configuration                    # pylint: disable=locall
 from senses.voice_detector import voice_detector as vd  # pylint: disable=locally-disabled, import-error
 from senses.dataproviders import sequence as seq        # pylint: disable=locally-disabled, import-error
 
-from keras.layers import Lambda, Input, Dense, Conv2D, UpSampling2D, MaxPooling2D, Flatten, Reshape
+from keras.layers import Lambda, Input, Dense, Conv2D, UpSampling2D, MaxPooling2D, Flatten, Reshape, BatchNormalization
 from keras import backend as K
+from keras import preprocessing
 
 import audiosegment
 import datetime
@@ -331,6 +332,8 @@ def _convert_to_images(config):
     window_length_s = config.getfloat('preprocessing', 'spectrogram_window_length_s')
     overlap = config.getfloat('preprocessing', 'spectrogram_window_overlap')
     fraction_to_preprocess = config.getfloat('preprocessing', 'fraction_to_preprocess')
+    resample_to_hz = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
+    use_filterbank = config.getbool('preprocessing', 'use_filterbank')
 
     # Cache all the wav files
     fpathcache = set()
@@ -343,17 +346,24 @@ def _convert_to_images(config):
     for fpath in tqdm.tqdm(fpathcache):
         # Only preprocess with some probability (for testing)
         if random.random() < fraction_to_preprocess:
-            segment = audiosegment.from_file(fpath)
-            segments = segment.dice(seconds_per_spectrogram)
-            for idx, segment in enumerate(segments):
-                fs, ts, amps = segment.spectrogram(window_length_s=window_length_s, overlap=overlap)
-                #amps = 10.0 * np.log10(amps + 1e-9)  # This seems to make the output array a little harder to see in black/white
-                amps *= 255.0 / np.max(np.abs(amps))
-                amps = amps.astype(np.uint8)
-                _, fname = os.path.split(fpath)
-                fname_to_save = "{}_{}.png".format(fname, idx)
-                path_to_save = os.path.join(folder_to_save_images, fname_to_save)
-                imageio.imwrite(path_to_save, amps)
+            try:
+                segment = audiosegment.from_file(fpath)
+                segments = segment.dice(seconds_per_spectrogram)
+                for idx, segment in enumerate(segments):
+                    segment = segment.resample(sample_rate_Hz=resample_to_hz)
+                    if use_filterbank:
+                        # TODO: Apply a bank of filters, then recombine before taking the spectrogram
+                        pass
+                    fs, ts, amps = segment.spectrogram(window_length_s=window_length_s, overlap=overlap)
+                    #amps = 10.0 * np.log10(amps + 1e-9)  # This seems to make the output array a little harder to see in black/white
+                    amps *= 255.0 / np.max(np.abs(amps))
+                    amps = amps.astype(np.uint8)
+                    _, fname = os.path.split(fpath)
+                    fname_to_save = "{}_{}.png".format(fname, idx)
+                    path_to_save = os.path.join(folder_to_save_images, fname_to_save)
+                    imageio.imwrite(path_to_save, amps)
+            except Exception as e:
+                logging.warn("Could not convert file {}: {}".format(fpath, e))
 
 def _build_vae(config):
     """
@@ -373,28 +383,65 @@ def _build_vae(config):
 
     # Encoder model
     inputs = Input(shape=input_shape, name="encoder_inputs")
-    x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)           # (-1, 73, 19, 16)
-    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 37, 10, 16)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 37, 10, 8)
-    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 19, 5, 8)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 19, 5, 8)
-    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 10, 3, 8)
-    x = Flatten()(x)                                                            # (-1, 240)
-    encoder = Dense(32, activation='relu')(x)                                   # (-1, 32)
+    x = BatchNormalization(axis=3)(inputs)
+    x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)               # (-1, 241, 20, 128)
+    x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 121, 10, 128)
+    x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)               # (-1, 121, 10, 128)
+    x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+    x = BatchNormalization(axis=3)(x)
+    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 61, 5, 128)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)                # (-1, 61, 5, 64)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 31, 3, 64)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)                # (-1, 31, 3, 64)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = BatchNormalization(axis=3)(x)
+    x = MaxPooling2D((2, 1), padding='same')(x)                                 # (-1, 16, 3, 64)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)                # (-1, 16, 3, 64)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = MaxPooling2D((2, 1), padding='same')(x)                                 # (-1, 8, 3, 64)
+    x = Conv2D(64, (2, 2), activation='relu', padding='same')(x)                # (-1, 8, 3, 64)
+    x = Conv2D(64, (2, 2), activation='relu', padding='same')(x)
+    x = BatchNormalization(axis=3)(x)
+    x = MaxPooling2D((2, 1), padding='same')(x)                                 # (-1, 4, 3, 64)
+    x = Flatten()(x)                                                            # (-1, 768)
+    encoder = Dense(768, activation='relu')(x)
 
     # Decoder model
-    intermediate_dim = (10, 3, 8)
     decoderinputs = Input(shape=(latent_dim,), name="decoder_inputs")
-    x = Dense(np.product(intermediate_dim), activation='relu')(decoderinputs)   # (-1, 240)
-    x = Reshape(target_shape=intermediate_dim)(x)                               # (-1, 10, 3, 8)
-    x = UpSampling2D((2, 2))(x)                                                 # (-1, 20, 6, 8)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 20, 6, 8)
-    x = Conv2D(1, (2, 2))(x)                                                    # (-1, 19, 5, 8)
-    x = UpSampling2D((2, 2))(x)                                                 # (-1, 38, 10, 8)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 38, 10, 8)
-    x = Conv2D(16, (2, 2), activation='relu', padding='same')(x)                # (-1, 38, 10, 16)
-    x = UpSampling2D((2, 2))(x)                                                 # (-1, 76, 20, 16)
-    decoder = Conv2D(1, (4, 2), activation='sigmoid', padding='valid')(x)       # (-1, 73, 19, 1)
+    x = Dense(768, activation='relu')(decoderinputs)                            # (-1, 768)
+    x = Reshape(target_shape=(4, 3, 64))(x)                                     # (-1, 4, 3, 64)
+    x = Conv2D(64, (2, 2), activation='relu', padding='same')(x)                # (-1, 4, 3, 64)
+    x = Conv2D(64, (2, 2), activation='relu', padding='same')(x)
+    x = Conv2D(64, (2, 2), activation='relu', padding='same')(x)
+    x = BatchNormalization(axis=3)(x)
+    x = UpSampling2D((2, 2))(x)                                                 # (-1, 8, 6, 64)
+    x = Conv2D(64, (1, 2), activation='relu', padding='valid')(x)               # (-1, 8, 5, 64)
+    x = Conv2D(64, (2, 2), activation='relu', padding='same')(x)
+    x = Conv2D(64, (2, 2), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 2))(x)                                                 # (-1, 16, 10, 64)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)                # (-1, 16, 10, 64)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 2))(x)                                                 # (-1, 32, 20, 32)
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)                # (-1, 32, 20, 32)
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 1))(x)                                                 # (-1, 64, 20, 32)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)                # (-1, 64, 20, 16)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+    x = BatchNormalization(axis=3)(x)
+    x = UpSampling2D((2, 1))(x)                                                 # (-1, 128, 20, 16)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 128, 20, 8)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(4, (3, 1), activation='relu', padding='valid')(x)                # (-1, 126, 20, 4)
+    x = Conv2D(4, (3, 1), activation='relu', padding='valid')(x)                # (-1, 124, 20, 4)
+    x = Conv2D(4, (3, 1), activation='relu', padding='valid')(x)                # (-1, 122, 20, 4)
+    x = Conv2D(4, (2, 1), activation='relu', padding='valid')(x)                # (-1, 121, 20, 4)
+    x = UpSampling2D((2, 1))(x)                                                 # (-1, 242, 20, 4)
+    decoder = Conv2D(1, (2, 1), activation='sigmoid', padding='valid')(x)       # (-1, 241, 20, 1)
 
     autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss, encoder, decoder, inputs, decoderinputs)
     return autoencoder
@@ -407,37 +454,11 @@ def _train_vae(autoencoder, config):
     root = config.getstr('autoencoder', 'preprocessed_data_root')
     assert os.path.isdir(root), "{} is not a valid path.".format(root)
 
-    # The sample rate in Hz that the model expects
-    sample_rate_hz = config.getfloat('autoencoder', 'sample_rate_hz')
-
-    # The number of channels of audio the model expects
-    nchannels = config.getint('autoencoder', 'nchannels')
-
-    # The number of bytes per sample of the audio
-    bytewidth = config.getint('autoencoder', 'bytewidth')
-
     # Get whether or not we should visualize during training
     visualize = config.getbool('autoencoder', 'visualize')
 
-    # The total number of bytes in the preprocessed data directory
-    total_bytes = 0
-    for dirpath, _dirnames, filenames in os.walk(root):
-        for f in filenames:
-            fp = os.path.join(dirpath, f)
-            total_bytes += os.path.getsize(fp)
-
-    # Since WAV is uncompressed, we can get a fair approximation of the total sound duration
-    # in the directory by doing some simple math
-    ms_of_dataset = ((total_bytes / bytewidth) / sample_rate_hz) * 1000
-
-    # The total ms per spectrogram
-    ms = config.getfloat('autoencoder', 'ms')
-
-    # The number of spectrograms per batch size
+    # The number of spectrograms per batch
     batchsize = config.getint('autoencoder', 'batchsize')
-
-    # The number of ms per batch
-    ms_per_batch = ms * batchsize
 
     # The number of workers to help with the data collection and feeding
     nworkers = config.getint('autoencoder', 'nworkers')
@@ -448,6 +469,10 @@ def _train_vae(autoencoder, config):
     # The number of steps we have in an epoch
     steps_per_epoch = config.getint('autoencoder', 'steps_per_epoch')
 
+    # The shape of the images
+    imshapes = config.getlist('autoencoder', 'input_shape')[0:2]  # take only the first two dimensions (not channels)
+    imshapes = [int(i) for i in imshapes]
+
     # Deal with the visualization stuff if we are visualizing
     if visualize:
         vaeviz = VaeVisualizer()
@@ -456,37 +481,32 @@ def _train_vae(autoencoder, config):
                 tf.assign(vaeviz.var_y_pred, model.outputs[0], validate_shape=False),
                 tf.assign(vaeviz.var_x, model.inputs[0], validate_shape=False)]
         model._function_kwargs = {'fetches': fetches}
+        callbacks = [vaeviz]
+    else:
+        callbacks = []
 
-    # These args are passed into generate_n_spectrogram_batches(): (num batches to yield, batchsize, ms, label function)
-    args = (None, batchsize, ms, None)
+    logging.info("Loading images from {}".format(root))
+    imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
+    print("Creating datagen...")
+    datagen = imreader.flow_from_directory(root,
+                                            target_size=imshapes,
+                                            color_mode='grayscale',
+                                            classes=None,
+                                            class_mode='input',
+                                            batch_size=batchsize,
+                                            shuffle=True,
+                                            save_to_dir=None,
+                                            save_format='png')
 
-    # These are the keyword arguments to pass into generate_n_spectrogram_batches
-    kwargs = {
-        "normalize": True,
-        "forever": True,
-        "window_length_ms": None,
-        "overlap": 0.5,
-        "expand_dims": True,
-    }
-    sequence = seq.Sequence(ms_of_dataset,
-                            ms_per_batch,
-                            nworkers,
-                            root,
-                            sample_rate_hz,
-                            nchannels,
-                            bytewidth,
-                            "generate_n_spectrogram_batches",
-                            *args,
-                            **kwargs)
-
-    autoencoder.fit_generator(sequence,
+    print("Training...")
+    autoencoder.fit_generator(datagen,
                               batchsize,
                               epochs=nepochs,
                               save_models=True,
                               steps_per_epoch=steps_per_epoch,
                               use_multiprocessing=False,
-                              workers=1,
-                              callbacks=[vaeviz])
+                              workers=nworkers,
+                              callbacks=callbacks)
 
 def run(preprocess=False, preprocess_part_two=False, test=False, pretrain_synth=False, train_vae=False, train_synth=False):
     """
