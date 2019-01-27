@@ -86,6 +86,12 @@ class VariationalAutoEncoder:
         self._vae.compile(optimizer=optimizer, loss=_vae_loss)
         self._vae.summary()
 
+        # Do callback initialization stuff
+        if not os.path.isdir("models"):
+            os.makedirs("models")
+        saver = keras.callbacks.ModelCheckpoint("models/vae-weights.ep{epoch:02d}-loss{loss:.4f}.h5", period=1)
+        self._callbacks = [saver]
+
     def sample(self):
         """
         Returns a vector sampled from the latent VAE space. If you want to decode it using predict(),
@@ -111,19 +117,23 @@ class VariationalAutoEncoder:
         """
         Train the VAE on the given data. See the Keras fit() method's documentation: https://keras.io/models/model/#fit
         """
-        if not os.path.isdir("models"):
-            os.makedirs("models")
-        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{loss:.4f}.hdf5", period=1)
+        if 'callbacks' not in kwargs:
+            kwargs['callbacks'] = self._callbacks
+        else:
+            kwargs['callbacks'].extend(self._callbacks)
+
         return self._vae.fit(*args, **kwargs)
 
     def fit_generator(self, datagen, batch_size, save_models=True, **kwargs):
         """
         Train the VAE on the given Sequence (data generator).
         """
-        if not os.path.isdir("models"):
-            os.makedirs("models")
-        saver = keras.callbacks.ModelCheckpoint("models/weights.{epoch:02d}-{loss:.4f}.hdf5", period=1)
-        return self._vae.fit_generator(datagen, callbacks=[saver], **kwargs)
+        if 'callbacks' not in kwargs:
+            kwargs['callbacks'] = self._callbacks
+        else:
+            kwargs['callbacks'].extend(self._callbacks)
+
+        return self._vae.fit_generator(datagen, **kwargs)
 
     def load_weights(self, weightfpath):
         """

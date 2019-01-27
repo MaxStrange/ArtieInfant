@@ -18,7 +18,7 @@ before_install:
 #  - kiex install 1.6.4
 #  - kiex use 1.6.4
 #  - elixir --version
-  - cd ./Artie/artie
+#  - cd ./Artie/artie
 #  - mix local
 #  - mix local.rebar --force
 #  - mix local.hex --force
@@ -36,7 +36,7 @@ before_install:
   - sudo apt-get install sox
 script:
   #- mix test --color --exclude remote:true --exclude manual:true
-  - cd ../tests
+  - cd Artie/tests
   - export TRAVIS_CI="True"   # Allow the unit tests to know they are being run in Travis
   - python -m unittest discover --verbose 
   - cd ..

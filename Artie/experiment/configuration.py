@@ -26,6 +26,16 @@ class Configuration:
         if not value in self.rawconfig[section]:
             raise ConfigError("Could not find value {} in section {}. Available values are: {}".format(value, section, [k for k in self.rawconfig[section]]))
 
+    def getbool(self, section, value):
+        """Attempts to get the value from section as a bool."""
+        self._sanity_check_args(section, value)
+        if self.rawconfig[section][value].lower().startswith("true"):
+            return True
+        elif self.rawconfig[section][value].lower().startswith("false"):
+            return False
+        else:
+            raise ConfigError("Could not determine truth value of {}. Try setting it to 'true' or 'false'.".format(self.rawconfig[section][value]))
+
     def getint(self, section, value):
         """Attempts to get the value from section as an int."""
         self._sanity_check_args(section, value)

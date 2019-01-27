@@ -10,14 +10,80 @@ from senses.voice_detector import voice_detector as vd  # pylint: disable=locall
 from senses.dataproviders import sequence as seq        # pylint: disable=locally-disabled, import-error
 
 from keras.layers import Lambda, Input, Dense, Conv2D, UpSampling2D, MaxPooling2D, Flatten, Reshape
+from keras import backend as K
 
 import audiosegment
+import datetime
+import keras
 import logging
 import multiprocessing as mp
 import numpy as np
 import os
 import random
+import tensorflow as tf
 import tqdm
+if "TRAVIS_CI" not in os.environ:
+    import matplotlib.pyplot as plt
+
+class VaeVisualizer(keras.callbacks.Callback):
+    """
+    Callback to pass into the VAE model when building it. This callback generates a before and after spectrogram
+    sampled from a random batch after each epoch.
+    """
+    def __init__(self):
+        # TODO: This is currently caching ALL of the data that we train on. We should not do that.
+        super(VaeVisualizer, self).__init__()
+        self.targets = []
+        self.outputs = []
+        self.inputs = []
+
+        self.var_y_true = tf.Variable(0.0, validate_shape=False)
+        self.var_y_pred = tf.Variable(0.0, validate_shape=False)
+        self.var_x = tf.Variable(0.0, validate_shape=False)
+
+    def on_batch_end(self, batch, logs=None):
+        self.targets.append(K.eval(self.var_y_true))
+        self.outputs.append(K.eval(self.var_y_pred))
+        self.inputs.append(K.eval(self.var_x))
+
+    def on_epoch_end(self, epoch, logs=None):
+        # Get a random number to determine which batch to get
+        batchidx = random.randint(0, len(self.inputs) - 1)
+
+        # Use that number as an index into the batches from this epoch
+        input_spec_batch = self.inputs[batchidx]
+
+        # Get another random number
+        idx = random.randint(0, input_spec_batch.shape[0] - 1)
+
+        # Use that number as an index into the batch to get a random spectrogram
+        input_spec = input_spec_batch[idx]
+
+        # Get the times and frequencies (not the real ones, just some dummy values that we can feed into matplotlib)
+        times = np.arange(0, input_spec.shape[1])
+        freqs = np.arange(0, input_spec.shape[0])
+
+        # Reshape the input spectrogram into the right shape for matplotlib
+        inp = np.reshape(input_spec, (len(freqs), len(times)))
+
+        # Plot the input spectrogram on the left (also modify the amplitudes to make them more visible)
+        plt.subplot(121)
+        plt.title("Input (batch, idx): {}".format((batchidx, idx)))
+        plt.pcolormesh(times, freqs, 10 * np.log10(inp + 1E-9))
+
+        # Get the corresponding output spectrogram
+        output_spec = self.outputs[batchidx][idx]
+
+        # Reshape the output spectrogram into the right shape for matplotlib
+        outp = np.reshape(output_spec, (len(freqs), len(times)))
+
+        # Plot it on the right
+        plt.subplot(122)
+        plt.title("Output (batch, idx): {}".format((batchidx, idx)))
+        plt.pcolormesh(times, freqs, 10 * np.log10(outp + 1E-9))
+
+        # Show the user
+        plt.show()
 
 def _preproc_producer_fn(q, root, sample_rate, nchannels, bytewidth, dice_to_seconds, nworkers, fraction_to_preprocess):
     """
@@ -38,14 +104,12 @@ def _preproc_producer_fn(q, root, sample_rate, nchannels, bytewidth, dice_to_sec
     """
     assert os.path.isdir(root), "{} is not a valid path.".format(root)
 
-    print("Recursively walking {}. This may take some time...".format(root))
     # Cache all the wav files
     fpathcache = set()
     for dirpath, _subdirs, fpaths in os.walk(root):
         for fpath in fpaths:
             if fpath.lower().endswith(".wav"):
                 fpathcache.add(os.path.join(dirpath, fpath))
-    print("Done. Preprocessing has begun.")
 
     # Now walk through the cache and deal with it. This allows us to tell how many items there are.
     for fpath in tqdm.tqdm(fpathcache):
@@ -280,28 +344,29 @@ def _build_vae(config):
     loss = config.getstr('autoencoder', 'loss')
 
     # Encoder model
-    # TODO: Need to get this to work for the new shape
     inputs = Input(shape=input_shape, name="encoder_inputs")
-    x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)           # (-1, 55, 19, 16)
-    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 28, 10, 16)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 28, 10, 8)
-    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 14, 5, 8)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 14, 5, 8)
-    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 7, 3, 8)
-    x = Flatten()(x)                                                            # (-1, 168)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(inputs)           # (-1, 73, 19, 16)
+    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 37, 10, 16)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 37, 10, 8)
+    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 19, 5, 8)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 19, 5, 8)
+    x = MaxPooling2D((2, 2), padding='same')(x)                                 # (-1, 10, 3, 8)
+    x = Flatten()(x)                                                            # (-1, 240)
     encoder = Dense(32, activation='relu')(x)                                   # (-1, 32)
 
     # Decoder model
-    intermediate_dim = (14, 5, 8)
+    intermediate_dim = (10, 3, 8)
     decoderinputs = Input(shape=(latent_dim,), name="decoder_inputs")
-    x = Dense(np.product(intermediate_dim), activation='relu')(decoderinputs)   # (-1, 560)
-    x = Reshape(target_shape=intermediate_dim)(x)                               # (-1, 14, 5, 8)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 14, 5, 8)
-    x = UpSampling2D((2, 2))(x)                                                 # (-1, 28, 10, 8)
-    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 28, 10, 8)
-    x = Conv2D(16, (2, 2), activation='relu', padding='same')(x)                # (-1, 28, 10, 16)
-    x = UpSampling2D((2, 2))(x)                                                 # (-1, 56, 20, 16)
-    decoder = Conv2D(1, (2, 2), activation='sigmoid', padding='valid')(x)       # (-1, 55, 19, 1)
+    x = Dense(np.product(intermediate_dim), activation='relu')(decoderinputs)   # (-1, 240)
+    x = Reshape(target_shape=intermediate_dim)(x)                               # (-1, 10, 3, 8)
+    x = UpSampling2D((2, 2))(x)                                                 # (-1, 20, 6, 8)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 20, 6, 8)
+    x = Conv2D(1, (2, 2))(x)                                                    # (-1, 19, 5, 8)
+    x = UpSampling2D((2, 2))(x)                                                 # (-1, 38, 10, 8)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)                 # (-1, 38, 10, 8)
+    x = Conv2D(16, (2, 2), activation='relu', padding='same')(x)                # (-1, 38, 10, 16)
+    x = UpSampling2D((2, 2))(x)                                                 # (-1, 76, 20, 16)
+    decoder = Conv2D(1, (4, 2), activation='sigmoid', padding='valid')(x)       # (-1, 73, 19, 1)
 
     autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss, encoder, decoder, inputs, decoderinputs)
     return autoencoder
@@ -322,6 +387,9 @@ def _train_vae(autoencoder, config):
 
     # The number of bytes per sample of the audio
     bytewidth = config.getint('autoencoder', 'bytewidth')
+
+    # Get whether or not we should visualize during training
+    visualize = config.getbool('autoencoder', 'visualize')
 
     # The total number of bytes in the preprocessed data directory
     total_bytes = 0
@@ -352,6 +420,15 @@ def _train_vae(autoencoder, config):
     # The number of steps we have in an epoch
     steps_per_epoch = config.getint('autoencoder', 'steps_per_epoch')
 
+    # Deal with the visualization stuff if we are visualizing
+    if visualize:
+        vaeviz = VaeVisualizer()
+        model = autoencoder._vae
+        fetches = [tf.assign(vaeviz.var_y_true, model.targets[0], validate_shape=False),
+                tf.assign(vaeviz.var_y_pred, model.outputs[0], validate_shape=False),
+                tf.assign(vaeviz.var_x, model.inputs[0], validate_shape=False)]
+        model._function_kwargs = {'fetches': fetches}
+
     # These args are passed into generate_n_spectrogram_batches(): (num batches to yield, batchsize, ms, label function)
     args = (None, batchsize, ms, None)
 
@@ -380,7 +457,8 @@ def _train_vae(autoencoder, config):
                               save_models=True,
                               steps_per_epoch=steps_per_epoch,
                               use_multiprocessing=False,
-                              workers=1)
+                              workers=1,
+                              callbacks=[vaeviz])
 
 def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, train_synth=False):
     """
@@ -414,10 +492,11 @@ def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, tra
     # Train the VAE to a suitable level of accuracy
     autoencoder = _build_vae(config)
     autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
-    assert os.path.isdir(autoencoder_weights_fpath), "{} is not a valid directory.".format(autoencoder_weights_fpath)
     if train_vae:
         _train_vae(autoencoder, config)
-        autoencoder.save_weights(autoencoder_weights_fpath)
+        timestamp = datetime.datetime.now().strftime("date-%Y-%m-%d-time-%H-%M")
+        fpath_to_save = "{}_{}.h5".format(autoencoder_weights_fpath, timestamp)
+        autoencoder.save_weights(fpath_to_save)
     else:
         autoencoder.load_weights(autoencoder_weights_fpath)
 
@@ -443,5 +522,6 @@ def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, tra
     #   the index of the sample, which would then determine which sound it was. I'm not sure what this gives you... but it seems like it might be important.
 
     # Clean up the weights
-    os.remove(weightpathbasename + "_actor" + ".hdf5")
-    os.remove(weightpathbasename + "_critic" + ".hdf5")
+    if pretrain_synth:
+        os.remove(weightpathbasename + "_actor" + ".hdf5")
+        os.remove(weightpathbasename + "_critic" + ".hdf5")
