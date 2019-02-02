@@ -228,6 +228,8 @@ class FeatureProvider:
         Yields up to n batches of numpy arrays of the form:
         (batchsize, num_freq_bins, num_time_bins)
 
+        Each spectrogram is log10'd and then multiplied by 10.
+
         :param n:               The number of labeled spectrograms to yield
         :param batchsize:       The number of spectrograms in a batch. Batches are composed of random spectrograms
                                 taken from a cache batch of size file_batchsize.
@@ -263,6 +265,7 @@ class FeatureProvider:
             ntimebins = raw_batch[0][0].shape[1]
             shape = (batchsize, nfreqbins, ntimebins, 1) if expand_dims else (batchsize, nfreqbins, ntimebins)
             specs = np.reshape(np.array([spec for spec, _label in raw_batch]), shape)
+            specs = 10.0 * np.log10(specs + 1e-9)
             labels = np.array([label for _spec, label in raw_batch])
             yield specs, labels
             nbatches_so_far += 1

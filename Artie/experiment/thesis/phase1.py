@@ -69,7 +69,7 @@ class VaeVisualizer(keras.callbacks.Callback):
         # Plot the input spectrogram on the left (also modify the amplitudes to make them more visible)
         plt.subplot(121)
         plt.title("Input (batch, idx): {}".format((batchidx, idx)))
-        plt.pcolormesh(times, freqs, 10 * np.log10(inp + 1E-9))
+        plt.pcolormesh(times, freqs, inp)
 
         # Get the corresponding output spectrogram
         output_spec = self.outputs[batchidx][idx]
@@ -80,7 +80,7 @@ class VaeVisualizer(keras.callbacks.Callback):
         # Plot it on the right
         plt.subplot(122)
         plt.title("Output (batch, idx): {}".format((batchidx, idx)))
-        plt.pcolormesh(times, freqs, 10 * np.log10(outp + 1E-9))
+        plt.pcolormesh(times, freqs, outp)
 
         # Show the user
         plt.show()
