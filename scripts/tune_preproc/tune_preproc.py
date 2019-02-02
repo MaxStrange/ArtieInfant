@@ -15,7 +15,6 @@ if __name__ == "__main__":
 
     print("Loading in the audiofile...")
     seg = asg.from_file(sys.argv[1])
-    print("Done")
 
     #############################################################
     ## Parameters for Tuning ##
@@ -24,6 +23,7 @@ if __name__ == "__main__":
     #############################################################
 
     # Remove the silence
+    print("Removing silence...")
     seg = seg.filter_silence(duration_s=silence_duration_s, threshold_percentage=silence_threshold_percent)
 
     # Save
