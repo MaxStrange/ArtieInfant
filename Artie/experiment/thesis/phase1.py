@@ -154,9 +154,8 @@ def _preproc_worker_fn(q, destination_folder, baby_detector_kwargs, language_det
 
             try:
                 # -- Remove silence --
-                # The required duration of silence for removal eligibility is 1/100th of the length of the slice,
-                # but with a minimum of x seconds and a maximum of y seconds
-                silence_duration_s = 10.0#min(max(next_q_item.duration_seconds / 100.0, 5.0), 5.0)
+                # The required duration of silence for removal eligibility
+                silence_duration_s = 20.0
 
                 # If the segment is not as long as the amount of silence necessary to be eligible for trimming,
                 # we should give up on this segment
