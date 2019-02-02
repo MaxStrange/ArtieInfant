@@ -14,6 +14,7 @@ from keras import backend as K
 
 import audiosegment
 import datetime
+import imageio
 import keras
 import logging
 import multiprocessing as mp
@@ -317,6 +318,43 @@ def _run_preprocessing_pipeline(config):
     for c in consumers:
         c.join()
 
+def _convert_to_images(config):
+    """
+    Converts all the preprocessed audio files into spectrograms saved as PNG files.
+    """
+    logging.info("Preprocessing into images...")
+
+    # Get a bunch of config stuff
+    folder_to_convert_from = config.getstr('preprocessing', 'destination')
+    folder_to_save_images = config.getstr('preprocessing', 'images_destination')
+    seconds_per_spectrogram = config.getfloat('preprocessing', 'seconds_per_spectrogram')
+    window_length_s = config.getfloat('preprocessing', 'spectrogram_window_length_s')
+    overlap = config.getfloat('preprocessing', 'spectrogram_window_overlap')
+    fraction_to_preprocess = config.getfloat('preprocessing', 'fraction_to_preprocess')
+
+    # Cache all the wav files
+    fpathcache = set()
+    for dirpath, _subdirs, fpaths in os.walk(folder_to_convert_from):
+        for fpath in fpaths:
+            if fpath.lower().endswith(".wav"):
+                fpathcache.add(os.path.join(dirpath, fpath))
+
+    # Now walk through the cache and deal with it. This allows us to tell how many items there are.
+    for fpath in tqdm.tqdm(fpathcache):
+        # Only preprocess with some probability (for testing)
+        if random.random() < fraction_to_preprocess:
+            segment = audiosegment.from_file(fpath)
+            segments = segment.dice(seconds_per_spectrogram)
+            for idx, segment in enumerate(segments):
+                fs, ts, amps = segment.spectrogram(window_length_s=window_length_s, overlap=overlap)
+                #amps = 10.0 * np.log10(amps + 1e-9)  # This seems to make the output array a little harder to see in black/white
+                amps *= 255.0 / np.max(np.abs(amps))
+                amps = amps.astype(np.uint8)
+                _, fname = os.path.split(fpath)
+                fname_to_save = "{}_{}.png".format(fname, idx)
+                path_to_save = os.path.join(folder_to_save_images, fname_to_save)
+                imageio.imwrite(path_to_save, amps)
+
 def _build_vae(config):
     """
     Builds the Variational AutoEncoder and returns it. Uses parameters from the config file.
@@ -473,6 +511,7 @@ def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, tra
     # Potentially preprocess the audio
     if preprocess:
         _run_preprocessing_pipeline(config)
+        _convert_to_images(config)
 
     # Pretrain the voice synthesizer to make non-specific noise
     if pretrain_synth:

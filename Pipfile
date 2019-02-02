@@ -16,6 +16,8 @@ psutil = "*"
 keras-rl = "*"
 pandas = "*"
 matplotlib = "*"
+ipython = "*"
+imageio = "*"
 
 [requires]
 python_version = "3.6"
