@@ -155,80 +155,71 @@ def _preproc_worker_fn(q, destination_folder, baby_detector_kwargs, language_det
             try:
                 # -- Remove silence --
                 # The required duration of silence for removal eligibility
-                silence_duration_s = 20.0
+                silence_duration_s = 5.0
 
                 # If the segment is not as long as the amount of silence necessary to be eligible for trimming,
                 # we should give up on this segment
                 if next_q_item.duration_seconds <= silence_duration_s:
                     continue
 
-                segment = next_q_item.filter_silence(duration_s=silence_duration_s, threshold_percentage=0.5)
+                segment = next_q_item.filter_silence(duration_s=silence_duration_s, threshold_percentage=5.0)
 
                 # If we only have a little bit of sound left after silence removal, we should give up on it
                 if segment.duration_seconds < 1.0:
                     continue
 
-                # -- Remove non-voice --
-                voiced_segments = [tup[1] for tup in segment.detect_voice() if tup[0] == 'v']
-                if len(voiced_segments) == 0:
-                    continue  # This segment had no voice in it
-                elif len(voiced_segments) == 1:
-                    segment = voiced_segments[0]
-                else:
-                    segment = voiced_segments[0].reduce(voiced_segments[1:])
+                # Dice to 20 seconds each
+                segments = segment.dice(20)
 
-                # If we only have a little bit of sound left after voice detection, we should give up on it
-                if segment.duration_seconds < 1.0:
-                    continue
+                for segment in segments:
+                    ### TODO: The below commented out code is a refinement to the preprocessing pipeline such that we can strip baby sounds and remove
+                    ###       determine which language is being used. But the models for these are not trained yet, and since training them is non-trivial,
+                    ###       (though almost all of the infrustructure is in place to do so - it would just be non-trivial to give the models the attention
+                    ###       they deserve), I will put off doing this for now and implement it if I have time (based on priorities).
+                    chinese = None
+                    english = segment
+                    ## -- Remove baby --
+                    #baby_detector = vd.VoiceDetector(**baby_detector_kwargs)
+                    #events = segment.detect_event(baby_detector, baby_detector_kwargs['ms'], baby_matrix, baby_model_stats, baby_event_length_s)
+                    #negatives = [tup[1] for tup in events if tup[0] == 'n']
+                    #if len(negatives) == 0:
+                    #    continue  # This segment was all baby all the time
+                    #elif len(negatives) == 1:
+                    #    segment = negatives[0]
+                    #else:
+                    #    segment = negatives[0].reduce(segment[1:])
 
-                ### TODO: The below commented out code is a refinement to the preprocessing pipeline such that we can strip baby sounds and remove
-                ###       determine which language is being used. But the models for these are not trained yet, and since training them is non-trivial,
-                ###       (though almost all of the infrustructure is in place to do so - it would just be non-trivial to give the models the attention
-                ###       they deserve), I will put off doing this for now and implement it if I have time (based on priorities).
-                chinese = None
-                english = segment
-                ## -- Remove baby --
-                #baby_detector = vd.VoiceDetector(**baby_detector_kwargs)
-                #events = segment.detect_event(baby_detector, baby_detector_kwargs['ms'], baby_matrix, baby_model_stats, baby_event_length_s)
-                #negatives = [tup[1] for tup in events if tup[0] == 'n']
-                #if len(negatives) == 0:
-                #    continue  # This segment was all baby all the time
-                #elif len(negatives) == 1:
-                #    segment = negatives[0]
-                #else:
-                #    segment = negatives[0].reduce(segment[1:])
+                    ## If we only have a little bit of sound left after baby removal, we should give up on it
+                    #if segment.duration_seconds < 1.0:
+                    #    continue
 
-                ## If we only have a little bit of sound left after baby removal, we should give up on it
-                #if segment.duration_seconds < 1.0:
-                #    continue
+                    ## -- Determine language --
+                    #language_detector = vd.VoiceDetector(**language_detector_kwargs)
+                    #events = segment.detect_event(language_detector, language_detector_kwargs['ms'], language_matrix, language_model_stats, language_event_length_s)
+                    #chinese = [tup[1] for tup in events if tup[0] == 'y']  # TODO: Assumes we are using a Chinese detector model rather than an English detector
+                    #english = [tup[1] for tup in events if tup[0] == 'n']
+                    #if len(chinese) == 0:
+                    #    chinese = None
+                    #elif len(chinese) == 1:
+                    #    chinese = chinese[0]
+                    #else:
+                    #    chinese = chinese[0].reduce(chinese[1:])
 
-                ## -- Determine language --
-                #language_detector = vd.VoiceDetector(**language_detector_kwargs)
-                #events = segment.detect_event(language_detector, language_detector_kwargs['ms'], language_matrix, language_model_stats, language_event_length_s)
-                #chinese = [tup[1] for tup in events if tup[0] == 'y']  # TODO: Assumes we are using a Chinese detector model rather than an English detector
-                #english = [tup[1] for tup in events if tup[0] == 'n']
-                #if len(chinese) == 0:
-                #    chinese = None
-                #elif len(chinese) == 1:
-                #    chinese = chinese[0]
-                #else:
-                #    chinese = chinese[0].reduce(chinese[1:])
+                    #if len(english) == 0:
+                    #    english = None
+                    #elif len(english) == 1:
+                    #    english = english[0]
+                    #else:
+                    #    english = english[0].reduce(english[1:])
 
-                #if len(english) == 0:
-                #    english = None
-                #elif len(english) == 1:
-                #    english = english[0]
-                #else:
-                #    english = english[0].reduce(english[1:])
+                    # -- Save to appropriate file with label --
+                    if chinese is not None:
+                        chinese.export("{}/chinese_{}.wav".format(destination_folder, chinese_counter), format="WAV")
+                        chinese_counter += 1
 
-                # -- Save to appropriate file with label --
-                if chinese is not None:
-                    chinese.export("{}/chinese_{}.wav".format(destination_folder, chinese_counter), format="WAV")
-                    chinese_counter += 1
-
-                if english is not None:
-                    english.export("{}/english_{}.wav".format(destination_folder, english_counter), format="WAV")
-                    english_counter += 1
+                    if english is not None:
+                        english.export("{}/english_{}.wav".format(destination_folder, english_counter), format="WAV")
+                        english_counter += 1
             except Exception as e:
                 logging.debug("Problem with an audio segment: {}".format(e))
 
