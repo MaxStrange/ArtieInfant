@@ -510,7 +510,7 @@ def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, tra
 
     # Potentially preprocess the audio
     if preprocess:
-        _run_preprocessing_pipeline(config)
+        #_run_preprocessing_pipeline(config)
         _convert_to_images(config)
 
     # Pretrain the voice synthesizer to make non-specific noise
