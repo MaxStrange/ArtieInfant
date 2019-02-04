@@ -488,7 +488,7 @@ def _train_vae(autoencoder, config):
                               workers=1,
                               callbacks=[vaeviz])
 
-def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, train_synth=False):
+def run(preprocess=False, preprocess_part_two=False, test=False, pretrain_synth=False, train_vae=False, train_synth=False):
     """
     Entry point for Phase 1.
 
@@ -500,6 +500,7 @@ def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, tra
 
     If `test` is True, we will load the testthesis.cfg config file instead of the thesis config.
     If `preprocess` is True, we will preprocess all the data as part of the experiment. See the config file for details.
+    If `preprocess_part_two` is True, we will convert all the preprocessed sound files into black and white images of spectrograms.
     If `pretrain_synth` is True, we will pretrain the voice synthesizer to make noise.
     If `train_vae` is True, we will train the variational autoencoder on the preprocessed data.
     If `train_synth` is True, we will train the voice synthesizer to mimic the prototypical proto phonemes.
@@ -510,7 +511,10 @@ def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, tra
 
     # Potentially preprocess the audio
     if preprocess:
-        #_run_preprocessing_pipeline(config)
+        _run_preprocessing_pipeline(config)
+
+    # Convert the preprocessed audio files into spectrograms and save them as image files
+    if preprocess_part_two:
         _convert_to_images(config)
 
     # Pretrain the voice synthesizer to make non-specific noise
@@ -522,11 +526,13 @@ def run(preprocess=False, test=False, pretrain_synth=False, train_vae=False, tra
     autoencoder = _build_vae(config)
     autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
     if train_vae:
-        _train_vae(autoencoder, config)
         timestamp = datetime.datetime.now().strftime("date-%Y-%m-%d-time-%H-%M")
         fpath_to_save = "{}_{}.h5".format(autoencoder_weights_fpath, timestamp)
+        logging.info("Training the autoencoder. Models will be saved to: {}".format(fpath_to_save))
+        _train_vae(autoencoder, config)
         autoencoder.save_weights(fpath_to_save)
     else:
+        logging.info("Attempting to load autoencoder weights from {}".format(autoencoder_weights_fpath))
         autoencoder.load_weights(autoencoder_weights_fpath)
 
     # TODO:
