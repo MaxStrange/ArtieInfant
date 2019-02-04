@@ -7,6 +7,17 @@ url = "https://pypi.org/simple"
 pylint = "*"
 
 [packages]
+numpy = "*"
+tqdm = "*"
+audiosegment = "*"
+keras = "*"
+tensorflow = "*"
+psutil = "*"
+keras-rl = "*"
+pandas = "*"
+matplotlib = "*"
+ipython = "*"
+imageio = "*"
 
 [requires]
 python_version = "3.6"

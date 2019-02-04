@@ -168,7 +168,7 @@ class DataProvider:
     def get_n_segments(self, n, ms, batchsize=10):
         """
         Returns n random AudioSegment objects of length ms each. The segments are chosen from
-        a batch of `batchsize` files. The batch is chosen at random from the cache. 
+        a batch of `batchsize` files. The batch is chosen at random from the cache.
 
         If the AudioSegment happens to fall at the end of the WAV file and does not line
         up neatly, it will be zero padded to reach `ms` length.

@@ -56,3 +56,6 @@ CATKIN_IGNORE
 
 # VS Code
 *.vscode/
+
+# Log files
+*.log
