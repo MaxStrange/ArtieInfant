@@ -14,7 +14,7 @@ import senses
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", action="store_true", help="Runs the experiment using the test configuration.")
-    parser.add_argument("--loglevel", choices=["warn, info, debug"], default="debug", help="Log level for debug logging during the experiment.")
+    parser.add_argument("--loglevel", choices=["warn", "info", "debug"], default="debug", help="Log level for debug logging during the experiment.")
     parser.add_argument("--logfile", type=str, default="experimentlog.log", help="Path to the log file to write logs to.")
     parser.add_argument("--preprocess", action="store_true", help="Preprocesses all the data as part of training.")
     parser.add_argument("--pretrain-synth", action="store_true", help="Pretrain the voice synthesizer.")

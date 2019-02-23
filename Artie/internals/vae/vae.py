@@ -23,16 +23,22 @@ import argparse
 import os
 
 def _sampling(args):
-    """Reparameterization trick by sampling fr an isotropic unit Gaussian.
-    # Arguments:
-        args (tensor): mean and log of variance of Q(z|X)
-    # Returns:
-        z (tensor): sampled latent vector
+    """
+    Reparameterization trick by sampling from an isotropic unit Gaussian.
+
+    This function combines `args` (which must be a mean and a log of variance)
+    into a single distribution. We then sample from that distribution to
+    produce a latent vector.
+
+    :param args:    Two tensors of shape (batch, nembedding_dims) - the first of which
+                    is the means and the second of which is the log of the variances.
+    :returns:       z: The sampled latent vector.
     """
     z_mean, z_log_var = args
     batch = K.shape(z_mean)[0]
     dim = K.int_shape(z_mean)[1]
-    # by default, random_normal has mean=0 and std=1.0
+
+    # By default, random_normal has mean=0 and std=1.0
     epsilon = K.random_normal(shape=(batch, dim))
     return z_mean + K.exp(0.5 * z_log_var) * epsilon
 
@@ -43,23 +49,24 @@ class VariationalAutoEncoder:
     is constrained to learning an embedding of the input vectors
     that conforms to a normal distribution.
     """
-    def __init__(self, input_shape, latent_dim, optimizer, loss, encoder=None, decoder=None, inputlayer=None, decoderinputlayer=None):
+    def __init__(self, input_shape, latent_dim, optimizer, loss, encoder=None, decoder=None, inputlayer=None, decoderinputlayer=None, save_intermediate_models=False):
         """
-        :param input_shape:         (tuple) The shape of the input data.
-        :param latent_dim:          (int) The dimensionality of the latent vector space.
-        :param optimizer:           String representation of the optimizer.
-        :param loss:                String representation of the loss function.
-        :param encoder:             The encoder layer. This must be the result of a sequence of Keras functional calls.
-                                    You will also need to pass in the encoder's inputlayer.
-                                    If None provided, we use a reasonable default for the MNIST dataset.
-                                    This is probably not what you want.
-        :param decoder:             The decoder layer. This must be the result of a sequence of Keras functional calls.
-                                    You will also need to pass in decoderinputlayer. The input shape must be (latent_dim,)
-                                    and the output shape must be `input_shape`.
-                                    If None provided, we use a reasonable default for the MNIST dataset.
-                                    This is probably not what you want.
-        :param inputlayer:          Necessary if encoder is not None. This must be a Keras Inputs layer.
-        :param decoderinputlayer:   Necessary if decoder is not None. This must be a Keras Inputs layer.
+        :param input_shape:                 (tuple) The shape of the input data.
+        :param latent_dim:                  (int) The dimensionality of the latent vector space.
+        :param optimizer:                   String representation of the optimizer.
+        :param loss:                        String representation of the loss function.
+        :param encoder:                     The encoder layer. This must be the result of a sequence of Keras functional calls.
+                                            You will also need to pass in the encoder's inputlayer.
+                                            If None provided, we use a reasonable default for the MNIST dataset.
+                                            This is probably not what you want.
+        :param decoder:                     The decoder layer. This must be the result of a sequence of Keras functional calls.
+                                            You will also need to pass in decoderinputlayer. The input shape must be (latent_dim,)
+                                            and the output shape must be `input_shape`.
+                                            If None provided, we use a reasonable default for the MNIST dataset.
+                                            This is probably not what you want.
+        :param inputlayer:                  Necessary if encoder is not None. This must be a Keras Inputs layer.
+        :param decoderinputlayer:           Necessary if decoder is not None. This must be a Keras Inputs layer.
+        :param save_intermediate_models:    If `True`, we will save the most recent model after every epoch in a 'models' directory.
         """
         if encoder is not None and inputlayer is None:
             raise ValueError("If `encoder` is not None, you must also pass in `inputlayer`.")
@@ -79,8 +86,13 @@ class VariationalAutoEncoder:
             https://github.com/keras-team/keras/issues/10137
             """
             reconstruction_loss = self._build_loss(loss, flattened_input_shape)
-            kl_loss = - 0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
+            reconstruction_loss = reconstruction_loss
+            kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
+            kl_loss = kl_loss
+            #kl_loss = K.print_tensor(kl_loss, message="KL")
+            #reconstruction_loss = K.print_tensor(reconstruction_loss, message="RL")
             vae_loss = K.mean(reconstruction_loss + kl_loss)
+            #vae_loss = K.print_tensor(vae_loss, message="VL")
             return vae_loss
 
         self._vae.compile(optimizer=optimizer, loss=_vae_loss)
@@ -89,8 +101,11 @@ class VariationalAutoEncoder:
         # Do callback initialization stuff
         if not os.path.isdir("models"):
             os.makedirs("models")
-        saver = keras.callbacks.ModelCheckpoint("models/vae-weights.ep{epoch:02d}-loss{loss:.4f}.h5", period=1)
-        self._callbacks = [saver]
+        if save_intermediate_models:
+            saver = keras.callbacks.ModelCheckpoint("models/vae-weights.ep{epoch:02d}-loss{loss:.4f}.h5", period=1)
+            self._callbacks = [saver]
+        else:
+            self._callbacks = []
 
     def sample(self):
         """
@@ -110,8 +125,24 @@ class VariationalAutoEncoder:
     def predict(self, *args, **kwargs):
         """
         Do inference with the VAE. See the Keras predict() method's documentation: https://keras.io/models/model/#predict
+        This method runs through the decoder specifically. The encoder is unused.
+        To run something through the entire model, use `encode_decode()`.
         """
         return self._decoder.predict(*args, **kwargs)
+
+    def encode_decode(self, x, **kwargs):
+        """
+        Do inference with the VAE. See the Keras predict() method's documentation: https://keras.io/models/model/#predict
+        This method runs through the whole encoder and decoder. To just use the decoder, use `predict()`.
+        """
+        if len(x.shape) == 2:
+            # Likely was passed a numpy array (rows, cols) - but we want a batch of images: (batch, rows, cols, channels)
+            s = x.shape
+            x = np.reshape(x, (1, s[0], s[1], 1))
+        elif len(x.shape) == 3:
+            # Who knows what we were given? Reject it and tell the user the error of their ways
+            raise ValueError("Need either a numpy array of shape (rows, cols) or a batch of images (batch, rows, cols, channels). But got something with shape: {}".format(x.shape))
+        return self._vae.predict(x, **kwargs)
 
     def fit(self, *args, **kwargs):
         """
