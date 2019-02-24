@@ -224,7 +224,6 @@ class SomEnvironment:
         ##############################################################################################################
 
         if self.phase == 0:
-            # TODO: Ask Dr. Stiber what a good check for loudness/humanness/voiceness might be
             # During phase 0, the reward is based on whether or not we vocalized at all
             arr = seg.to_numpy_array()
             assert len(arr) > 0
