@@ -36,6 +36,42 @@ class Configuration:
         else:
             raise ConfigError("Could not determine truth value of {}. Try setting it to 'true' or 'false'.".format(self.rawconfig[section][value]))
 
+    def getdict(self, section, value, keytype=None, valuetype=None):
+        """
+        Attempts to get the value from section as a dict. If keytype is not None, will try to convert
+        each key in the dict to the given type (which must be a function - like int, float, or str).
+        Same goes for the valuetype.
+        """
+        self._sanity_check_args(section, value)
+        rawdict = self.rawconfig[section][value]
+        if not rawdict.strip().startswith("{"):
+            raise ConfigError("A dict must start with '{', but instead starts with {}".format(rawdict[0]))
+        elif not rawdict.strip().endswith("}"):
+            raise ConfigError("A dict must end with '}', but instead starts with {}".format(rawdict[-1]))
+
+        keyvalpairs = rawdict.split(',')
+
+        thedict = {}
+        for kv in keyvalpairs:
+            try:
+                k, v = kv.split(':')
+            except TypeError:
+                raise ConfigError("Could not split {} on ':'. Commas must be used exclusively for delimiting key/value pairs.".format(kv))
+            except ValueError:
+                raise ConfigError("Could not split {} on ':'. Colons must be used exclusively between keys and values.".format(kv))
+            if keytype is not None:
+                try:
+                    k = keytype(k.strip())
+                except ValueError as e:
+                    raise ConfigError("Could not convert {} via {} function. Error: {}".format(k, keytype, e))
+            if valuetype is not None:
+                try:
+                    v = valuetype(v.strip())
+                except ValueError as e:
+                    raise ConfigError("Could not convert {} via {} function. Error: {}".format(v, valuetype, e))
+            thedict[k] = v
+        return thedict
+
     def getint(self, section, value):
         """Attempts to get the value from section as an int."""
         self._sanity_check_args(section, value)
@@ -59,8 +95,15 @@ class Configuration:
         """
         self._sanity_check_args(section, value)
         configval = self.rawconfig[section][value].strip()
+        return self.make_list_from_str(configval)
+
+    def make_list_from_str(self, s, type=None):
+        """
+        Attempts to make a list from the given string. If type is not None, will try to convert
+        each item in the list to the given type (which must be a function - like int, float, or list).
+        """
         ret = []
-        for item in configval.split(' '):
+        for item in s.split(' '):
             if not item:
                 continue
             if type is not None:
@@ -68,9 +111,7 @@ class Configuration:
                     item = item.strip('[](),')
                     item = type(item)
                 except ValueError as e:
-                    msg = "Cannot convert {}:{} to a list because we could not convert {} to {}. Original error message: {}".format(
-                        section, value, item, type, e
-                    )
+                    msg = "Cannot convert to a list because we could not convert {} to {}. Original error message: {}".format(item, type, e)
                     raise ConfigError(msg)
             ret.append(item)
         return ret
