@@ -27,8 +27,6 @@ articularizers = [
     'Masseter', 'Mylohyoid', 'LateralPterygoid', 'Buccinator'
 ]
 
-resultfname = "produced_sound.wav"
-
 scripttemplate = """
 ; These are all the variables we will need
 duration = {duration}
@@ -65,7 +63,7 @@ def _make_praat_script(synthmat, duration, times):
             )
             articulatory_string += s
     scripttext = scripttemplate.format(
-        duration=duration, resultfname=resultfname, articulatory_string=articulatory_string
+        duration=duration, resultfname="{resultfname}", articulatory_string=articulatory_string
     )
     logging.debug("Generated the following script for Praat: {}".format(scripttext))
     return scripttext
@@ -74,11 +72,25 @@ def _run_praat_script(script):
     """
     Creates a temporary Praat script file, then runs Praat with it. Returns the WAV file path generated.
     """
-    fpath = "".join(random.sample(string.ascii_letters, 15)) + ".praat"
+    # Get a random base name
+    randfname = "".join(random.sample(string.ascii_letters, 15))
+
+    # Fill in the resulting file name in the script text
+    resultfname = randfname + ".wav"
+    script = script.format(resultfname=resultfname)
+
+    # Create the randomly named script
+    fpath = randfname + ".praat"
     with open(fpath, 'w') as f:
         f.write(script)
+
+    # Call Praat on it
     subprocess.call(["praat", "--run", fpath])
+
+    # Remove the script
     os.remove(fpath)
+
+    # Tell the caller what the name of the resulting file is
     return resultfname
 
 def make_seg_from_synthmat(synthmat, duration, times):

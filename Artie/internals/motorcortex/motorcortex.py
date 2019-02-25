@@ -1,6 +1,8 @@
 """
 This module contains code for controlling the articulatory synthesizer at a high level.
 """
+import collections
+import experiment.configuration as configuration # pylint: disable=locally-disabled, import-error
 import numpy as np
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
 import primordialooze as po
@@ -17,51 +19,99 @@ class SynthModel:
         allowedvals = config.getdict('synthesizer', 'allowed-articulator-values')
         # We are given a dict of str: str, but we want a dict of str: list{float}.
         # So try to do the conversion, raising an appropriate exception if unsuccessful.
-        self._allowed_values = {}
-        for k, v in allowedvals:
+        self._allowed_values = collections.OrderedDict()
+        for k, v in allowedvals.items():
             new_k = k.lower()
-            new_v = config.make_list_from_string(v, itemtype=float)
+            new_v = config.make_list_from_str(v, type=float)
             self._allowed_values[new_k] = new_v
 
         self._nagents_phase0 = config.getint('synthesizer', 'nagents-phase0')
         self._articulation_time_points_ms = config.getlist('synthesizer', 'articulation-time-points-ms', type=float)
         self._narticulators = len(self._allowed_values.keys())
         self._articulation_duration_ms = config.getfloat('synthesizer', 'phoneme-durations-ms')
+        self._nworkers = config.getint('synthesizer', 'nworkers-phase0')
+        self._phase0_niterations = config.getstr('synthesizer', 'niterations-phase0')
+        self._phase0_fitness_target = config.getstr('synthesizer', 'fitness-target-phase0')
+        self._fraction_top_selection_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase0')
+        self._fraction_mutate_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase0')
+
+        # Validate the fractions
+        if self._fraction_mutate_phase0 < 0.0 or self._fraction_mutate_phase0 > 1.0:
+            raise configuration.ConfigError("Mutation fraction must be within 0.0 and 1.0, but is {}.".format(self._fraction_mutate_phase0))
+
+        if self._fraction_top_selection_phase0 < 0.0 or self._fraction_top_selection_phase0 > 1.0:
+            raise configuration.ConfigError("Selection fraction must be within 0.0 and 1.0, but is {}.".format(self._fraction_top_selection_phase0))
+
+        # Validate the phase 0 targets
+        if self._phase0_niterations.lower().strip() == "none":
+            self._phase0_niterations = None
+        else:
+            try:
+                self._phase0_niterations = int(self._phase0_niterations)
+            except ValueError:
+                raise configuration.ConfigError("Cannot convert {} into an int. This value must be 'None' or an integer.".format(self._phase0_niterations))
+
+        if self._phase0_fitness_target.lower().strip() == "none":
+            self._phase0_fitness_target = None
+        else:
+            try:
+                self._phase0_fitness_target = int(self._phase0_fitness_target)
+            except ValueError:
+                raise configuration.ConfigError("Cannot convert {} into an int. This value must be 'None' or an integer.".format(self._phase0_niterations))
+
+        if self._phase0_niterations is None and self._phase0_fitness_target is None:
+            raise configuration.ConfigError("niterations-phase0 and fitness-target-phase0 cannot both be None.")
+
+        # The shape of each agent is a flattend synthmat
+        self._agentshape = (self._narticulators * len(self._articulation_time_points_ms), )
+
+        # Create a lows array and a highs array from the ordered dict of allowedvalues
+        self._allowed_lows = np.zeros(self._agentshape)
+        self._allowed_highs = np.zeros(self._agentshape)
+        for i, (_, v) in enumerate(self._allowed_values.items()):
+            mn, mx = v
+            self._allowed_lows[i] = mn
+            self._allowed_highs[i] = mx
 
     def pretrain(self):
         """
         Pretrains the model to make noise as loudly as possible.
         """
-        # The shape of each agent is a flattend synthmat
-        agentshape = (self._narticulators * len(self._articulation_time_points_ms), )
-
         # Create the fitness function
         fitnessfunction = ParallelizableFitnessFunctionPhase0(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms)
 
-        sim = po.Simulation(self._nagents_phase0, agentshape, fitnessfunction,
+        sim = po.Simulation(self._nagents_phase0, self._agentshape, fitnessfunction,
                             seedfunc=self._phase0_seed_function,
                             selectionfunc=self._phase0_selection_function,
                             crossoverfunc=self._phase0_crossover_function,
                             mutationfunc=self._phase0_mutation_function,
                             elitismfunc=None,
                             nworkers=self._nworkers,
-                            max_agents_per_generation=self.population,
-                            min_agents_per_generation=self.population)
-        sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
+                            max_agents_per_generation=self._nagents_phase0,
+                            min_agents_per_generation=self._nagents_phase0)
+        best, value = sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
+        print("Best agent: {}. Value: {}".format(best, value))
+        # TODO: Save this population, not just the best agent and value
+        # Make a sound from this agent and save it for human consumption
+        synthmat = np.reshape(best, (self._narticulators, len(self._articulation_time_points_ms)))
+        seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
+        seg.export("OutputSound.wav", format="WAV")
 
     def _phase0_seed_function(self):
         """
         Returns an agent of random uniform values between each articulator's min, max.
         """
-        # TODO: return an agent
-        pass
+        return np.random.uniform(self._allowed_lows, self._allowed_highs)
 
     def _phase0_selection_function(self, agents, fitnesses):
         """
         Take the top x percent.
         """
-        # TODO: Return n agents
-        pass
+        nagents = int(agents.shape[0] * self._fraction_top_selection_phase0)
+        if nagents < 1:
+            nagents = 1
+
+        return agents[0:nagents]
 
     def _phase0_crossover_function(self, agents):
         """
@@ -76,8 +126,16 @@ class SynthModel:
 
         Ensures that the agents do not stray outside the allowed bounds for values.
         """
-        # TODO: Return agents
-        pass
+        nagents = int(self._fraction_mutate_phase0 * agents.shape[0])
+        if nagents < 1:
+            nagents = 1
+
+        idxs = np.random.choice(agents.shape[0], size=nagents, replace=False)
+        agents[idxs, :] = np.random.normal(agents[idxs, :], 0.25)
+
+        # make sure to clip to the allowed boundaries
+        agents[idxs, :] = np.clip(agents[idxs, :], self._allowed_lows, self._allowed_highs)
+        return agents
 
 class ParallelizableFitnessFunctionPhase0:
     def __init__(self, narticulators, duration_ms, time_points_ms):
@@ -101,7 +159,8 @@ class ParallelizableFitnessFunctionPhase0:
 
         # The fitness of an agent in this phase is determined by the RMS of the sound it makes,
         # UNLESS it fails to make a human-audible sound. In which case, it is assigned a fitness of zero.
-        if seg.is_human_audible():
+        # TODO
+        if True:#seg.is_human_audible():
             return seg.rms
         else:
             return 0.0

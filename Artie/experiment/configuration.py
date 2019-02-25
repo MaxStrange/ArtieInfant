@@ -1,6 +1,7 @@
 """
 This file contains the code to load configuration files for a given experiment.
 """
+import collections
 import configparser
 import os
 
@@ -38,21 +39,23 @@ class Configuration:
 
     def getdict(self, section, value, keytype=None, valuetype=None):
         """
-        Attempts to get the value from section as a dict. If keytype is not None, will try to convert
+        Attempts to get the value from section as an **OrderedDict**. If keytype is not None, will try to convert
         each key in the dict to the given type (which must be a function - like int, float, or str).
         Same goes for the valuetype.
         """
         self._sanity_check_args(section, value)
         rawdict = self.rawconfig[section][value]
         if not rawdict.strip().startswith("{"):
-            raise ConfigError("A dict must start with '{', but instead starts with {}".format(rawdict[0]))
+            raise ConfigError("A dict must start with '{{', but instead starts with {}".format(rawdict[0]))
         elif not rawdict.strip().endswith("}"):
-            raise ConfigError("A dict must end with '}', but instead starts with {}".format(rawdict[-1]))
+            raise ConfigError("A dict must end with '}}', but instead starts with {}".format(rawdict[-1]))
 
-        keyvalpairs = rawdict.split(',')
+        keyvalpairs = rawdict.strip("}{").strip().split(',')
 
-        thedict = {}
+        thedict = collections.OrderedDict()
         for kv in keyvalpairs:
+            if not kv.strip():
+                continue
             try:
                 k, v = kv.split(':')
             except TypeError:
@@ -95,7 +98,7 @@ class Configuration:
         """
         self._sanity_check_args(section, value)
         configval = self.rawconfig[section][value].strip()
-        return self.make_list_from_str(configval)
+        return self.make_list_from_str(configval, type=type)
 
     def make_list_from_str(self, s, type=None):
         """
