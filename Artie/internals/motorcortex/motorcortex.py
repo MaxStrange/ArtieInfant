@@ -67,12 +67,24 @@ class SynthModel:
         self._agentshape = (self._narticulators * len(self._articulation_time_points_ms), )
 
         # Create a lows array and a highs array from the ordered dict of allowedvalues
-        self._allowed_lows = np.zeros(self._agentshape)
-        self._allowed_highs = np.zeros(self._agentshape)
+        # These arrays should be the same length as an agent (ntimepoints * narticulators)
+        # and each value in the array should correspond to a min/max value allowed at that
+        # timepoint.
+        self._allowed_lows = np.zeros((self._narticulators, len(self._articulation_time_points_ms)))
+        self._allowed_highs = np.zeros((self._narticulators, len(self._articulation_time_points_ms)))
         for i, (_, v) in enumerate(self._allowed_values.items()):
-            mn, mx = v
-            self._allowed_lows[i] = mn
-            self._allowed_highs[i] = mx
+            # Each value in this dict is a list of floats. Every two of these floats should be
+            # a min/max pair of allowable values in the time series.
+            if len(v) != 2 * len(self._articulation_time_points_ms):
+                raise configuration.ConfigError("Could not parse the allowable synth values matrix. One of the lists has {} items, but all of them must have {}.".format(len(v), 2 * len(self._articulation_time_points_ms)))
+
+            mins = [value for j, value in enumerate(v) if j % 2 == 0]
+            maxes = [value for j, value in enumerate(v) if j % 2 == 1]
+            self._allowed_lows[i, :] = np.array(mins)
+            self._allowed_highs[i, :] = np.array(maxes)
+
+        self._allowed_lows = np.reshape(self._allowed_lows, self._agentshape)
+        self._allowed_highs = np.reshape(self._allowed_highs, self._agentshape)
 
     def pretrain(self):
         """
@@ -92,12 +104,16 @@ class SynthModel:
                             min_agents_per_generation=self._nagents_phase0)
         best, value = sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
         print("Best agent: {}. Value: {}".format(best, value))
-        agent = np.reshape(best, (self._narticulators, len(self._articulation_time_points_ms)))
-        df = pandas.DataFrame(agent, index=synth.articularizers, columns=self._articulation_time_points_ms)
-        print(df)
+
         # TODO: Save this population, not just the best agent and value
-        # Make a sound from this agent and save it for human consumption
+
         synthmat = np.reshape(best, (self._narticulators, len(self._articulation_time_points_ms)))
+
+        # Print the synthmat in an easily-digestible format
+        df = pandas.DataFrame(synthmat, index=synth.articularizers, columns=self._articulation_time_points_ms)
+        print(df)
+
+        # Make a sound from this agent and save it for human consumption
         seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
         seg.export("OutputSound.wav", format="WAV")
         exit()
