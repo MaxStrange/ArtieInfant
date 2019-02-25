@@ -5,6 +5,7 @@ import collections
 import experiment.configuration as configuration # pylint: disable=locally-disabled, import-error
 import numpy as np
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
+import pandas
 import primordialooze as po
 
 class SynthModel:
@@ -91,11 +92,15 @@ class SynthModel:
                             min_agents_per_generation=self._nagents_phase0)
         best, value = sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
         print("Best agent: {}. Value: {}".format(best, value))
+        agent = np.reshape(best, (self._narticulators, len(self._articulation_time_points_ms)))
+        df = pandas.DataFrame(agent, index=synth.articularizers, columns=self._articulation_time_points_ms)
+        print(df)
         # TODO: Save this population, not just the best agent and value
         # Make a sound from this agent and save it for human consumption
         synthmat = np.reshape(best, (self._narticulators, len(self._articulation_time_points_ms)))
         seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
         seg.export("OutputSound.wav", format="WAV")
+        exit()
 
     def _phase0_seed_function(self):
         """
