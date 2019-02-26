@@ -3,6 +3,7 @@ This module contains code for controlling the articulatory synthesizer at a high
 """
 import collections
 import experiment.configuration as configuration # pylint: disable=locally-disabled, import-error
+import logging
 import numpy as np
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
 import pandas
@@ -86,6 +87,9 @@ class SynthModel:
         self._allowed_lows = np.reshape(self._allowed_lows, self._agentshape)
         self._allowed_highs = np.reshape(self._allowed_highs, self._agentshape)
 
+        # We will be saving the populations sometimes
+        self._phase0_population = None
+
     def pretrain(self):
         """
         Pretrains the model to make noise as loudly as possible.
@@ -103,20 +107,20 @@ class SynthModel:
                             max_agents_per_generation=self._nagents_phase0,
                             min_agents_per_generation=self._nagents_phase0)
         best, value = sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
-        print("Best agent: {}. Value: {}".format(best, value))
 
-        # TODO: Save this population, not just the best agent and value
-
+        # Reshape the agent into a synthesis matrix
         synthmat = np.reshape(best, (self._narticulators, len(self._articulation_time_points_ms)))
 
         # Print the synthmat in an easily-digestible format
         df = pandas.DataFrame(synthmat, index=synth.articularizers, columns=self._articulation_time_points_ms)
-        print(df)
+        logging.info("Best Value: {}; Agent:\n{}".format(value, df))
 
         # Make a sound from this agent and save it for human consumption
         seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
         seg.export("OutputSound.wav", format="WAV")
-        exit()
+
+        # Save the population, since we will use this population as the seed for the next phase
+        self._phase0_population = np.copy(sim._agents)
 
     def _phase0_seed_function(self):
         """
