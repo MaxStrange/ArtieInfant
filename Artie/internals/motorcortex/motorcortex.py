@@ -180,7 +180,11 @@ class ParallelizableFitnessFunctionPhase0:
 
         # The fitness of an agent in this phase is determined by the RMS of the sound it makes,
         # UNLESS it fails to make a human-audible sound. In which case, it is assigned a fitness of zero.
-        # TODO
+        # TODO: Human audible is rather loosely defined by an equation like this:
+        # y = 40.11453 - 0.01683607x + 1.406211e-6x^2 - 2.371512e-11x^3
+        # Where the Y axis is dB SPL and the X axis is frequency. Above this curve is audible, below it is not.
+        # See https://www.etymotic.com/media/publications/erl-0096-1997.pdf (Hearing Thresholds by Yost and Killion, 1997)
+        # Fitness might be something like: SPL of sound minus threshold value evaluated at the sound's characteristic frequency.
         if True:#seg.is_human_audible():
             return seg.rms
         else:
