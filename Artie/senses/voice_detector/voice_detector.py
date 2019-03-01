@@ -51,7 +51,7 @@ class VoiceDetector:
     :param overlap:             Only used for spectrogram models. The fraction of each window to overlap.
     :param spectrogram_shape:   Only used for spectrogram models. The shape of each input spectrogram.
     """
-    def __init__(self, sample_rate_hz=24_000, sample_width_bytes=2, ms=300, normalize=True, model_type="fft", window_length_ms=30, overlap=1/8, spectrogram_shape=None):
+    def __init__(self, sample_rate_hz=24000, sample_width_bytes=2, ms=300, normalize=True, model_type="fft", window_length_ms=30, overlap=1/8, spectrogram_shape=None):
         self.sample_rate_hz = sample_rate_hz
         self.sample_width_bytes = sample_width_bytes
         self.ms = ms

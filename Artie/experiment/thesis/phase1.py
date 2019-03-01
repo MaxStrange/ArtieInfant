@@ -3,7 +3,7 @@ This is the phase 1 file.
 
 This file's API consists simply of the function run(), which will run phase 1 of the thesis experiment.
 """
-from internals.specifics import rl                      # pylint: disable=locally-disabled, import-error
+from internals.motorcortex import motorcortex           # pylint: disable=locally-disabled, import-error
 from internals.vae import vae                           # pylint: disable=locally-disabled, import-error
 from experiment import configuration                    # pylint: disable=locally-disabled, import-error
 from senses.voice_detector import voice_detector as vd  # pylint: disable=locally-disabled, import-error
@@ -538,8 +538,9 @@ def run(preprocess=False, preprocess_part_two=False, test=False, pretrain_synth=
         _convert_to_images(config)
 
     # Pretrain the voice synthesizer to make non-specific noise
+    synthmodel = motorcortex.SynthModel(config)
     if pretrain_synth:
-        weightpathbasename, actor, critic = rl.pretrain(config)
+        synthmodel.pretrain()
 
     # -- VAE -- train then run over a suitable sample of audio to save enough embeddings for the prototypes/clustering
     # Train the VAE to a suitable level of accuracy
@@ -575,8 +576,3 @@ def run(preprocess=False, preprocess_part_two=False, test=False, pretrain_synth=
     #   Which means that you now have a map of phonemes.
     #   You also have an embedding space that can be sampled from. That sample could then be run through the clusterer to determine
     #   the index of the sample, which would then determine which sound it was. I'm not sure what this gives you... but it seems like it might be important.
-
-    # Clean up the weights
-    if pretrain_synth:
-        os.remove(weightpathbasename + "_actor" + ".hdf5")
-        os.remove(weightpathbasename + "_critic" + ".hdf5")
