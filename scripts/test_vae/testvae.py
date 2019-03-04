@@ -25,7 +25,7 @@ if __name__ == "__main__":
         print("{} is not a valid file. Need a path to a preprocessed spectrogram.".format(sys.argv[2]))
         exit(3)
 
-    # Create the configuration
+    # Load the configuration
     configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
     config = configuration.load(None, fpath=configfpath)
 
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     # Load the spectrogram
     spec = imageio.imread(sys.argv[2])
-    spec = spec / 255.0
+    spec = spec / 255.0  # ImageDataGenerator rescale factor of 1.0/255.0
     assert len(spec.shape) == 2, "Shape of spectrogram before encode/decode is {}. Expected (nrows, ncols)".format(spec)
 
     # Run the spectrogram through the VAE
@@ -59,10 +59,10 @@ if __name__ == "__main__":
     nlatentdims = config.getint('autoencoder', 'nembedding_dims')
     nsamples = 4
     for subpltidx in range(1, nsamples + 1):
-        z = [autoencoder.sample()]
+        z = [autoencoder.sample()]  # Take z from the normal distribution
         sample = np.reshape(autoencoder.predict([z]), spec.shape)
         plt.subplot(100 + (nsamples * 10) + subpltidx)
-        plt.title(z)
+        plt.title("From Normal Dist")
         plt.pcolormesh(ts, fs, sample)
     plt.show()
 
