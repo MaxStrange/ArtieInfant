@@ -22,6 +22,7 @@ import multiprocessing as mp
 import numpy as np
 import os
 import random
+import sklearn
 import tensorflow as tf
 import tqdm
 if "TRAVIS_CI" not in os.environ:
@@ -486,7 +487,9 @@ def _train_vae(autoencoder, config):
         callbacks = []
 
     logging.info("Loading images from {}".format(root))
-    imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
+    validation_fraction = 0.1
+    nsteps_per_validation = steps_per_epoch * validation_fraction
+    imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0, validation_split=validation_fraction)
     print("Creating datagen...")
     datagen = imreader.flow_from_directory(root,
                                             target_size=imshapes,
@@ -496,8 +499,19 @@ def _train_vae(autoencoder, config):
                                             batch_size=batchsize,
                                             shuffle=True,
                                             save_to_dir=None,
-                                            save_format='png')
-
+                                            save_format='png',
+                                            subset="training")
+    print("Creating testgen...")
+    testgen = imreader.flow_from_directory(root,
+                                            target_size=imshapes,
+                                            color_mode='grayscale',
+                                            classes=None,
+                                            class_mode='input',
+                                            batch_size=batchsize,
+                                            shuffle=True,
+                                            save_to_dir=None,
+                                            save_format='png',
+                                            subset="validation")
     print("Training...")
     autoencoder.fit_generator(datagen,
                               batchsize,
@@ -506,7 +520,9 @@ def _train_vae(autoencoder, config):
                               steps_per_epoch=steps_per_epoch,
                               use_multiprocessing=False,
                               workers=nworkers,
-                              callbacks=callbacks)
+                              callbacks=callbacks,
+                              validation_data=testgen,
+                              validation_steps=nsteps_per_validation)
 
 def run(preprocess=False, preprocess_part_two=False, test=False, pretrain_synth=False, train_vae=False, train_synth=False):
     """
@@ -555,6 +571,12 @@ def run(preprocess=False, preprocess_part_two=False, test=False, pretrain_synth=
     else:
         logging.info("Attempting to load autoencoder weights from {}".format(autoencoder_weights_fpath))
         autoencoder.load_weights(autoencoder_weights_fpath)
+
+    # Now use the VAE on the test split and save the output embedding information along with the input audio file
+    # TODO
+
+    # Load the saved embeddings into a dataset
+    # Run clusterer = sklearn.cluster.MeanShift(bandwidth=None, seeds=None, bin_seeding=False, min_bin_freq=1, cluster_all=True, n_jobs=-1)
 
     # TODO:
     #       # Use the trained VAE on ~1,000 (or more?) audio samples, saving each audio sample along with its embedding.

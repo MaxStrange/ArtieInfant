@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import sys
+import tensorflow as tf
+from keras import preprocessing
 
 sys.path.append(os.path.abspath("../../Artie/experiment"))
 sys.path.append(os.path.abspath("../../Artie"))
@@ -28,7 +30,8 @@ def load_spectrograms_from_directory(d, numspecs=None):
     pathnames = [p for p in os.listdir(d) if os.path.splitext(p)[1].lower() == ".png"]
     paths = [os.path.abspath(os.path.join(d, p)) for p in pathnames]
     specs = [imageio.imread(p) / 255.0 for p in paths]
-    return np.expand_dims(np.array(specs), -1)
+    arr = np.array(specs)
+    return np.expand_dims(arr, -1)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -50,14 +53,43 @@ if __name__ == "__main__":
 
     # Load a bunch of spectrograms into a batch
     specs = load_spectrograms_from_directory(sys.argv[2])
+    nspecs = specs.shape[0]
     #specs = np.expand_dims(specs[0, :, :, :], 0)
 
     # Run the batch to get the encodings
     batchsize = config.getint('autoencoder', 'batchsize')
-    # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
-    means, logvars, encodings = autoencoder._encoder.predict(specs, batch_size=None, steps=1)
-    stdevs = np.exp(0.5 * logvars)
 
+    try:
+        # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
+        means, logvars, encodings = autoencoder._encoder.predict(specs, batch_size=None, steps=1)
+    except Exception:
+        print("Probably out of memory. Trying as an image generator instead.")
+        specs = None  # Hint to the GC
+
+        # Remove the useless subdirectory from the path (the imagedatagen needs it, but can't be told about it... ugh)
+        pathsplit = sys.argv[2].rstrip(os.sep).split(os.sep)
+        print("PATHSPLIT:", pathsplit)
+        root = os.path.join(*[os.sep if p == '' else p for p in pathsplit[0:-1]])
+        print("PATH:", root)
+        nworkers = config.getint('autoencoder', 'nworkers')
+        imshapes = config.getlist('autoencoder', 'input_shape')[0:2]  # take only the first two dimensions (not channels)
+        imshapes = [int(i) for i in imshapes]
+        imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
+        print("Creating datagen...")
+        datagen = imreader.flow_from_directory(root,
+                                            target_size=imshapes,
+                                            color_mode='grayscale',
+                                            classes=None,
+                                            class_mode='input',
+                                            batch_size=batchsize,
+                                            shuffle=True)
+        print("Predicting...")
+        means, logvars, encodings = autoencoder._encoder.predict_generator(datagen,
+                                            steps=int(nspecs / batchsize),
+                                            use_multiprocessing=False,
+                                            workers=nworkers)
+
+    stdevs = np.exp(0.5 * logvars)
     # Visualize where the encodings ended up
 
     # Plot where each encoding is
