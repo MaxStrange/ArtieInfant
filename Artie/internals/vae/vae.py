@@ -97,7 +97,6 @@ class VariationalAutoEncoder:
             https://github.com/keras-team/keras/issues/10137
             """
             reconstruction_loss = self._build_loss(loss, flattened_input_shape)
-            reconstruction_loss = reconstruction_loss
             kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
             #kl_loss = K.print_tensor(kl_loss, message="KL")
             #reconstruction_loss = K.print_tensor(reconstruction_loss, message="RL")
