@@ -48,6 +48,9 @@ if __name__ == "__main__":
     configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
     config = configuration.load(None, fpath=configfpath)
 
+    # Random seed
+    np.random.seed(1263262)
+
     # Load the VAE
     autoencoder = p1._build_vae(config)
 

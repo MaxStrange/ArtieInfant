@@ -5,7 +5,6 @@ This file's API consists simply of the function run(), which will run phase 1 of
 """
 from internals.motorcortex import motorcortex           # pylint: disable=locally-disabled, import-error
 from internals.vae import vae                           # pylint: disable=locally-disabled, import-error
-from experiment import configuration                    # pylint: disable=locally-disabled, import-error
 from senses.voice_detector import voice_detector as vd  # pylint: disable=locally-disabled, import-error
 from senses.dataproviders import sequence as seq        # pylint: disable=locally-disabled, import-error
 
@@ -382,6 +381,10 @@ def _build_vae(config):
     # Get the loss function
     loss = config.getstr('autoencoder', 'loss')
 
+    # Get TensorBoard directory
+    tbdir = config.getstr('autoencoder', 'tbdir')
+    assert os.path.isdir(tbdir), "{} is not a valid directory. Please fix tbdir in 'autoencoder' section of config file.".format(tbdir)
+
     # Encoder model
     inputs = Input(shape=input_shape, name="encoder_inputs")
     x = BatchNormalization(axis=3)(inputs)
@@ -444,7 +447,9 @@ def _build_vae(config):
     x = UpSampling2D((2, 1))(x)                                                 # (-1, 242, 20, 4)
     decoder = Conv2D(1, (2, 1), activation='sigmoid', padding='valid')(x)       # (-1, 241, 20, 1)
 
-    autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss, encoder, decoder, inputs, decoderinputs)
+    autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
+                                                encoder=encoder, decoder=decoder, inputlayer=inputs,
+                                                decoderinputlayer=decoderinputs, tbdir=tbdir)
     return autoencoder
 
 def _train_vae(autoencoder, config):
@@ -524,7 +529,7 @@ def _train_vae(autoencoder, config):
                               validation_data=testgen,
                               validation_steps=nsteps_per_validation)
 
-def run(preprocess=False, preprocess_part_two=False, test=False, pretrain_synth=False, train_vae=False, train_synth=False):
+def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=False, train_vae=False, train_synth=False):
     """
     Entry point for Phase 1.
 
@@ -534,17 +539,12 @@ def run(preprocess=False, preprocess_part_two=False, test=False, pretrain_synth=
     Determines a prototype sound for each cluster;
     Finishes training the voice synthesizer to mimic these sounds based on which embedding it observes.
 
-    If `test` is True, we will load the testthesis.cfg config file instead of the thesis config.
     If `preprocess` is True, we will preprocess all the data as part of the experiment. See the config file for details.
     If `preprocess_part_two` is True, we will convert all the preprocessed sound files into black and white images of spectrograms.
     If `pretrain_synth` is True, we will pretrain the voice synthesizer to make noise.
     If `train_vae` is True, we will train the variational autoencoder on the preprocessed data.
     If `train_synth` is True, we will train the voice synthesizer to mimic the prototypical proto phonemes.
     """
-    # Load the right experiment configuration
-    configname = "testthesis" if test else "thesis"
-    config = configuration.load(configname)
-
     # Potentially preprocess the audio
     if preprocess:
         _run_preprocessing_pipeline(config)

@@ -14,9 +14,24 @@ sys.path.append(os.path.abspath("../../Artie"))
 import thesis.phase1 as p1                                      # pylint: disable=locally-disabled, import-error
 import experiment.configuration as configuration                # pylint: disable=locally-disabled, import-error
 
+def plot_stats_of_embeddings_for_wav_file(audiofpath):
+    """
+    Prints and plots some interesting stuffs regarding the embeddings generated from
+    spectrograms sliding across the given audio file.
+    """
+    assert os.path.isfile(audiofpath), "{} is not a valid file path.".format(audiofpath)
+
+    # TODO:
+    # Load the file into memory
+    # Slice it according to config file
+    # Compute spectrograms from each slice
+    # Load the VAE
+    # Compute embeddings from the encoder portion for each spectrogram
+    raise NotImplementedError("Future Self! remember to do this!")
+
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("USAGE: <path to model> <path to spectrogram image>")
+    if len(sys.argv) not in [3, 4]:
+        print("USAGE: <path to model> <path to spectrogram image> [path to audiofile]")
         exit(1)
     elif not os.path.isfile(sys.argv[1]):
         print("{} is not a valid file. Need a path to a trained VAE.".format(sys.argv[1]))
@@ -24,10 +39,15 @@ if __name__ == "__main__":
     elif not os.path.isfile(sys.argv[2]):
         print("{} is not a valid file. Need a path to a preprocessed spectrogram.".format(sys.argv[2]))
         exit(3)
+    elif len(sys.argv) == 4 and not os.path.isfile(sys.argv[3]):
+        print("{} is not a valid file. Need a path to a raw audio file.".format(sys.argv[3]))
 
     # Load the configuration
     configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
     config = configuration.load(None, fpath=configfpath)
+
+    # Random seed
+    np.random.seed(643662)
 
     # Load the VAE
     autoencoder = p1._build_vae(config)
@@ -84,3 +104,7 @@ if __name__ == "__main__":
                 plt.pcolormesh(ts, fs, sample)
                 k += 1
         plt.show()
+
+    if len(sys.argv) == 4:
+        audiofpath = sys.argv[3]
+        plot_stats_of_embeddings_for_wav_file(audiofpath)
