@@ -16,7 +16,7 @@ import os
 
 def vanilla_ae(input_length):
     """
-    Returns an MLP autoencoder Sequential model.
+    Returns an MLP autoencoder model.
     """
     input_shape = (input_length,)
     inputs = Input(shape=input_shape, name="encoder-input")
@@ -34,13 +34,60 @@ def vanilla_ae(input_length):
     x = Dense(input_length)(x)
     return Model(inputs=inputs, outputs=x)
 
+def cnn_ae(input_shape):
+    """
+    Returns a CNN autoencoder model.
+    """
+    inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
+    x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
+    x = BatchNormalization()(x)
+    x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(32, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(32, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+    x = Flatten()(x)
+    x = Dense(32, activation='relu')(x)
+    x = Dense(128, activation='relu')(x)
+    x = Reshape(target_shape=(4, 4, 8))(x)
+    x = UpSampling2D((2, 1))(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(8, (3 ,3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 2))(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(32, (3 ,3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 1))(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(64, (3 ,3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 1))(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(128, (3 ,3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 1))(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(64, (8, 4), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = UpSampling2D((1, 2))(x)
+    x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
+    x = BatchNormalization()(x)
+    x = UpSampling2D((2, 2))(x)
+    x = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+
+    m = Model(inputs=inputs, outputs=x)
+    m.summary()
+    return m
+
+
 if __name__ == "__main__":
-    convolutional = False
+    convolutional = True
 
     ##### SPECT #####
     # Load the dataset
     images = []
-    for root, _, fnames in os.walk("/home/max/repos/ArtieInfant/scripts/test_vae/example_spectrograms/"):
+    for root, _, fnames in os.walk("/home/maxst/repos/ArtieInfant/scripts/test_vae/example_spectrograms/"):
         for fname in fnames:
             fpath = os.path.join(root, fname)
             if os.path.splitext(fpath)[-1].lower() == ".png":
@@ -53,7 +100,12 @@ if __name__ == "__main__":
     print("IMSHAPE:", imshape)
     print("IMLENGTH:", imlength)
 
-    if not convolutional:
+    if convolutional:
+        x_train = np.expand_dims(x_train, -1)  # Add channel image
+        ae = cnn_ae(x_train[0].shape)
+        ae.compile('adadelta', loss='mse')
+        ae.fit(x_train, x_train, epochs=200, batch_size=4)
+    else:
         x_train = np.reshape(x_train, (-1, imlength))
         x_train = np.expand_dims(x_train[0,:], 0)
         ae = vanilla_ae(imlength)
