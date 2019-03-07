@@ -101,8 +101,7 @@ class VariationalAutoEncoder:
             #kl_loss = K.print_tensor(kl_loss, message="KL")
             #reconstruction_loss = K.print_tensor(reconstruction_loss, message="RL")
 
-            #vae_loss = K.mean(reconstruction_loss + kl_loss)
-            vae_loss = reconstruction_loss
+            vae_loss = K.mean(reconstruction_loss + kl_loss)
 
             #vae_loss = K.print_tensor(vae_loss, message="VL")
             return vae_loss
