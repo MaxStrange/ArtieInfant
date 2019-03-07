@@ -175,8 +175,9 @@ if __name__ == "__main__":
 
     if convolutional:
         x_train = np.expand_dims(x_train, -1)  # Add channel image
+        x_train = x_train / 255.0
         if args.vae:
-            latentdim = 32
+            latentdim = 2
             ae = cnn_vae(x_train[0].shape, latentdim, args.optimizer, args.loss, args.tbdir)
         else:
             ae = cnn_ae(x_train[0].shape)
@@ -189,9 +190,13 @@ if __name__ == "__main__":
         ae.compile('adadelta', loss='mse')
         ae.fit(x_train, x_train, epochs=200, batch_size=4)
 
+    if args.vae:
+        ae.save_weights("models/VAE.h5")
+
     for i in range(min(5, x_train.shape[0])):
         if args.vae:
             outputs = ae.encode_decode(np.expand_dims(x_train[i,:], 0))
+            outputs *= 255.0
         else:
             outputs = ae.predict(np.expand_dims(x_train[i,:], 0))
         inputs = np.reshape(x_train[i,:], imshape)
@@ -204,40 +209,3 @@ if __name__ == "__main__":
         plt.title("Output {}".format(i))
         plt.imshow(outputs)
     plt.show()
-
-    ##### MNIST #####
-    #(x_train, y_train), (x_test, y_test) = mnist.load_data()
-    #image_size = x_train.shape[1]
-
-    #if convolutional:
-    #    original_dim = (28, 28, 1)
-    #    x_train = np.reshape(x_train, [-1, *original_dim])
-    #    x_test = np.reshape(x_test, [-1, *original_dim])
-    #else:
-    #    x_train = np.reshape(x_train, (-1, image_size * image_size))
-    #    x_test = np.reshape(x_train, (-1, image_size * image_size))
-
-    #x_train = x_train.astype('float32') / 255.0
-    #x_test = x_test.astype('float32') / 255.0
-
-    #if convolutional:
-    #    pass
-    #else:
-    #    ae = vanilla_ae(image_size * image_size)
-
-    #ae.compile('adadelta', loss='mse')
-    #ae.fit(x_train, x_train, epochs=1, batch_size=32, validation_data=(x_test, x_test))
-    #outputs = ae.predict(np.expand_dims(x_test[0, :], 0))
-
-    #inputs = np.reshape(x_train[0,:], (image_size, image_size))
-    #outputs = np.reshape(outputs, (image_size, image_size))
-    #print("Input shape:", inputs.shape)
-    #print("Output shape:", outputs.shape)
-
-    #plt.subplot(1, 2, 1)
-    #plt.title("Input")
-    #plt.imshow(inputs)
-    #plt.subplot(1, 2, 2)
-    #plt.title("Output")
-    #plt.imshow(outputs)
-    #plt.show()

@@ -2,6 +2,7 @@
 Load the given spectrogram model, run a bunch of spectrograms through it,
 then see what it does with them in its 2D latent space.
 """
+import ae
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,11 +10,6 @@ import os
 import sys
 import tensorflow as tf
 from keras import preprocessing
-
-sys.path.append(os.path.abspath("../../Artie/experiment"))
-sys.path.append(os.path.abspath("../../Artie"))
-import thesis.phase1 as p1                                      # pylint: disable=locally-disabled, import-error
-import experiment.configuration as configuration                # pylint: disable=locally-disabled, import-error
 
 def load_spectrograms_from_directory(d, numspecs=None):
     """
@@ -44,15 +40,15 @@ if __name__ == "__main__":
         print("{} is not a valid directory. Need a path to a directory of preprocessed spectrograms.".format(sys.argv[2]))
         exit(3)
 
-    # Load the configuration
-    configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
-    config = configuration.load(None, fpath=configfpath)
-
     # Random seed
     np.random.seed(1263262)
 
     # Load the VAE
-    autoencoder = p1._build_vae(config)
+    input_shape = (241, 20, 1)
+    latent_dim = 2
+    optimizer = 'adadelta'
+    loss = 'mse'
+    autoencoder = ae.cnn_vae(input_shape, latent_dim, optimizer, loss)
     autoencoder.load_weights(sys.argv[1])
 
     # Load a bunch of spectrograms into a batch
@@ -61,7 +57,7 @@ if __name__ == "__main__":
     #specs = np.expand_dims(specs[0, :, :, :], 0)
 
     # Run the batch to get the encodings
-    batchsize = config.getint('autoencoder', 'batchsize')
+    batchsize = 2
 
     try:
         # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
@@ -75,8 +71,8 @@ if __name__ == "__main__":
         print("PATHSPLIT:", pathsplit)
         root = os.path.join(*[os.sep if p == '' else p for p in pathsplit[0:-1]])
         print("PATH:", root)
-        nworkers = config.getint('autoencoder', 'nworkers')
-        imshapes = config.getlist('autoencoder', 'input_shape')[0:2]  # take only the first two dimensions (not channels)
+        nworkers = -1
+        imshapes = (241, 20)
         imshapes = [int(i) for i in imshapes]
         imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
         print("Creating datagen...")

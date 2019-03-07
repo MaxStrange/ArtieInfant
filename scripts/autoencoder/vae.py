@@ -100,8 +100,10 @@ class VariationalAutoEncoder:
             kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
             #kl_loss = K.print_tensor(kl_loss, message="KL")
             #reconstruction_loss = K.print_tensor(reconstruction_loss, message="RL")
-            # TODO: Do we really want the KL loss? We don't really need to learn a normal distribution do we?
-            vae_loss = K.mean(reconstruction_loss)# + kl_loss)
+
+            #vae_loss = K.mean(reconstruction_loss + kl_loss)
+            vae_loss = reconstruction_loss
+
             #vae_loss = K.print_tensor(vae_loss, message="VL")
             return vae_loss
 

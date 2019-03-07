@@ -3,16 +3,12 @@ Load the given spectrogram model and test it on an input image, showing the imag
 
 Also shows a sampling from latent space.
 """
+import ae
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import sys
-
-sys.path.append(os.path.abspath("../../Artie/experiment"))
-sys.path.append(os.path.abspath("../../Artie"))
-import thesis.phase1 as p1                                      # pylint: disable=locally-disabled, import-error
-import experiment.configuration as configuration                # pylint: disable=locally-disabled, import-error
 
 def plot_stats_of_embeddings_for_wav_file(audiofpath):
     """
@@ -42,15 +38,15 @@ if __name__ == "__main__":
     elif len(sys.argv) == 4 and not os.path.isfile(sys.argv[3]):
         print("{} is not a valid file. Need a path to a raw audio file.".format(sys.argv[3]))
 
-    # Load the configuration
-    configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
-    config = configuration.load(None, fpath=configfpath)
-
     # Random seed
     np.random.seed(643662)
 
     # Load the VAE
-    autoencoder = p1._build_vae(config)
+    input_shape = (241, 20, 1)
+    latent_dim = 2
+    optimizer = 'adadelta'
+    loss = 'mse'
+    autoencoder = ae.cnn_vae(input_shape, latent_dim, optimizer, loss)
     autoencoder.load_weights(sys.argv[1])
 
     # Load the spectrogram
@@ -77,7 +73,6 @@ if __name__ == "__main__":
     plt.show()
 
     # Take a few samples from latent space and see what we get
-    nlatentdims = config.getint('autoencoder', 'nembedding_dims')
     nsamples = 4
     for subpltidx in range(1, nsamples + 1):
         z = [autoencoder.sample()]  # Take z from the normal distribution
@@ -88,7 +83,7 @@ if __name__ == "__main__":
     plt.show()
 
     # If we have a 2D embedding space, let's vary each dimension and plot a grid
-    if nlatentdims == 2:
+    if latent_dim == 2:
         # linearly spaced coordinates corresponding to the 2D plot
         # of digit classes in the latent space
         n = 8
