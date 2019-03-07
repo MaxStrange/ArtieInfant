@@ -383,7 +383,7 @@ def _build_vae(config):
 
     # Get TensorBoard directory
     tbdir = config.getstr('autoencoder', 'tbdir')
-    assert os.path.isdir(tbdir), "{} is not a valid directory. Please fix tbdir in 'autoencoder' section of config file.".format(tbdir)
+    assert os.path.isdir(tbdir) or tbdir.lower() == "none", "{} is not a valid directory. Please fix tbdir in 'autoencoder' section of config file.".format(tbdir)
 
     # Encoder model
     inputs = Input(shape=input_shape, name="encoder_inputs")

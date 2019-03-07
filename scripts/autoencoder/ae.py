@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import imageio
 import os
 import sys
+import vae
 
 def vanilla_ae(input_length):
     """
@@ -35,7 +36,7 @@ def vanilla_ae(input_length):
     x = Dense(input_length)(x)
     return Model(inputs=inputs, outputs=x)
 
-def cnn_vae(input_shape):
+def cnn_vae(input_shape, latent_dim, optimizer, loss, tbdir=None):
     """
     Returns a CNN variational autoencoder model.
     """
@@ -52,8 +53,10 @@ def cnn_vae(input_shape):
     x = BatchNormalization()(x)
     x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
     x = Flatten()(x)
-    x = Dense(32, activation='relu')(x)
-    x = Dense(128, activation='relu')(x)
+    encoder = Dense(128, activation='relu')(x)
+
+    decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
+    x = Dense(128, activation='relu')(decoderinputs)
     x = Reshape(target_shape=(4, 4, 8))(x)
     x = UpSampling2D((2, 1))(x)
     x = BatchNormalization()(x)
@@ -75,11 +78,12 @@ def cnn_vae(input_shape):
     x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
     x = BatchNormalization()(x)
     x = UpSampling2D((2, 2))(x)
-    x = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+    decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
 
-    m = Model(inputs=inputs, outputs=x)
-    m.summary()
-    return m
+    ae = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
+                                encoder=encoder, decoder=decoder, inputlayer=inputs,
+                                decoderinputlayer=decoderinputs, tbdir=tbdir)
+    return ae
 
 def cnn_ae(input_shape):
     """
@@ -125,6 +129,7 @@ def cnn_ae(input_shape):
 
     m = Model(inputs=inputs, outputs=x)
     m.summary()
+
     return m
 
 def load_data(datadir, maxnum=2000):
@@ -154,6 +159,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--loss", type=str, default="mse")
     parser.add_argument("-o", "--optimizer", type=str, default="adadelta")
     parser.add_argument("-v", "--vae", action="store_true")
+    parser.add_argument("-t", "--tbdir", default=None, help="Optional directory for tensor board files")
     parser.add_argument("datadir", type=str, help="Location of the data to train on")
     args = parser.parse_args()
 
@@ -170,10 +176,11 @@ if __name__ == "__main__":
     if convolutional:
         x_train = np.expand_dims(x_train, -1)  # Add channel image
         if args.vae:
-            ae = cnn_vae(x_train[0].shape)
+            latentdim = 32
+            ae = cnn_vae(x_train[0].shape, latentdim, args.optimizer, args.loss, args.tbdir)
         else:
             ae = cnn_ae(x_train[0].shape)
-        ae.compile(args.optimizer, loss=args.loss)
+            ae.compile(args.optimizer, loss=args.loss)
         ae.fit(x_train, x_train, epochs=args.nepochs, batch_size=args.batchsize)
     else:
         x_train = np.reshape(x_train, (-1, imlength))
@@ -183,7 +190,10 @@ if __name__ == "__main__":
         ae.fit(x_train, x_train, epochs=200, batch_size=4)
 
     for i in range(min(5, x_train.shape[0])):
-        outputs = ae.predict(np.expand_dims(x_train[i,:], 0))
+        if args.vae:
+            outputs = ae.encode_decode(np.expand_dims(x_train[i,:], 0))
+        else:
+            outputs = ae.predict(np.expand_dims(x_train[i,:], 0))
         inputs = np.reshape(x_train[i,:], imshape)
         outputs = np.reshape(outputs, imshape)
 
