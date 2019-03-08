@@ -165,7 +165,7 @@ class SynthModel:
         sim = po.Simulation(self._nagents_phase1, self._agentshape, fitnessfunction,
                             seedfunc=self._phase1_seed_function,
                             selectionfunc=self._phase1_selection_function,
-                            crossoverfunc=self._phase1_crossover_function,
+                            crossoverfunc=None,  # Use default 2-point crossover function from library
                             mutationfunc=self._phase1_mutation_function,
                             elitismfunc=None,
                             nworkers=self._nworkers,
@@ -245,12 +245,6 @@ class SynthModel:
     def _phase0_crossover_function(self, agents):
         """
         For now, does nothing. Genetic variation is introduced solely by mutation.
-        """
-        return agents
-
-    def _phase1_crossover_function(self, agents):
-        """
-        See Phase 0
         """
         return agents
 
