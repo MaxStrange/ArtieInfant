@@ -108,6 +108,42 @@ class SynthModel:
                             min_agents_per_generation=self._nagents_phase0)
         best, value = sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
 
+        self._summarize_results(best, value, "Phase0OutputSound.wav")
+
+        # Save the population, since we will use this population as the seed for the next phase
+        self._phase0_population = np.copy(sim._agents)
+
+    def train(self, target, savefpath=None):
+        """
+        Trains the model to mimic the given `target`, which should be an AudioSegment.
+
+        If `savefpath` is not None, we will save the sound that corresponds to the best agent at this location
+        as a WAV file.
+        """
+        # TODO
+        # Use self._phase0_population as the seed for this simulation if present, otherwise do something else as the seed I guess
+
+        # Create the fitness function for phase 1
+        fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target)
+
+        # Create the simulation and run it
+        sim = po.Simulation(self._nagents_phase1, self._agentshape, fitnessfunction,
+                            seedfunc=self._phase1_seed_function,
+                            selectionfunc=self._phase1_selection_function,
+                            crossoverfunc=self._phase1_crossover_function,
+                            mutationfunc=self._phase1_mutation_function,
+                            elitismfunc=None,
+                            nworkers=self._nworkers,
+                            max_agents_per_generation=self._nagents_phase1,
+                            min_agents_per_generation=self._nagents_phase1)
+        best, value = sim.run(niterations=self._phase1_niterations, fitness=self._phase1_fitness_target)
+
+        self._summarize_results(best, value, savefpath)
+
+    def _summarize_results(self, best, value, soundfpath):
+        """
+        Summarize `best` agent and `value`, which is its fitness.
+        """
         # Reshape the agent into a synthesis matrix
         synthmat = np.reshape(best, (self._narticulators, len(self._articulation_time_points_ms)))
 
@@ -115,20 +151,10 @@ class SynthModel:
         df = pandas.DataFrame(synthmat, index=synth.articularizers, columns=self._articulation_time_points_ms)
         logging.info("Best Value: {}; Agent:\n{}".format(value, df))
 
-        # Make a sound from this agent and save it for human consumption
-        seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
-        seg.export("OutputSound.wav", format="WAV")
-
-        # Save the population, since we will use this population as the seed for the next phase
-        self._phase0_population = np.copy(sim._agents)
-
-    def train(self, target):
-        """
-        Trains the model to mimic the given `target`, which should be an AudioSegment.
-        """
-        # TODO
-        # Use self._phase0_population as the seed for this simulation if present, otherwise do something else as the seed I guess
-        pass
+        if soundfpath:
+            # Make a sound from this agent and save it for human consumption
+            seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
+            seg.export(soundfpath, format="WAV")
 
     def _phase0_seed_function(self):
         """
@@ -203,19 +229,17 @@ class ParallelizableFitnessFunctionPhase0:
             return 0.0
 
 class ParallelizableFitnessFunctionPhase1:
-    def __init__(self, narticulators, duration_ms, time_points_ms, prototype_sound, prototype_index):
+    def __init__(self, narticulators, duration_ms, time_points_ms, prototype_sound):
         """
         :param narticulators: How many articulators?
         :param duration_ms: The total ms of articulation we should create from each agent.
         :param time_points_ms: The time points (in ms) at which to change the values of each articulator.
         :param prototype_sound: AudioSegment of the prototypical sound for this index.
-        :param prototype_index: The raw index for this proto-phoneme cluster.
         """
         self.narticulators = narticulators
         self.duration_ms = duration_ms
         self.time_points_ms = time_points_ms
         self.ntimepoints = len(time_points_ms)
-        self.prototype_index = prototype_index
 
         # TODO: Calculate what you need from the sound
 
