@@ -1,6 +1,7 @@
 """
 This is the main entry point for the ArtieInfant experiment.
 """
+from experiment import configuration
 from experiment.thesis import phase1
 import argparse
 import os
@@ -8,6 +9,7 @@ import sys
 import instinct
 import internals
 import logging
+import numpy as np
 import output
 import senses
 
@@ -27,8 +29,16 @@ if __name__ == "__main__":
     loglevel = getattr(logging, args.loglevel.upper())
     logging.basicConfig(filename=args.logfile, filemode='w', level=loglevel)
 
+    # Load the correct config file
+    configname = "testthesis" if args.test else "thesis"
+    config = configuration.load(configname)
+
+    # Random seed
+    randomseed = config.getint('experiment', 'random-seed')
+    np.random.seed(randomseed)
+
     # Phase 1
-    phase1.run(test=args.test,
+    phase1.run(config,
                 preprocess=args.preprocess,
                 preprocess_part_two=args.spectrograms,
                 pretrain_synth=args.pretrain_synth,

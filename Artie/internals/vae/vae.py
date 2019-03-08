@@ -38,10 +38,18 @@ def _sampling(args):
     batch = K.shape(z_mean)[0]
     dim = K.int_shape(z_mean)[1]
 
-    # By default, random_normal has mean=0 and std=1.0
     epsilon = K.random_normal(shape=(batch, dim))
-    return z_mean + K.exp(0.5 * z_log_var) * epsilon
+    stdev = K.exp(0.5 * z_log_var)
 
+    #z_mean = K.print_tensor(z_mean, message="Z-Mean")
+    #z_log_var = K.print_tensor(z_log_var, message="Z Log Var")
+    #epsilon = K.print_tensor(epsilon, message="E")
+    #stdev = K.print_tensor(stdev, message="STDEV")
+
+    sample = z_mean + stdev * epsilon
+    #sample = K.print_tensor(sample, message="Sample")
+
+    return sample
 
 class VariationalAutoEncoder:
     """
@@ -49,7 +57,7 @@ class VariationalAutoEncoder:
     is constrained to learning an embedding of the input vectors
     that conforms to a normal distribution.
     """
-    def __init__(self, input_shape, latent_dim, optimizer, loss, encoder=None, decoder=None, inputlayer=None, decoderinputlayer=None, save_intermediate_models=False):
+    def __init__(self, input_shape, latent_dim, optimizer, loss, encoder=None, decoder=None, inputlayer=None, decoderinputlayer=None, save_intermediate_models=False, tbdir=None):
         """
         :param input_shape:                 (tuple) The shape of the input data.
         :param latent_dim:                  (int) The dimensionality of the latent vector space.
@@ -67,6 +75,9 @@ class VariationalAutoEncoder:
         :param inputlayer:                  Necessary if encoder is not None. This must be a Keras Inputs layer.
         :param decoderinputlayer:           Necessary if decoder is not None. This must be a Keras Inputs layer.
         :param save_intermediate_models:    If `True`, we will save the most recent model after every epoch in a 'models' directory.
+        :param tbdir:                       If truthy, must be a directory. This directory will be where we save the tensorboard information.
+                                            If None or empty, we will not use tensorboard. To use tensorboard, simply run it from the command
+                                            line and pass in --logdir=full/path/to/tbdir
         """
         if encoder is not None and inputlayer is None:
             raise ValueError("If `encoder` is not None, you must also pass in `inputlayer`.")
@@ -77,7 +88,7 @@ class VariationalAutoEncoder:
         self._encoder, self._inputs, z_mean, z_log_var = self._build_encoder(input_shape, latent_dim, encoder=encoder, inputlayer=inputlayer)
         self._decoder = self._build_decoder(input_shape, latent_dim, decoder=decoder, decoderinputs=decoderinputlayer)
         self._outputs = self._decoder(self._encoder(self._inputs)[2])
-        self._vae = Model(self._inputs, self._outputs, name='vae_mlp')
+        self._vae = Model(self._inputs, self._outputs, name='vae')
         flattened_input_shape = (np.product(np.array(input_shape)),)
         def _vae_loss(y_true, y_pred):
             """
@@ -86,9 +97,7 @@ class VariationalAutoEncoder:
             https://github.com/keras-team/keras/issues/10137
             """
             reconstruction_loss = self._build_loss(loss, flattened_input_shape)
-            reconstruction_loss = reconstruction_loss
             kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
-            kl_loss = kl_loss
             #kl_loss = K.print_tensor(kl_loss, message="KL")
             #reconstruction_loss = K.print_tensor(reconstruction_loss, message="RL")
             vae_loss = K.mean(reconstruction_loss + kl_loss)
@@ -106,6 +115,17 @@ class VariationalAutoEncoder:
             self._callbacks = [saver]
         else:
             self._callbacks = []
+
+        if tbdir:
+            tb = keras.callbacks.TensorBoard(log_dir=tbdir,
+                                                histogram_freq=0,   # every this many epochs, compute weights hist
+                                                batch_size=32,      # Batch size for determining histogram
+                                                write_graph=True,   # Should we write the whole network graph?
+                                                write_grads=True,   # Gradient histograms
+                                                write_images=False, # Not sure
+                                                embeddings_freq=0,  # Every this many epochs, pass in embeddings_data to visualize embeddings
+                                                update_freq=100)    # Every this many samples, we update tensor board
+            self._callbacks.append(tb)
 
     def sample(self):
         """
