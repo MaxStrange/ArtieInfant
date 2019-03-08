@@ -122,6 +122,14 @@ class SynthModel:
         # Save the population, since we will use this population as the seed for the next phase
         self._phase0_population = np.copy(sim._agents)
 
+    def train(self, target):
+        """
+        Trains the model to mimic the given `target`, which should be an AudioSegment.
+        """
+        # TODO
+        # Use self._phase0_population as the seed for this simulation if present, otherwise do something else as the seed I guess
+        pass
+
     def _phase0_seed_function(self):
         """
         Returns an agent of random uniform values between each articulator's min, max.
