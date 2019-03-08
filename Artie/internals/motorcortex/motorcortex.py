@@ -126,6 +126,7 @@ class SynthModel:
 
         # We will be saving the populations sometimes
         self._phase0_population = None
+        self._population_index = 0
 
     def pretrain(self):
         """
@@ -205,11 +206,19 @@ class SynthModel:
         If we do not have a pretrained population, we simply do a random uniform.
         """
         if self._phase0_population is not None:
-            # Add some Gaussian noise to this and return it
-            agents = np.copy(self._phase0_population)
-            agents[:, :] = np.random.normal(agents[:, :], 0.15)
-            agents[:, :] = np.clip(agents[:, :], self._allowed_lows, self._allowed_highs)
-            return agents
+            # Grab the next agent
+            agent = self._phase0_population[self._population_index, :]
+
+            # Adjust index for next time
+            self._population_index += 1
+            if self._population_index >= self._phase0_population.shape[0]:
+                self._population_index = 0
+
+            # Add some noise
+            agent = np.random.normal(agent, 0.15)
+            agent = np.clip(agent, self._allowed_lows, self._allowed_highs)
+
+            return agent
         else:
             return np.random.uniform(self._allowed_lows, self._allowed_highs)
 
@@ -344,6 +353,7 @@ class ParallelizableFitnessFunctionPhase1:
         # Find the single maximum value along the xcor vector
         # This is the place at which the waves match each other best
         # Take the xcor value at this location as the reward
-        rew = max(xcor)
+        # But also make sure the sound doesn't become inaudible
+        rew = 0.5 * (max(xcor) + seg.rms)
 
         return rew

@@ -36,10 +36,10 @@ if __name__ == "__main__":
     nchannels       = 1          # mono
     #################################################################
 
-    # Load the configuration file
+    ## Load the configuration file
     config = configuration.load("Tuning", fpath="tuneconfig.cfg")
 
-    # Load the target wav file
+    ## Load the target wav file
     target = asg.from_file(args.target)
     target = target.resample(sample_rate_hz, bytewidth, nchannels)
 
@@ -49,22 +49,33 @@ if __name__ == "__main__":
         print("Pretraining...")
         model.pretrain()
 
+    print("Training...")
     model.train(target, savefpath="Phase1Output.wav")
     df = pandas.read_csv("Phase1Output.csv")
     df = df.drop(['GenerationIndex'], axis=1)
     df.plot()
     plt.show()
 
+    # Show the output from pretraining
+    seg = asg.from_file("Phase0OutputSound.wav")
+    seg = seg.resample(sample_rate_hz, bytewidth, nchannels)
+    seg = seg.to_numpy_array().astype(float)
+    plt.title("Phase 0 Output")
+    plt.plot(seg)
+    plt.show()
+
     seg = asg.from_file("Phase1Output.wav")
-    seg = seg.rsample(sample_rate_hz, bytewidth, nchannels)
+    seg = seg.resample(sample_rate_hz, bytewidth, nchannels)
     seg = seg.to_numpy_array().astype(float)
 
+    # Show the raw output vs target
     plt.subplot(2, 1, 1)
     plt.title("Output Audio")
     plt.plot(seg)
     plt.subplot(2, 1, 2)
-    plt.title("Input Audio")
+    plt.title("Target Audio")
     plt.plot(target.to_numpy_array().astype(float))
     plt.show()
 
+    # Show the spectrogram representations of the two sounds
     spec(target, asg.from_file("Phase1Output.wav"))
