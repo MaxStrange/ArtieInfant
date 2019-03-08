@@ -72,9 +72,7 @@ if __name__ == "__main__":
 
         # Remove the useless subdirectory from the path (the imagedatagen needs it, but can't be told about it... ugh)
         pathsplit = sys.argv[2].rstrip(os.sep).split(os.sep)
-        print("PATHSPLIT:", pathsplit)
         root = os.path.join(*[os.sep if p == '' else p for p in pathsplit[0:-1]])
-        print("PATH:", root)
         nworkers = config.getint('autoencoder', 'nworkers')
         imshapes = config.getlist('autoencoder', 'input_shape')[0:2]  # take only the first two dimensions (not channels)
         imshapes = [int(i) for i in imshapes]
