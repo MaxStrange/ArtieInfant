@@ -5,6 +5,7 @@ import collections
 import experiment.configuration as configuration # pylint: disable=locally-disabled, import-error
 import logging
 import numpy as np
+import os
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
 import pandas
 import primordialooze as po
@@ -54,6 +55,12 @@ class SynthModel:
         if self._fraction_top_selection_phase0 < 0.0 or self._fraction_top_selection_phase0 > 1.0:
             raise configuration.ConfigError("Selection fraction must be within 0.0 and 1.0, but is {}.".format(self._fraction_top_selection_phase0))
 
+        if self._fraction_mutate_phase1 < 0.0 or self._fraction_mutate_phase1 > 1.0:
+            raise configuration.ConfigError("Mutation fraction must be within 0.0 and 1.0, but is {}.".format(self._fraction_mutate_phase1))
+
+        if self._fraction_top_selection_phase1 < 0.0 or self._fraction_top_selection_phase1 > 1.0:
+            raise configuration.ConfigError("Selection fraction must be within 0.0 and 1.0, but is {}.".format(self._fraction_top_selection_phase1))
+
         # Validate the phase 0 targets
         if self._phase0_niterations.lower().strip() == "none":
             self._phase0_niterations = None
@@ -71,8 +78,28 @@ class SynthModel:
             except ValueError:
                 raise configuration.ConfigError("Cannot convert {} into an int. This value must be 'None' or an integer.".format(self._phase0_niterations))
 
+        # Validate the phase 1 targets
+        if self._phase1_niterations.lower().strip() == "none":
+            self._phase1_niterations = None
+        else:
+            try:
+                self._phase1_niterations = int(self._phase1_niterations)
+            except ValueError:
+                raise configuration.ConfigError("Cannot convert {} into an int. This value must be 'None' or an integer.".format(self._phase1_niterations))
+
+        if self._phase1_fitness_target.lower().strip() == "none":
+            self._phase1_fitness_target = None
+        else:
+            try:
+                self._phase1_fitness_target = int(self._phase1_fitness_target)
+            except ValueError:
+                raise configuration.ConfigError("Cannot convert {} into an int. This value must be 'None' or an integer.".format(self._phase1_niterations))
+
         if self._phase0_niterations is None and self._phase0_fitness_target is None:
             raise configuration.ConfigError("niterations-phase0 and fitness-target-phase0 cannot both be None.")
+
+        if self._phase1_niterations is None and self._phase1_fitness_target is None:
+            raise configuration.ConfigError("niterations-phase1 and fitness-target-phase1 cannot both be None.")
 
         # The shape of each agent is a flattend synthmat
         self._agentshape = (self._narticulators * len(self._articulation_time_points_ms), )
@@ -118,7 +145,7 @@ class SynthModel:
                             min_agents_per_generation=self._nagents_phase0)
         best, value = sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
 
-        self._summarize_results(best, value, "Phase0OutputSound.wav")
+        self._summarize_results(best, value, sim, "Phase0OutputSound.wav")
 
         # Save the population, since we will use this population as the seed for the next phase
         self._phase0_population = np.copy(sim._agents)
@@ -145,9 +172,9 @@ class SynthModel:
                             min_agents_per_generation=self._nagents_phase1)
         best, value = sim.run(niterations=self._phase1_niterations, fitness=self._phase1_fitness_target)
 
-        self._summarize_results(best, value, savefpath)
+        self._summarize_results(best, value, sim, savefpath)
 
-    def _summarize_results(self, best, value, soundfpath):
+    def _summarize_results(self, best, value, sim, soundfpath):
         """
         Summarize `best` agent and `value`, which is its fitness.
         """
@@ -162,6 +189,7 @@ class SynthModel:
             # Make a sound from this agent and save it for human consumption
             seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
             seg.export(soundfpath, format="WAV")
+            sim.dump_history_csv(os.path.splitext(soundfpath)[0] + ".csv")
 
     def _phase0_seed_function(self):
         """
@@ -286,7 +314,13 @@ class ParallelizableFitnessFunctionPhase1:
         self.time_points_ms = time_points_ms
         self.ntimepoints = len(time_points_ms)
 
-        # TODO: Calculate what you need from the sound
+        # Forward process the target sound so that we don't have to do it every single time we execute
+        target = prototype_sound.to_numpy_array().astype(float)
+        target += abs(min(target))
+        if max(target) != min(target):
+            target /= max(target) - min(target)
+        self._normalized_target = target
+        assert sum(self._normalized_target[self._normalized_target < 0]) == 0
 
     def __call__(self, agent):
         """
@@ -295,35 +329,21 @@ class ParallelizableFitnessFunctionPhase1:
         synthmat = np.reshape(agent, (self.narticulators, self.ntimepoints))
         seg = synth.make_seg_from_synthmat(synthmat, self.duration_ms / 1000.0, [tp / 1000.0 for tp in self.time_points_ms])
 
-        # TODO:
-        #    # During phase 1, the reward is based on how well we match the prototype sound
-        #    # for the given cluster index
-        #
-        #    # Shift the wave form up by most negative value
-        #    ours = seg.to_numpy_array().astype(float)
-        #    most_neg_val = min(ours)
-        #    ours += abs(most_neg_val)
-        #
-        #    prototype = self.cluster_prototypes[int(self.observed_cluster_index)].to_numpy_array().astype(float)
-        #    most_neg_val = min(prototype)
-        #    prototype += abs(most_neg_val)
-        #
-        #    assert sum(ours[ours < 0]) == 0
-        #    assert sum(prototype[prototype < 0]) == 0
-        #
-        #    # Divide by the amplitude
-        #    if max(ours) != min(ours):
-        #        ours /= max(ours) - min(ours)
-        #    if max(prototype) != min(prototype):
-        #        prototype /= max(prototype) - min(prototype)
-        #
-        #    # Now you have values in the interval [0, 1]
-        #
-        #    # XCorr with some amount of zero extension
-        #    xcor = np.correlate(ours, prototype, mode='full')
-        #
-        #    # Find the single maximum value along the xcor vector
-        #    # This is the place at which the waves match each other best
-        #    # Take the xcor value at this location as the reward
-        #    rew = max(xcor)
-        #
+        # Shift the wave form up by most negative value
+        ours = seg.to_numpy_array().astype(float)
+        most_neg_val = min(ours)
+        ours += abs(most_neg_val)
+        if max(ours) != min(ours):
+            ours /= max(ours) - min(ours)
+
+        assert sum(ours[ours < 0]) == 0
+
+        # Cross correlate with some amount of zero extension
+        xcor = np.correlate(ours, self._normalized_target, mode='full')
+
+        # Find the single maximum value along the xcor vector
+        # This is the place at which the waves match each other best
+        # Take the xcor value at this location as the reward
+        rew = max(xcor)
+
+        return rew
