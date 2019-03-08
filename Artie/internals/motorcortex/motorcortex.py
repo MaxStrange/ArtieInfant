@@ -27,15 +27,25 @@ class SynthModel:
             new_v = config.make_list_from_str(v, type=float)
             self._allowed_values[new_k] = new_v
 
-        self._nagents_phase0 = config.getint('synthesizer', 'nagents-phase0')
+        # Get parameters for all phases
         self._articulation_time_points_ms = config.getlist('synthesizer', 'articulation-time-points-ms', type=float)
         self._narticulators = len(self._allowed_values.keys())
         self._articulation_duration_ms = config.getfloat('synthesizer', 'phoneme-durations-ms')
         self._nworkers = config.getint('synthesizer', 'nworkers-phase0')
+
+        # Get parameters for Phase 0
+        self._nagents_phase0 = config.getint('synthesizer', 'nagents-phase0')
         self._phase0_niterations = config.getstr('synthesizer', 'niterations-phase0')
         self._phase0_fitness_target = config.getstr('synthesizer', 'fitness-target-phase0')
         self._fraction_top_selection_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase0')
         self._fraction_mutate_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase0')
+
+        # Get parameters for Phase 1
+        self._nagents_phase1 = config.getint('synthesizer', 'nagents-phase1')
+        self._phase1_niterations = config.getstr('synthesizer', 'niterations-phase1')
+        self._phase1_fitness_target = config.getstr('synthesizer', 'fitness-target-phase1')
+        self._fraction_top_selection_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase1')
+        self._fraction_mutate_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase1')
 
         # Validate the fractions
         if self._fraction_mutate_phase0 < 0.0 or self._fraction_mutate_phase0 > 1.0:
@@ -120,9 +130,6 @@ class SynthModel:
         If `savefpath` is not None, we will save the sound that corresponds to the best agent at this location
         as a WAV file.
         """
-        # TODO
-        # Use self._phase0_population as the seed for this simulation if present, otherwise do something else as the seed I guess
-
         # Create the fitness function for phase 1
         fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target)
 
@@ -162,6 +169,22 @@ class SynthModel:
         """
         return np.random.uniform(self._allowed_lows, self._allowed_highs)
 
+    def _phase1_seed_function(self):
+        """
+        If we have pretrained (done phase 0), we use the population from that phase, with some Gaussian noise
+        added to them.
+
+        If we do not have a pretrained population, we simply do a random uniform.
+        """
+        if self._phase0_population is not None:
+            # Add some Gaussian noise to this and return it
+            agents = np.copy(self._phase0_population)
+            agents[:, :] = np.random.normal(agents[:, :], 0.15)
+            agents[:, :] = np.clip(agents[:, :], self._allowed_lows, self._allowed_highs)
+            return agents
+        else:
+            return np.random.uniform(self._allowed_lows, self._allowed_highs)
+
     def _phase0_selection_function(self, agents, fitnesses):
         """
         Take the top x percent.
@@ -172,9 +195,25 @@ class SynthModel:
 
         return agents[0:nagents]
 
+    def _phase1_selection_function(self, agents, fitnesses):
+        """
+        Take the top x percent.
+        """
+        nagents = int(agents.shape[0] * self._fraction_top_selection_phase1)
+        if nagents < 1:
+            nagents = 1
+
+        return agents[0:nagents]
+
     def _phase0_crossover_function(self, agents):
         """
         For now, does nothing. Genetic variation is introduced solely by mutation.
+        """
+        return agents
+
+    def _phase1_crossover_function(self, agents):
+        """
+        See Phase 0
         """
         return agents
 
@@ -195,6 +234,12 @@ class SynthModel:
         # make sure to clip to the allowed boundaries
         agents[idxs, :] = np.clip(agents[idxs, :], self._allowed_lows, self._allowed_highs)
         return agents
+
+    def _phase1_mutation_function(self, agents):
+        """
+        Does exactly the same thing as Phase 0 to start with. If we need to change, we can.
+        """
+        return self._phase0_mutation_function(agents)
 
 class ParallelizableFitnessFunctionPhase0:
     def __init__(self, narticulators, duration_ms, time_points_ms):
