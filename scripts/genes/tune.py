@@ -13,72 +13,99 @@ sys.path.append(os.path.abspath("../../Artie"))
 import experiment.configuration as configuration                # pylint: disable=locally-disabled, import-error
 import internals.motorcortex.motorcortex as mc                  # pylint: disable=locally-disabled, import-error
 
-def spec(seg1, seg2):
-    fs, ts, amps = seg1.spectrogram(0, 0.5, window_length_s=0.03, overlap=0.2, window=('tukey', 0.25))
-    plt.subplot(1, 2, 1)
-    plt.pcolormesh(ts, fs, amps)
+#################################################################
+####### Globals ########
+#################################################################
+sample_rate_hz  = 16000.0    # 16kHz sample rate
+bytewidth       = 2          # 16-bit samples
+nchannels       = 1          # mono
+#################################################################
 
-    fs, ts, amps = seg2.spectrogram(0, 0.5, window_length_s=0.03, overlap=0.2, window=('tukey', 0.25))
-    plt.subplot(1, 2, 2)
-    plt.pcolormesh(ts, fs, amps)
 
-    plt.show()
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("target", help="The target WAV file to mimic")
-    parser.add_argument("-p", "--pretrain", action="store_true", help="Should we pretrain to make noise before training to mimic?")
-    args = parser.parse_args()
-
-    #################################################################
-    sample_rate_hz  = 16000.0    # 16kHz sample rate
-    bytewidth       = 2          # 16-bit samples
-    nchannels       = 1          # mono
-    #################################################################
-
-    ## Load the configuration file
-    config = configuration.load("Tuning", fpath="tuneconfig.cfg")
-
-    ## Load the target wav file
-    target = asg.from_file(args.target)
-    target = target.resample(sample_rate_hz, bytewidth, nchannels)
-
-    # Build the model and train
-    model = mc.SynthModel(config)
-    if args.pretrain:
-        print("Pretraining...")
-        model.pretrain()
-
-    print("Training...")
-    model.train(target, savefpath="Phase1Output.wav")
-    df = pandas.read_csv("Phase1Output.csv")
+def _plot_history(fname):
+    """
+    Reads in the CSV at `fname` and plots it as a history of the gene pools.
+    """
+    df = pandas.read_csv(fname)
     df = df.drop(['GenerationIndex'], axis=1)
     df.plot()
+    plt.title(fname)
     plt.show()
 
-    # Show the output from pretraining
-    seg = asg.from_file("Phase0OutputSound.wav")
-    seg = seg.resample(sample_rate_hz, bytewidth, nchannels)
-    seg = seg.to_numpy_array().astype(float)
-    plt.title("Phase 0 Output")
-    plt.plot(seg)
+def _load_audiofile(fname):
+    """
+    Load the given audio file and resample it to the correct parameters.
+    """
+    return asg.from_file(fname).resample(sample_rate_hz, bytewidth, nchannels).to_numpy_array().astype(float)
+
+def _plot_wave_forms(pretrain, train, target):
+    """
+    Plot all three wave forms of interest.
+    """
+    target = target.to_numpy_array().astype(float)
+
+    # Pretrained output
+    plt.subplot(3, 1, 1)
+    plt.title("After Pretraining")
+    plt.plot(pretrain)
+
+    # Training output
+    plt.subplot(3, 1, 2)
+    plt.title("After Training")
+    plt.plot(train)
+
+    # Plot the target wave form
+    plt.subplot(3, 1, 3)
+    plt.title("Target Wave Form")
+    plt.plot(target)
+
     plt.show()
 
-    seg = asg.from_file("Phase1Output.wav")
-    seg = seg.resample(sample_rate_hz, bytewidth, nchannels)
-    seg = seg.to_numpy_array().astype(float)
+def _plot_specs(pretrainfpath, trainfpath, targetset):
+    """
+    Plot the three audio segments as spectrograms side by side.
+    """
+    pretrain = asg.from_file(pretrainfpath).resample(sample_rate_hz, bytewidth, nchannels)
+    train = asg.from_file(trainfpath).resample(sample_rate_hz, bytewidth, nchannels)
 
-    # Show the raw output vs target
-    plt.subplot(2, 1, 1)
-    plt.title("Output Audio")
-    plt.plot(seg)
-    plt.subplot(2, 1, 2)
-    plt.title("Target Audio")
-    plt.plot(target.to_numpy_array().astype(float))
+    # Plot the pretraining spectrogram
+    fs, ts, amps = pretrain.spectrogram(0, 0.5, window_length_s=0.03, overlap=0.2, window=('tukey', 0.25))
+    plt.subplot(1, 3, 1)
+    plt.title("Pretraining")
+    plt.pcolormesh(ts, fs, amps)
+
+    # Plot the training spectrogram
+    fs, ts, amps = train.spectrogram(0, 0.5, window_length_s=0.03, overlap=0.2, window=('tukey', 0.25))
+    plt.subplot(1, 3, 2)
+    plt.title("Training")
+    plt.pcolormesh(ts, fs, amps)
+
+    # Plot the target spectrogram
+    fs, ts, amps = target.spectrogram(0, 0.5, window_length_s=0.03, overlap=0.2, window=('tukey', 0.25))
+    plt.subplot(1, 3, 3)
+    plt.title("Target")
+    plt.pcolormesh(ts, fs, amps)
+
     plt.show()
 
-    # Show the spectrogram representations of the two sounds
-    spec(target, asg.from_file("Phase1Output.wav"))
+def analyze(model, target):
+    """
+    Analyze the results of training the model. `target` is the resampled
+    target AudioSegment that the mdoel has tried to learn to pronounce.
+    """
+    # Plot line graphs showing the progress through training
+    _plot_history("Phase0OutputSound.csv")
+    _plot_history("Phase1Output.csv")
+
+    # Load the output wave forms
+    pretraining_output = _load_audiofile("Phase0OutputSound.wav")
+    training_output = _load_audiofile("Phase1Output.wav")
+
+    # Show the raw outputs vs target
+    _plot_wave_forms(pretraining_output, training_output, target)
+
+    # Show the spectrogram representations of the three sounds
+    _plot_specs("Phase0OutputSound.wav", "Phase1Output.wav", target)
 
     # TODO:
     # - Save the best agent from each generation
@@ -91,3 +118,29 @@ if __name__ == "__main__":
     #       - Take the best ones and anneal the limits to +- 0.1 of them
     #       - Repeat for another group of articulators
     #       - Repeat until all articulators have annealed for this population
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("target", help="The target WAV file to mimic")
+    parser.add_argument("-p", "--pretrain", action="store_true", help="Should we pretrain to make noise before training to mimic?")
+    args = parser.parse_args()
+
+
+    ## Load the configuration file
+    config = configuration.load("Tuning", fpath="tuneconfig.cfg")
+
+    ## Load the target wav file and resample
+    target = asg.from_file(args.target)
+    target = target.resample(sample_rate_hz, bytewidth, nchannels)
+
+    # Build the model and train
+    model = mc.SynthModel(config)
+    if args.pretrain:
+        print("Pretraining...")
+        model.pretrain()
+
+    print("Training...")
+    model.train(target, savefpath="Phase1Output.wav")
+
+    # Analyze stuff
+    analyze(model, target)

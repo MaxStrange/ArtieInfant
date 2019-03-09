@@ -348,6 +348,6 @@ class ParallelizableFitnessFunctionPhase1:
         # This is the place at which the waves match each other best
         # Take the xcor value at this location as the reward
         # But also make sure the sound doesn't become inaudible
-        rew = 0.5 * (max(xcor) + seg.rms)
+        rew = (0.8 * max(xcor)) + (0.2 * seg.rms)
 
         return rew
