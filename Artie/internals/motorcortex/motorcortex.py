@@ -219,7 +219,7 @@ class SynthModel:
                 self._population_index = 0
 
             # Add some noise
-            agent = np.random.normal(agent, 0.15)
+            agent = np.random.normal(agent, 0.08)
             agent = np.clip(agent, self._allowed_lows, self._allowed_highs)
 
             return agent
@@ -264,7 +264,7 @@ class SynthModel:
             nagents = 1
 
         idxs = np.random.choice(agents.shape[0], size=nagents, replace=False)
-        agents[idxs, :] = np.random.normal(agents[idxs, :], 0.25)
+        agents[idxs, :] = np.random.normal(agents[idxs, :], 0.15)
 
         # make sure to clip to the allowed boundaries
         agents[idxs, :] = np.clip(agents[idxs, :], self._allowed_lows, self._allowed_highs)
