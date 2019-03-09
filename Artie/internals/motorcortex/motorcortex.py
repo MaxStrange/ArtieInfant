@@ -127,6 +127,8 @@ class SynthModel:
         # We will be saving the populations sometimes
         self._phase0_population = None
         self._population_index = 0
+        self.best_agents_phase0 = None
+        self.best_agents_phase1 = None
 
     def pretrain(self):
         """
@@ -145,6 +147,7 @@ class SynthModel:
                             max_agents_per_generation=self._nagents_phase0,
                             min_agents_per_generation=self._nagents_phase0)
         best, value = sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
+        self.best_agents_phase0 = list(sim.best_agents)
 
         self._summarize_results(best, value, sim, "Phase0OutputSound.wav")
 
@@ -172,6 +175,7 @@ class SynthModel:
                             max_agents_per_generation=self._nagents_phase1,
                             min_agents_per_generation=self._nagents_phase1)
         best, value = sim.run(niterations=self._phase1_niterations, fitness=self._phase1_fitness_target)
+        self.best_agents_phase1 = list(sim.best_agents)
 
         self._summarize_results(best, value, sim, savefpath)
 

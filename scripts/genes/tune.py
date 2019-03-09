@@ -5,6 +5,7 @@ import audiosegment as asg
 import argparse
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas
 import sys
 
@@ -12,6 +13,7 @@ sys.path.append(os.path.abspath("../../Artie/experiment"))
 sys.path.append(os.path.abspath("../../Artie"))
 import experiment.configuration as configuration                # pylint: disable=locally-disabled, import-error
 import internals.motorcortex.motorcortex as mc                  # pylint: disable=locally-disabled, import-error
+import output.voice.synthesizer as synth                        # pylint: disable=locally-disabled, import-error
 
 #################################################################
 ####### Globals ########
@@ -88,6 +90,38 @@ def _plot_specs(pretrainfpath, trainfpath, targetset):
 
     plt.show()
 
+def _plot_articulators(model):
+    """
+    Plot how each articulator changed over time in the genetic algorithm.
+    """
+    # Get the list of best agents
+    bests = model.best_agents_phase1
+
+    # Reshape each agent into a matrix of (articulator, time point)
+    bests = [np.reshape(agent, (model._narticulators, -1)) for agent in bests]
+
+    # Concatenate each matrix to (articulator, (time-points) * nagents)
+    articulatormatrix = np.hstack(bests)
+    print("Articulators over time:\n", articulatormatrix)
+
+    # Plot the matrix, with the articulator names being the labels for the y axis
+    ntimepoints = len(model._articulation_time_points_ms)
+    ncols = int(articulatormatrix.shape[1] / ntimepoints)
+    plt.title("Articulator Activations for Best Agents across Simulation")
+    for row, art in enumerate(synth.articularizers):
+        for col in range(ncols):
+            plt.subplot(model._narticulators, ncols, (row * ncols) + col + 1)
+            if col == 0:
+                plt.ylabel(art, rotation='horizontal')
+            plt.ylim(-1.0, 1.0)
+            plt.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+            plt.tick_params(axis='y', which='both', right=False, left=False, labelleft=False)
+            start = col * ntimepoints
+            end = start + ntimepoints
+            plt.plot(articulatormatrix[row, start:end])
+    plt.tight_layout()
+    plt.show()
+
 def analyze(model, target):
     """
     Analyze the results of training the model. `target` is the resampled
@@ -107,17 +141,9 @@ def analyze(model, target):
     # Show the spectrogram representations of the three sounds
     _plot_specs("Phase0OutputSound.wav", "Phase1Output.wav", target)
 
-    # TODO:
-    # - Save the best agent from each generation
-    # - Plot the best agent's values from each generation for each articulator
-    # - Anneal:
-    #   - Phase 0: Only the laryngeal articulators are allowed to move at all
-    #       - After some number of steps, move their limits to be +- 0.1 of the best values found
-    #   - Phase 1: Laryngeals now are only allowed to move that small amount. Each protophoneme has a population that goes through these steps:
-    #       - Choose another articulator group and have it articulate for some number of steps
-    #       - Take the best ones and anneal the limits to +- 0.1 of them
-    #       - Repeat for another group of articulators
-    #       - Repeat until all articulators have annealed for this population
+    # Plot how each articulator's activations changed over the course of the genetic algorithm
+    _plot_articulators(model)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -144,3 +170,13 @@ if __name__ == "__main__":
 
     # Analyze stuff
     analyze(model, target)
+
+    # TODO:
+    # - Anneal:
+    #   - Phase 0: Only the laryngeal articulators are allowed to move at all
+    #       - After some number of steps, move their limits to be +- 0.1 of the best values found
+    #   - Phase 1: Laryngeals now are only allowed to move that small amount. Each protophoneme has a population that goes through these steps:
+    #       - Choose another articulator group and have it articulate for some number of steps
+    #       - Take the best ones and anneal the limits to +- 0.1 of them
+    #       - Repeat for another group of articulators
+    #       - Repeat until all articulators have annealed for this population
