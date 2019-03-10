@@ -3,6 +3,7 @@ This module contains code for controlling the articulatory synthesizer at a high
 """
 import collections
 import experiment.configuration as configuration # pylint: disable=locally-disabled, import-error
+import itertools
 import logging
 import numpy as np
 import os
@@ -44,11 +45,24 @@ class SynthModel:
 
         # Get parameters for Phase 1
         self._nagents_phase1 = config.getint('synthesizer', 'nagents-phase1')
-        self._phase1_niterations = config.getstr('synthesizer', 'niterations-phase1')
-        self._phase1_fitness_target = config.getstr('synthesizer', 'fitness-target-phase1')
         self._fraction_top_selection_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase1')
         self._fraction_mutate_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase1')
         self._anneal_during_phase1 = config.getbool('synthesizer', 'anneal-during-phase1')
+        # These can be lists
+        try:
+            self._phase1_niterations = config.getlist('synthesizer', 'niterations-phase1', type=int)
+            if len(self._phase1_niterations) == 1:
+                # We'll just parse it as a string instead
+                raise configuration.ConfigError()
+        except configuration.ConfigError:
+            self._phase1_niterations = config.getstr('synthesizer', 'niterations-phase1')
+        try:
+            self._phase1_fitness_target = config.getlist('synthesizer', 'fitness-target-phase1', type=float)
+            if len(self._phase1_fitness_target) == 1:
+                # Just parse it as a string instead
+                raise configuration.ConfigError()
+        except configuration.ConfigError:
+            self._phase1_fitness_target = config.getstr('synthesizer', 'fitness-target-phase1')
 
         # Validate the fractions
         if self._fraction_mutate_phase0 < 0.0 or self._fraction_mutate_phase0 > 1.0:
@@ -230,6 +244,8 @@ class SynthModel:
 
         self._summarize_results(best, value, sim, savefpath)
 
+        return best
+
     def train(self, target, savefpath=None):
         """
         Trains the model to mimic the given `target`, which should be an AudioSegment.
@@ -257,6 +273,14 @@ class SynthModel:
                 zeromask = np.array(sorted(list(set(list(annealed_masks) + list(mask)))))  # Uh.. sorry...
                 self._allowed_lows, self._allowed_highs = self._zero_limits(zeromask)
 
+                # Log the new limits as interleaved format
+                loglims = np.zeros((self._narticulators, 2 * len(self._articulation_time_points_ms)))
+                loglims[:, 0::2] = np.reshape(self._allowed_lows, (self._narticulators, -1))
+                loglims[:, 1::2] = np.reshape(self._allowed_highs, (self._narticulators, -1))
+                durations = [(t1, t2) for t1, t2 in zip(self._articulation_time_points_ms, self._articulation_time_points_ms)]
+                durations = [t for t in itertools.chain.from_iterable(durations)]
+                logging.info("New limits:\n{}".format(pandas.DataFrame(loglims, index=synth.articularizers, columns=durations)))
+
                 # Our target for the simulation is based on which group we are training
                 try:
                     niterations = self._phase1_niterations[maskidx]
@@ -271,14 +295,28 @@ class SynthModel:
                 # Now run the simulation normally
                 if savefpath is not None:
                     fpath = os.path.splitext(savefpath)[0] + "_" + str(maskidx) + ".wav"
-                self._run_phase1_simulation(target, niterations, fitnesstarget, fpath)
+                best = self._run_phase1_simulation(target, niterations, fitnesstarget, fpath)
 
                 # Add this latest mask to the list of masks that we should anneal
                 annealed_masks.extend(mask)
 
-                # Restore the lows and highs
-                self._allowed_lows = lows
-                self._allowed_highs = highs
+                # Now actually anneal the values in this mask
+                ## Make best into a matrix
+                best = np.reshape(best, (self._narticulators, -1))
+
+                ## Add +/- 0.05 to the values in this mask to make new limits
+                annealedlows = best - 0.05
+                annealedhighs = best + 0.05
+
+                # Restore the lows and highs, but don't overwrite the newly annealed values
+                lows = np.reshape(lows, (self._narticulators, -1))
+                highs = np.reshape(highs, (self._narticulators, -1))
+                annealedlows = np.maximum(annealedlows, lows)         # Make sure we don't anneal our limits to be *less* stringent
+                annealedhighs = np.minimum(annealedhighs, highs)      # Ditto
+                lows[mask, :] = annealedlows[mask, :]
+                highs[mask, :] = annealedhighs[mask, :]
+                self._allowed_lows = np.reshape(lows, (-1))
+                self._allowed_highs = np.reshape(highs, (-1))
         else:
             # Run a normal simulation
             self._run_phase1_simulation(target, self._phase1_niterations, self._phase1_fitness_target, savefpath)
@@ -323,7 +361,7 @@ class SynthModel:
                 self._population_index = 0
 
             # Add some noise
-            agent = np.random.normal(agent, 0.08)
+            agent = np.random.normal(agent, 0.05)
             agent = np.clip(agent, self._allowed_lows, self._allowed_highs)
 
             return agent
@@ -368,7 +406,7 @@ class SynthModel:
             nagents = 1
 
         idxs = np.random.choice(agents.shape[0], size=nagents, replace=False)
-        agents[idxs, :] = np.random.normal(agents[idxs, :], 0.15)
+        agents[idxs, :] = np.random.normal(agents[idxs, :], 0.1)
 
         # make sure to clip to the allowed boundaries
         agents[idxs, :] = np.clip(agents[idxs, :], self._allowed_lows, self._allowed_highs)
@@ -455,7 +493,8 @@ class ParallelizableFitnessFunctionPhase1:
         # Find the single maximum value along the xcor vector
         # This is the place at which the waves match each other best
         # Take the xcor value at this location as the reward
+
         # But also make sure the sound doesn't become inaudible
-        rew = (0.8 * max(xcor)) + (0.2 * seg.rms)
+        rew = (0.95 * max(xcor)) + (0.05 * seg.rms)
 
         return rew

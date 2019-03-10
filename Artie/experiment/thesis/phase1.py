@@ -362,6 +362,8 @@ def _convert_to_images(config):
                     fname_to_save = "{}_{}.png".format(fname, idx)
                     path_to_save = os.path.join(folder_to_save_images, fname_to_save)
                     imageio.imwrite(path_to_save, amps)
+                    # Also save the segment that we created the spectrogram from
+                    segment.export("{}_{}.wav".format(fname, idx), format="WAV")
             except Exception as e:
                 logging.warn("Could not convert file {}: {}".format(fpath, e))
 

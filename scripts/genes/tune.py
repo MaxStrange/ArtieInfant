@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas
 import sys
+import logging
 
 sys.path.append(os.path.abspath("../../Artie/experiment"))
 sys.path.append(os.path.abspath("../../Artie"))
@@ -147,6 +148,9 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--pretrain", action="store_true", help="Should we pretrain to make noise before training to mimic?")
     args = parser.parse_args()
 
+    # Set up the logging configuration
+    logging.basicConfig(filename="tune.log", filemode='w', level=logging.INFO)
+
     ## Load the configuration file
     config = configuration.load("Tuning", fpath="tuneconfig.cfg")
 
@@ -164,3 +168,5 @@ if __name__ == "__main__":
 
     # Analyze stuff
     analyze(model, target, nart_groups)
+
+    print("Don't forget to check tune.log for the best agent after each phase (and subphase).")
