@@ -132,12 +132,41 @@ class SynthModel:
         self.best_agents_phase0 = None
         self.best_agents_phase1 = None
 
+    def _zero_limits(self, articulator_mask):
+        """
+        Returns self._allowed_lows and self._allowed_highs, but
+        with each value zeroed in it if it is NOT part of `articulator_mask`.
+        """
+        # Make copies
+        lows = np.copy(self._allowed_lows)
+        highs = np.copy(self._allowed_highs)
+
+        # Reshape into matrix form (narticulators, ntimepoints)
+        lows = np.reshape(lows, (self._narticulators, -1))
+        highs = np.reshape(highs, (self._narticulators, -1))
+
+        # Make a zero version
+        zero_lows = np.zeros_like(lows)
+        zero_highs = np.zeros_like(highs)
+
+        # Add back in the articulators of interest
+        zero_lows[articulator_mask, :] = lows[articulator_mask, :]
+        zero_highs[articulator_mask, :] = highs[articulator_mask, :]
+
+        # Reshape back into vector form and return
+        return np.reshape(zero_lows, (-1,)), np.reshape(zero_highs, (-1,))
+
     def pretrain(self):
         """
         Pretrains the model to make noise as loudly as possible.
         """
         # Create the fitness function
         fitnessfunction = ParallelizableFitnessFunctionPhase0(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms)
+
+        # Zero out the articulators we aren't using during phase 0 (but save the old limits)
+        saved_lows = np.copy(self._allowed_lows)
+        saved_highs = np.copy(self._allowed_highs)
+        self._allowed_lows, self._allowed_highs = self._zero_limits(synth.laryngeal_articulator_mask)
 
         sim = po.Simulation(self._nagents_phase0, self._agentshape, fitnessfunction,
                             seedfunc=self._phase0_seed_function,
@@ -155,6 +184,10 @@ class SynthModel:
 
         # Save the population, since we will use this population as the seed for the next phase
         self._phase0_population = np.copy(sim._agents)
+
+        # Restore the original lows and highs
+        self._allowed_lows = saved_lows
+        self._allowed_highs = saved_highs
 
         # If we want to anneal after phase 0, now's the time to do it
         if self._anneal_after_phase0:
@@ -185,6 +218,7 @@ class SynthModel:
         If `savefpath` is not None, we will save the sound that corresponds to the best agent at this location
         as a WAV file.
         """
+        # TODO: do something if annealing
         # Create the fitness function for phase 1
         fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target)
 

@@ -59,6 +59,63 @@ laryngeal_articulator_mask = np.array([
     articularizers.index('Stylohyoid'),
 ])
 
+# Ditto, but for jaw muscles
+jaw_articulator_mask = np.array([
+    articularizers.index('Masseter'),
+    articularizers.index('LateralPterygoid'),
+])
+
+# Ditto, but for nasalizer muscles
+nasal_articulator_mask = np.array([
+    articularizers.index('LevatorPalatini'),
+    articularizers.index('TensorPalatini'),
+])
+
+# Ditto, but for labial (lip) muscles
+labial_articulator_mask = np.array([
+    articularizers.index('Risorius'),
+    articularizers.index('OrbicularisOris'),
+    articularizers.index('Buccinator'),
+])
+
+# Ditto, but for lingual muscles (muscles that help with the tongue)
+lingual_articulator_mask = np.array([
+    articularizers.index('Hyoglossus'),
+    articularizers.index('Styloglossus'),
+    articularizers.index('Genioglossus'),
+    articularizers.index('UpperTongue'),
+    articularizers.index('LowerTongue'),
+    articularizers.index('TransverseTongue'),
+    articularizers.index('VerticalTongue'),
+    articularizers.index('Mylohyoid'),
+])
+
+# Ditto, but for just the muscles that support the tongue somehow
+lingual_articulator_support_mask = np.array([
+    articularizers.index('Hyoglossus'),
+    articularizers.index('Styloglossus'),
+    articularizers.index('Genioglossus'),
+    articularizers.index('Mylohyoid'),
+])
+
+# Ditto, but for just the tongue muscles
+lingual_articulator_tongue_mask = np.array([
+    articularizers.index('UpperTongue'),
+    articularizers.index('LowerTongue'),
+    articularizers.index('TransverseTongue'),
+    articularizers.index('VerticalTongue'),
+])
+
+# Ditto, but for swallowing muscles
+swallowing_articulator_mask = np.array([
+    articularizers.index('Thyropharyngeus'),
+    articularizers.index('LowerConstrictor'),
+    articularizers.index('MiddleConstrictor'),
+    articularizers.index('UpperConstrictor'),
+    articularizers.index('Sphincter'),
+])
+
+
 scripttemplate = """
 ; These are all the variables we will need
 duration = {duration}

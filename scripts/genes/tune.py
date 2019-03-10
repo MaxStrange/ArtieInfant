@@ -170,11 +170,3 @@ if __name__ == "__main__":
 
     # Analyze stuff
     analyze(model, target)
-
-    # TODO:
-    # - Anneal:
-    #   - Phase 1: Laryngeals now are only allowed to move that small amount. Each protophoneme has a population that goes through these steps:
-    #       - Choose another articulator group and have it articulate for some number of steps
-    #       - Take the best ones and anneal the limits to +- 0.1 of them
-    #       - Repeat for another group of articulators
-    #       - Repeat until all articulators have annealed for this population
