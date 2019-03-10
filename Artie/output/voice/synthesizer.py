@@ -174,7 +174,7 @@ def _run_praat_script(script):
         f.write(script)
 
     # Call Praat on it
-    subprocess.call(["praat", "--run", fpath])
+    subprocess.call(["praat", "--run", fpath], stderr=subprocess.DEVNULL)  # Praat does an awful lot of complaining
 
     # Remove the script
     os.remove(fpath)

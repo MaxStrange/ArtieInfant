@@ -270,8 +270,8 @@ class SynthModel:
 
                 # Now run the simulation normally
                 if savefpath is not None:
-                    savefpath = os.path.splitext(savefpath)[0] + "_" + str(maskidx) + ".wav"
-                self._run_phase1_simulation(target, niterations, fitnesstarget, savefpath)
+                    fpath = os.path.splitext(savefpath)[0] + "_" + str(maskidx) + ".wav"
+                self._run_phase1_simulation(target, niterations, fitnesstarget, fpath)
 
                 # Add this latest mask to the list of masks that we should anneal
                 annealed_masks.extend(mask)

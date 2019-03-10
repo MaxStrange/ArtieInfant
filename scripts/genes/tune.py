@@ -21,6 +21,8 @@ import output.voice.synthesizer as synth                        # pylint: disabl
 sample_rate_hz  = 16000.0    # 16kHz sample rate
 bytewidth       = 2          # 16-bit samples
 nchannels       = 1          # mono
+
+nart_groups     = 5          # The number of articulator groups
 #################################################################
 
 
@@ -40,27 +42,13 @@ def _load_audiofile(fname):
     """
     return asg.from_file(fname).resample(sample_rate_hz, bytewidth, nchannels).to_numpy_array().astype(float)
 
-def _plot_wave_forms(pretrain, train, target):
+def _plot_wave_forms(waveforms):
     """
-    Plot all three wave forms of interest.
+    Plots the given list of wave forms.
     """
-    target = target.to_numpy_array().astype(float)
-
-    # Pretrained output
-    plt.subplot(3, 1, 1)
-    plt.title("After Pretraining")
-    plt.plot(pretrain)
-
-    # Training output
-    plt.subplot(3, 1, 2)
-    plt.title("After Training")
-    plt.plot(train)
-
-    # Plot the target wave form
-    plt.subplot(3, 1, 3)
-    plt.title("Target Wave Form")
-    plt.plot(target)
-
+    for i, wf in enumerate(waveforms):
+        plt.subplot(len(waveforms), 1, i + 1)
+        plt.plot(wf)
     plt.show()
 
 def _plot_specs(pretrainfpath, trainfpath, targetset):
@@ -122,28 +110,36 @@ def _plot_articulators(model):
     plt.tight_layout()
     plt.show()
 
-def analyze(model, target):
+def analyze(model, target, ngroups):
     """
     Analyze the results of training the model. `target` is the resampled
     target AudioSegment that the mdoel has tried to learn to pronounce.
+
+    `ngroups` is the number of articulator groups.
     """
     # Plot line graphs showing the progress through training
     _plot_history("Phase0OutputSound.csv")
-    _plot_history("Phase1Output.csv")
+    for i in range(ngroups):
+        _plot_history("Phase1Output_{}.csv".format(i))
 
     # Load the output wave forms
     pretraining_output = _load_audiofile("Phase0OutputSound.wav")
-    training_output = _load_audiofile("Phase1Output.wav")
+    waveforms = [pretraining_output]
+    for i in range(ngroups):
+        training_output = _load_audiofile("Phase1Output_{}.wav".format(i))
+        waveforms.append(training_output)
+
+    target = target.to_numpy_array().astype(float)
+    waveforms.append(target)
 
     # Show the raw outputs vs target
-    _plot_wave_forms(pretraining_output, training_output, target)
+    _plot_wave_forms(waveforms)
 
     # Show the spectrogram representations of the three sounds
-    _plot_specs("Phase0OutputSound.wav", "Phase1Output.wav", target)
+    _plot_specs("Phase0OutputSound.wav", "Phase1Output_{}.wav".format(ngroups - 1), target)
 
     # Plot how each articulator's activations changed over the course of the genetic algorithm
-    _plot_articulators(model)
-
+    #_plot_articulators(model)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -151,13 +147,11 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--pretrain", action="store_true", help="Should we pretrain to make noise before training to mimic?")
     args = parser.parse_args()
 
-
     ## Load the configuration file
     config = configuration.load("Tuning", fpath="tuneconfig.cfg")
 
     ## Load the target wav file and resample
-    target = asg.from_file(args.target)
-    target = target.resample(sample_rate_hz, bytewidth, nchannels)
+    target = asg.from_file(args.target).resample(sample_rate_hz, bytewidth, nchannels)
 
     # Build the model and train
     model = mc.SynthModel(config)
@@ -169,4 +163,4 @@ if __name__ == "__main__":
     model.train(target, savefpath="Phase1Output.wav")
 
     # Analyze stuff
-    analyze(model, target)
+    analyze(model, target, nart_groups)
