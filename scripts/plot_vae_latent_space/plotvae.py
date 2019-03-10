@@ -2,6 +2,7 @@
 Load the given spectrogram model, run a bunch of spectrograms through it,
 then see what it does with them in its 2D latent space.
 """
+import audiosegment as asg
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +15,7 @@ sys.path.append(os.path.abspath("../../Artie/experiment"))
 sys.path.append(os.path.abspath("../../Artie"))
 import thesis.phase1 as p1                                      # pylint: disable=locally-disabled, import-error
 import experiment.configuration as configuration                # pylint: disable=locally-disabled, import-error
+import internals.vae.vae as vae                                 # pylint: disable=locally-disabled, import-error
 
 def load_spectrograms_from_directory(d, numspecs=None):
     """
@@ -32,6 +34,47 @@ def load_spectrograms_from_directory(d, numspecs=None):
     specs = [imageio.imread(p) / 255.0 for p in paths]
     arr = np.array(specs)
     return np.expand_dims(arr, -1)
+
+def analyze_single_segment(model: vae.VariationalAutoEncoder, targetfpath: str):
+    """
+    Plot the location of the given segment after we encode it. Plots the average of 100 encodings
+    of it as well as the average distribution from the 100 tries.
+    Also plots the 100 encodings and distributions.
+    """
+    sample_rate_hz  = 16000.0    # 16kHz sample rate
+    bytewidth       = 2          # 16-bit samples
+    nchannels       = 1          # mono
+    duration_s      = 0.5        # Duration of each complete spectrogram
+    window_length_s = 0.03       # How long each FFT is
+    overlap         = 0.2        # How much each FFT overlaps with each other one
+
+    # Load the audio file into an AudioSegment
+    seg = asg.from_file(targetfpath)
+    seg = seg.resample(sample_rate_Hz=sample_rate_hz, sample_width=bytewidth, channels=nchannels)
+
+    start_s = 0
+    _frequencies, _times, amplitudes = seg.spectrogram(start_s, duration_s, window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
+    amplitudes *= 255.0 / np.max(np.abs(amplitudes))
+    amplitudes = amplitudes.astype(np.uint8)
+    amplitudes = np.expand_dims(amplitudes, -1)  # add color channel
+    amplitudes = np.repeat(amplitudes[np.newaxis, :, :, :], 100, axis=0)  # Repeat into batch dimension
+    means, logvars, encodings = model._encoder.predict(amplitudes, batch_size=None, steps=1)
+
+    stdevs = np.exp(0.5 * logvars)
+    # Visualize where the encodings ended up
+
+    # Plot where each encoding is
+    plt.scatter(encodings[:, 0], encodings[:, 1])
+    plt.title("Scatter Plot of Encodings for {}".format(targetfpath))
+    plt.show()
+
+    # Plot the distributions as circles whose means determine location and whose radii are composed
+    # of the standard deviations
+    plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
+    plt.title("Distributions the Encodings were drawn From for {}".format(targetfpath))
+    plt.show()
+
+    # TODO: average and overlap
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
