@@ -40,6 +40,7 @@ class SynthModel:
         self._phase0_fitness_target = config.getstr('synthesizer', 'fitness-target-phase0')
         self._fraction_top_selection_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase0')
         self._fraction_mutate_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase0')
+        self._anneal_after_phase0 = config.getbool('synthesizer', 'anneal-after-phase0')
 
         # Get parameters for Phase 1
         self._nagents_phase1 = config.getint('synthesizer', 'nagents-phase1')
@@ -47,6 +48,7 @@ class SynthModel:
         self._phase1_fitness_target = config.getstr('synthesizer', 'fitness-target-phase1')
         self._fraction_top_selection_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase1')
         self._fraction_mutate_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase1')
+        self._anneal_during_phase1 = config.getbool('synthesizer', 'anneal-during-phase1')
 
         # Validate the fractions
         if self._fraction_mutate_phase0 < 0.0 or self._fraction_mutate_phase0 > 1.0:
@@ -153,6 +155,28 @@ class SynthModel:
 
         # Save the population, since we will use this population as the seed for the next phase
         self._phase0_population = np.copy(sim._agents)
+
+        # If we want to anneal after phase 0, now's the time to do it
+        if self._anneal_after_phase0:
+            ## Reshape best agent into matrix form (narticulators, ntimepoints)
+            bestmatrix = np.reshape(best, (self._narticulators, -1))
+
+            ## Add/Subtract from each of its values
+            bestmatrixlows = bestmatrix - 0.05
+            bestmatrixhighs = bestmatrix + 0.05
+
+            ## For each item in bestmatrixlows/highs, take the appropriate of min/max(best-lows/highs, currentlimits)
+            ## This is so that we don't accidentally make the limits *less* stringent
+            lows = np.reshape(self._allowed_lows, (self._narticulators, -1))
+            highs = np.reshape(self._allowed_highs, (self._narticulators, -1))
+            bestmatrixlows = np.maximum(bestmatrixlows, lows)
+            bestmatrixhighs = np.minimum(bestmatrixhighs, highs)
+
+            ## Now update our allowed highs/lows with the annealed values
+            lows[synth.laryngeal_articulator_mask, :] = bestmatrixlows[synth.laryngeal_articulator_mask, :]
+            highs[synth.laryngeal_articulator_mask, :] = bestmatrixhighs[synth.laryngeal_articulator_mask, :]
+            self._allowed_lows = np.reshape(lows, (-1,))
+            self._allowed_highs = np.reshape(highs, (-1,))
 
     def train(self, target, savefpath=None):
         """
