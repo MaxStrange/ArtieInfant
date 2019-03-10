@@ -246,7 +246,7 @@ class SynthModel:
                 synth.labial_articulator_mask
             ]
             # If we pretrained already, we should add the laryngeal group to the annealed list
-            annealed_masks = synth.laryngeal_articulator_mask if self._phase0_population is not None else []
+            annealed_masks = list(synth.laryngeal_articulator_mask) if self._phase0_population is not None else []
 
             for maskidx, mask in enumerate(masks_in_order):
                 # Backup the limits
@@ -254,7 +254,7 @@ class SynthModel:
                 highs = np.copy(self._allowed_highs)
 
                 # Zero out the limits except for any that have already been annealed
-                zeromask = sorted(list(set(annealed_masks + mask)))
+                zeromask = np.array(sorted(list(set(list(annealed_masks) + list(mask)))))  # Uh.. sorry...
                 self._allowed_lows, self._allowed_highs = self._zero_limits(zeromask)
 
                 # Our target for the simulation is based on which group we are training
