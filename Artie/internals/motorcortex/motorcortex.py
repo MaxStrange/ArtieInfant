@@ -211,14 +211,7 @@ class SynthModel:
             self._allowed_lows = np.reshape(lows, (-1,))
             self._allowed_highs = np.reshape(highs, (-1,))
 
-    def train(self, target, savefpath=None):
-        """
-        Trains the model to mimic the given `target`, which should be an AudioSegment.
-
-        If `savefpath` is not None, we will save the sound that corresponds to the best agent at this location
-        as a WAV file.
-        """
-        # TODO: do something if annealing
+    def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath):
         # Create the fitness function for phase 1
         fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target)
 
@@ -232,10 +225,63 @@ class SynthModel:
                             nworkers=self._nworkers,
                             max_agents_per_generation=self._nagents_phase1,
                             min_agents_per_generation=self._nagents_phase1)
-        best, value = sim.run(niterations=self._phase1_niterations, fitness=self._phase1_fitness_target)
+        best, value = sim.run(niterations=niterations, fitness=fitness_target)
         self.best_agents_phase1 = list(sim.best_agents)
 
         self._summarize_results(best, value, sim, savefpath)
+
+    def train(self, target, savefpath=None):
+        """
+        Trains the model to mimic the given `target`, which should be an AudioSegment.
+
+        If `savefpath` is not None, we will save the sound that corresponds to the best agent at this location
+        as a WAV file.
+        """
+        if self._anneal_during_phase1:
+            masks_in_order = [
+                synth.jaw_articulator_mask,
+                synth.nasal_articulator_mask,
+                synth.lingual_articulator_support_mask,
+                synth.lingual_articulator_tongue_mask,
+                synth.labial_articulator_mask
+            ]
+            # If we pretrained already, we should add the laryngeal group to the annealed list
+            annealed_masks = synth.laryngeal_articulator_mask if self._phase0_population is not None else []
+
+            for maskidx, mask in enumerate(masks_in_order):
+                # Backup the limits
+                lows = np.copy(self._allowed_lows)
+                highs = np.copy(self._allowed_highs)
+
+                # Zero out the limits except for any that have already been annealed
+                zeromask = sorted(list(set(annealed_masks + mask)))
+                self._allowed_lows, self._allowed_highs = self._zero_limits(zeromask)
+
+                # Our target for the simulation is based on which group we are training
+                try:
+                    niterations = self._phase1_niterations[maskidx]
+                except TypeError:
+                    niterations = self._phase1_niterations
+
+                try:
+                    fitnesstarget = self._phase1_fitness_target[maskidx]
+                except TypeError:
+                    fitnesstarget = self._phase1_fitness_target
+
+                # Now run the simulation normally
+                if savefpath is not None:
+                    savefpath = os.path.splitext(savefpath)[0] + "_" + str(maskidx) + ".wav"
+                self._run_phase1_simulation(target, niterations, fitnesstarget, savefpath)
+
+                # Add this latest mask to the list of masks that we should anneal
+                annealed_masks.extend(mask)
+
+                # Restore the lows and highs
+                self._allowed_lows = lows
+                self._allowed_highs = highs
+        else:
+            # Run a normal simulation
+            self._run_phase1_simulation(target, self._phase1_niterations, self._phase1_fitness_target, savefpath)
 
     def _summarize_results(self, best, value, sim, soundfpath):
         """
