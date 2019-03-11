@@ -95,21 +95,31 @@ class SynthModel:
                 raise configuration.ConfigError("Cannot convert {} into an int. This value must be 'None' or an integer.".format(self._phase0_niterations))
 
         # Validate the phase 1 targets
-        if self._phase1_niterations.lower().strip() == "none":
+        if type(self._phase1_niterations) == str and self._phase1_niterations.lower().strip() == "none":
             self._phase1_niterations = None
+        elif type(self._phase1_niterations) == list:
+            try:
+                self._phase1_niterations = [int(i) for i in self._phase1_niterations]
+            except ValueError:
+                raise configuration.ConfigError("Cannot convert each item in {} into an int.".format(self._phase1_niterations))
         else:
             try:
                 self._phase1_niterations = int(self._phase1_niterations)
             except ValueError:
-                raise configuration.ConfigError("Cannot convert {} into an int. This value must be 'None' or an integer.".format(self._phase1_niterations))
+                raise configuration.ConfigError("Cannot convert {} into an int or a list. This value must be 'None' or an integer or a list of integers.".format(self._phase1_niterations))
 
-        if self._phase1_fitness_target.lower().strip() == "none":
+        if type(self._phase1_fitness_target) == str and self._phase1_fitness_target.lower().strip() == "none":
             self._phase1_fitness_target = None
+        elif type(self._phase1_fitness_target) == list:
+            try:
+                self._phase1_fitness_target = [float(f) for f in self._phase1_fitness_target]
+            except ValueError:
+                raise configuration.ConfigError("Cannot convert each item in {} into a float.".format(self._phase1_fitness_target))
         else:
             try:
-                self._phase1_fitness_target = int(self._phase1_fitness_target)
+                self._phase1_fitness_target = float(self._phase1_fitness_target)
             except ValueError:
-                raise configuration.ConfigError("Cannot convert {} into an int. This value must be 'None' or an integer.".format(self._phase1_niterations))
+                raise configuration.ConfigError("Cannot convert {} into a float or a list. This value must be 'None' or a float or a list of floats.".format(self._phase1_niterations))
 
         if self._phase0_niterations is None and self._phase0_fitness_target is None:
             raise configuration.ConfigError("niterations-phase0 and fitness-target-phase0 cannot both be None.")
@@ -439,16 +449,7 @@ class ParallelizableFitnessFunctionPhase0:
         seg = synth.make_seg_from_synthmat(synthmat, self.duration_ms / 1000.0, [tp / 1000.0 for tp in self.time_points_ms])
 
         # The fitness of an agent in this phase is determined by the RMS of the sound it makes,
-        # UNLESS it fails to make a human-audible sound. In which case, it is assigned a fitness of zero.
-        # TODO: Human audible is rather loosely defined by an equation like this:
-        # y = 40.11453 - 0.01683607x + 1.406211e-6x^2 - 2.371512e-11x^3
-        # Where the Y axis is dB SPL and the X axis is frequency. Above this curve is audible, below it is not.
-        # See https://www.etymotic.com/media/publications/erl-0096-1997.pdf (Hearing Thresholds by Yost and Killion, 1997)
-        # Fitness might be something like: SPL of sound minus threshold value evaluated at the sound's characteristic frequency.
-        if True:#seg.is_human_audible():
-            return seg.rms
-        else:
-            return 0.0
+        return seg.rms
 
 class ParallelizableFitnessFunctionPhase1:
     def __init__(self, narticulators, duration_ms, time_points_ms, prototype_sound):
@@ -492,9 +493,4 @@ class ParallelizableFitnessFunctionPhase1:
 
         # Find the single maximum value along the xcor vector
         # This is the place at which the waves match each other best
-        # Take the xcor value at this location as the reward
-
-        # But also make sure the sound doesn't become inaudible
-        rew = (0.95 * max(xcor)) + (0.05 * seg.rms)
-
-        return rew
+        return max(xcor)
