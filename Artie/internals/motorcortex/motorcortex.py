@@ -360,8 +360,8 @@ class SynthModel:
             if self._population_index >= self._phase0_population.shape[0]:
                 self._population_index = 0
 
-            # Add some noise
-            agent = np.random.normal(agent, 0.05)
+            # Clip to allowed values
+            #agent = np.random.normal(agent, 0.05)  # Used to add noise, trying it without. Remove if you find this later.
             agent = np.clip(agent, self._allowed_lows, self._allowed_highs)
 
             return agent
