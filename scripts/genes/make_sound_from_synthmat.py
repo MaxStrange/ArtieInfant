@@ -48,11 +48,11 @@ synthmat = np.array([
     # Hyoglossus        ###### Combines with other tongue stuff to modulate it. Don't bother. Set to zeros.
     [0.0, 0.0, 0.0],
     # Styloglossus      ###### Maxes out its usefulness at 0.5. Below 0.0 doesn't seem to do anything really. Above 0.5, silences.
-    [0.0, 0.0, 0.0],
+    [0.3, 0.2, 0.5],
     # Genioglossus      ###### Seems to only zero stuff out or do nothing. Set to zero.
     [0.0, 0.0, 0.0],
     # UpperTongue       ##### Values below zero seem to do things
-    [-1.0, -1.0, -1.0],
+    [0.0, 0.0, 0.0],
     # LowerTongue       ##### Values below zero seem to do things
     [0.0, 0.0, 0.0],
     # TransverseTongue  ##### Can't get it to do anything
@@ -62,18 +62,18 @@ synthmat = np.array([
     #Risorius           ##### Doesn't seem to do anything
     [0.0, 0.0, 0.0],
     #OrbicularisOris    #### 0.5 to 1.0
-    [0.0, 0.0, 0.0],
+    [0.9, 0.9, 0.9],
 
     #LevatorPalatini ###### Full range, but hard to get it to do much
     [0.0, 0.0, 0.0],
     #TensorPalatini  ###### Ditto
     [0.0, 0.0, 0.0],
 
-    #Masseter         ##### -0.7 to 0.0 (below zero seems to close the mouth a bit)
-    [-0.3, -0.3, -0.3],
+    #Masseter         ##### -0.5 to 0.0 (below zero seems to close the mouth a bit)
+    [-0.5, -0.3, -0.1],
     #Mylohyoid        ##### Full range
     [0.0, 0.0, 0.0],
-    #LateralPterygoid ##### Doesn't do much
+    #LateralPterygoid ##### Doesn't do much Set to Zeros
     [0.0, 0.0, 0.0],
     #Buccinator       ##### Doesn't do much
     [0.0, 0.0, 0.0],
