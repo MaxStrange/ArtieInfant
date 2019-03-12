@@ -314,9 +314,9 @@ class SynthModel:
                 ## Make best into a matrix
                 best = np.reshape(best, (self._narticulators, -1))
 
-                ## Add +/- 0.05 to the values in this mask to make new limits
-                annealedlows = best - 0.05
-                annealedhighs = best + 0.05
+                ## Add +/- 0.10 to the values in this mask to make new limits
+                annealedlows = best - 0.10
+                annealedhighs = best + 0.10
 
                 # Restore the lows and highs, but don't overwrite the newly annealed values
                 lows = np.reshape(lows, (self._narticulators, -1))
