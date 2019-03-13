@@ -1,7 +1,9 @@
 """
 This module contains code for controlling the articulatory synthesizer at a high level.
 """
+import audiosegment as asg
 import collections
+import copy
 import experiment.configuration as configuration # pylint: disable=locally-disabled, import-error
 import itertools
 import logging
@@ -494,3 +496,42 @@ class ParallelizableFitnessFunctionPhase1:
         # Find the single maximum value along the xcor vector
         # This is the place at which the waves match each other best
         return max(xcor)
+
+def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, targetfpaths: [str]) -> [SynthModel]:
+    """
+    Trains a new SynthModel for each target in `targetfpaths`. Returns the trained
+    SynthModels.
+
+    TODO: This function should not return a list of SynthModels eventually. Instead,
+    it should return a single object (of some as of yet, undecided class) that should
+    contain the best agent from each SynthModel. SynthModels are massive objects,
+    and returning a list of them is crazy when all we really want is a single numpy
+    array from each one.
+
+    TODO: targetfpaths should be changed to a lookup table of cluster-index -> soundfpath.
+    """
+    # Get some configurations
+    sample_rate_hz = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
+    sample_width = config.getint('preprocessing', 'bytewidth')
+    nchannels = config.getint('preprocessing', 'nchannels')
+
+    # This is what we will return (after training them of course)
+    trained_models = []
+
+    # Now train the models
+    for fpath in targetfpaths:
+        savefpath = os.path.basename(fpath) + ".synthmimic.wav"
+        # Since it takes so long to train each of these, it would be a real shame
+        # if something lame like a non-existent file crashed us after we trained
+        # several. Let's just log any errors and move on.
+        try:
+            print("Training the model to mimic {} and saving to: {}".format(fpath, savefpath))
+
+            seg = asg.from_file(fpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
+            copymodel = copy.deepcopy(pretrained_model)
+            copymodel.train(seg, savefpath=savefpath)
+            trained_models.append(copymodel)
+        except Exception as e:
+            print("Something went wrong with target found at {}. Specifically: {}.".format(fpath, e))
+
+    return trained_models

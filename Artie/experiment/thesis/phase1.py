@@ -529,15 +529,18 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
     """
     # Potentially preprocess the audio
     if preprocess:
+        print("Preprocessing all sounds. This will take close to forever...")
         _run_preprocessing_pipeline(config)
 
     # Convert the preprocessed audio files into spectrograms and save them as image files
     if preprocess_part_two:
+        print("Converting all preprocessed sound files into spectrograms and saving them as images...")
         _convert_to_images(config)
 
     # Pretrain the voice synthesizer to make non-specific noise
     synthmodel = motorcortex.SynthModel(config)
     if pretrain_synth:
+        print("Pretraining the voice synthesizer. Learning to coo...")
         synthmodel.pretrain()
 
     # -- VAE -- train then run over a suitable sample of audio to save enough embeddings for the prototypes/clustering
@@ -545,6 +548,7 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
     autoencoder = _build_vae(config)
     autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
     if train_vae:
+        print("Training the variational autoencoder to embed the spectrograms into a two dimensional probabilistic embedding...")
         timestamp = datetime.datetime.now().strftime("date-%Y-%m-%d-time-%H-%M")
         fpath_to_save = "{}_{}.h5".format(autoencoder_weights_fpath, timestamp)
         logging.info("Training the autoencoder. Models will be saved to: {}".format(fpath_to_save))
@@ -552,7 +556,7 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
         autoencoder.save_weights(fpath_to_save)
     else:
         logging.info("Attempting to load autoencoder weights from {}".format(autoencoder_weights_fpath))
-        autoencoder.load_weights(autoencoder_weights_fpath)
+        #autoencoder.load_weights(autoencoder_weights_fpath)
 
     # Now use the VAE on the test split and save the output embedding information along with the input audio file
     # TODO
@@ -568,8 +572,16 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
     #   Determine prototypes - Go through and send each embedding into the clusterer to get its cluster index. Take one from each cluster to form a prototype.
     #       # Determine each saved embedding's cluster index.
     #       # Take 'quintessential' embeddings from each cluster and save them as prototypes.
-    #   Finish training rl agent - Set up the environment with these prototypes and the weights of the pretrained agent. Train until it can mimic the prototypes given a cluster index.
-    #       # Train the RL agent to mimic the given prototypes
+
+
+    # Train the motor cortex to produce sounds from these different embeddings
+    if train_synth:
+        # TODO: Replace target_sounds with prototypical sounds (or with a lookup table of cluster index to sound file).
+        basedir = "/home/max/repos/ArtieInfant/scripts/genes/sounds"
+        target_sounds = [os.path.join(basedir, fname) for fname in os.listdir(basedir)]
+        ret = motorcortex.train_on_targets(config, synthmodel, target_sounds)
+        print("Got", ret, "back")
+
     #   Inference: Save the trained RL agent and then you can use it to make noises based on cluster index inputs.
     #   You now have trained this:
     #   [1]  ->  /a/
