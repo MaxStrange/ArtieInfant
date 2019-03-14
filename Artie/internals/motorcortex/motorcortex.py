@@ -1,10 +1,14 @@
 """
 This module contains code for controlling the articulatory synthesizer at a high level.
 """
+import audiosegment as asg
 import collections
+import copy
 import experiment.configuration as configuration # pylint: disable=locally-disabled, import-error
+import itertools
 import logging
 import numpy as np
+import os
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
 import pandas
 import primordialooze as po
@@ -27,15 +31,40 @@ class SynthModel:
             new_v = config.make_list_from_str(v, type=float)
             self._allowed_values[new_k] = new_v
 
-        self._nagents_phase0 = config.getint('synthesizer', 'nagents-phase0')
+        # Get parameters for all phases
         self._articulation_time_points_ms = config.getlist('synthesizer', 'articulation-time-points-ms', type=float)
         self._narticulators = len(self._allowed_values.keys())
         self._articulation_duration_ms = config.getfloat('synthesizer', 'phoneme-durations-ms')
         self._nworkers = config.getint('synthesizer', 'nworkers-phase0')
+
+        # Get parameters for Phase 0
+        self._nagents_phase0 = config.getint('synthesizer', 'nagents-phase0')
         self._phase0_niterations = config.getstr('synthesizer', 'niterations-phase0')
         self._phase0_fitness_target = config.getstr('synthesizer', 'fitness-target-phase0')
         self._fraction_top_selection_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase0')
         self._fraction_mutate_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase0')
+        self._anneal_after_phase0 = config.getbool('synthesizer', 'anneal-after-phase0')
+
+        # Get parameters for Phase 1
+        self._nagents_phase1 = config.getint('synthesizer', 'nagents-phase1')
+        self._fraction_top_selection_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase1')
+        self._fraction_mutate_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase1')
+        self._anneal_during_phase1 = config.getbool('synthesizer', 'anneal-during-phase1')
+        # These can be lists
+        try:
+            self._phase1_niterations = config.getlist('synthesizer', 'niterations-phase1', type=int)
+            if len(self._phase1_niterations) == 1:
+                # We'll just parse it as a string instead
+                raise configuration.ConfigError()
+        except configuration.ConfigError:
+            self._phase1_niterations = config.getstr('synthesizer', 'niterations-phase1')
+        try:
+            self._phase1_fitness_target = config.getlist('synthesizer', 'fitness-target-phase1', type=float)
+            if len(self._phase1_fitness_target) == 1:
+                # Just parse it as a string instead
+                raise configuration.ConfigError()
+        except configuration.ConfigError:
+            self._phase1_fitness_target = config.getstr('synthesizer', 'fitness-target-phase1')
 
         # Validate the fractions
         if self._fraction_mutate_phase0 < 0.0 or self._fraction_mutate_phase0 > 1.0:
@@ -43,6 +72,12 @@ class SynthModel:
 
         if self._fraction_top_selection_phase0 < 0.0 or self._fraction_top_selection_phase0 > 1.0:
             raise configuration.ConfigError("Selection fraction must be within 0.0 and 1.0, but is {}.".format(self._fraction_top_selection_phase0))
+
+        if self._fraction_mutate_phase1 < 0.0 or self._fraction_mutate_phase1 > 1.0:
+            raise configuration.ConfigError("Mutation fraction must be within 0.0 and 1.0, but is {}.".format(self._fraction_mutate_phase1))
+
+        if self._fraction_top_selection_phase1 < 0.0 or self._fraction_top_selection_phase1 > 1.0:
+            raise configuration.ConfigError("Selection fraction must be within 0.0 and 1.0, but is {}.".format(self._fraction_top_selection_phase1))
 
         # Validate the phase 0 targets
         if self._phase0_niterations.lower().strip() == "none":
@@ -61,8 +96,38 @@ class SynthModel:
             except ValueError:
                 raise configuration.ConfigError("Cannot convert {} into an int. This value must be 'None' or an integer.".format(self._phase0_niterations))
 
+        # Validate the phase 1 targets
+        if type(self._phase1_niterations) == str and self._phase1_niterations.lower().strip() == "none":
+            self._phase1_niterations = None
+        elif type(self._phase1_niterations) == list:
+            try:
+                self._phase1_niterations = [int(i) for i in self._phase1_niterations]
+            except ValueError:
+                raise configuration.ConfigError("Cannot convert each item in {} into an int.".format(self._phase1_niterations))
+        else:
+            try:
+                self._phase1_niterations = int(self._phase1_niterations)
+            except ValueError:
+                raise configuration.ConfigError("Cannot convert {} into an int or a list. This value must be 'None' or an integer or a list of integers.".format(self._phase1_niterations))
+
+        if type(self._phase1_fitness_target) == str and self._phase1_fitness_target.lower().strip() == "none":
+            self._phase1_fitness_target = None
+        elif type(self._phase1_fitness_target) == list:
+            try:
+                self._phase1_fitness_target = [float(f) for f in self._phase1_fitness_target]
+            except ValueError:
+                raise configuration.ConfigError("Cannot convert each item in {} into a float.".format(self._phase1_fitness_target))
+        else:
+            try:
+                self._phase1_fitness_target = float(self._phase1_fitness_target)
+            except ValueError:
+                raise configuration.ConfigError("Cannot convert {} into a float or a list. This value must be 'None' or a float or a list of floats.".format(self._phase1_niterations))
+
         if self._phase0_niterations is None and self._phase0_fitness_target is None:
             raise configuration.ConfigError("niterations-phase0 and fitness-target-phase0 cannot both be None.")
+
+        if self._phase1_niterations is None and self._phase1_fitness_target is None:
+            raise configuration.ConfigError("niterations-phase1 and fitness-target-phase1 cannot both be None.")
 
         # The shape of each agent is a flattend synthmat
         self._agentshape = (self._narticulators * len(self._articulation_time_points_ms), )
@@ -89,6 +154,33 @@ class SynthModel:
 
         # We will be saving the populations sometimes
         self._phase0_population = None
+        self._population_index = 0
+        self.best_agents_phase0 = None
+        self.best_agents_phase1 = None
+
+    def _zero_limits(self, articulator_mask):
+        """
+        Returns self._allowed_lows and self._allowed_highs, but
+        with each value zeroed in it if it is NOT part of `articulator_mask`.
+        """
+        # Make copies
+        lows = np.copy(self._allowed_lows)
+        highs = np.copy(self._allowed_highs)
+
+        # Reshape into matrix form (narticulators, ntimepoints)
+        lows = np.reshape(lows, (self._narticulators, -1))
+        highs = np.reshape(highs, (self._narticulators, -1))
+
+        # Make a zero version
+        zero_lows = np.zeros_like(lows)
+        zero_highs = np.zeros_like(highs)
+
+        # Add back in the articulators of interest
+        zero_lows[articulator_mask, :] = lows[articulator_mask, :]
+        zero_highs[articulator_mask, :] = highs[articulator_mask, :]
+
+        # Reshape back into vector form and return
+        return np.reshape(zero_lows, (-1,)), np.reshape(zero_highs, (-1,))
 
     def pretrain(self):
         """
@@ -96,6 +188,11 @@ class SynthModel:
         """
         # Create the fitness function
         fitnessfunction = ParallelizableFitnessFunctionPhase0(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms)
+
+        # Zero out the articulators we aren't using during phase 0 (but save the old limits)
+        saved_lows = np.copy(self._allowed_lows)
+        saved_highs = np.copy(self._allowed_highs)
+        self._allowed_lows, self._allowed_highs = self._zero_limits(synth.laryngeal_articulator_mask)
 
         sim = po.Simulation(self._nagents_phase0, self._agentshape, fitnessfunction,
                             seedfunc=self._phase0_seed_function,
@@ -107,7 +204,139 @@ class SynthModel:
                             max_agents_per_generation=self._nagents_phase0,
                             min_agents_per_generation=self._nagents_phase0)
         best, value = sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
+        self.best_agents_phase0 = list(sim.best_agents)
 
+        self._summarize_results(best, value, sim, "Phase0OutputSound.wav")
+
+        # Save the population, since we will use this population as the seed for the next phase
+        self._phase0_population = np.copy(sim._agents)
+
+        # Restore the original lows and highs
+        self._allowed_lows = saved_lows
+        self._allowed_highs = saved_highs
+
+        # If we want to anneal after phase 0, now's the time to do it
+        if self._anneal_after_phase0:
+            ## Reshape best agent into matrix form (narticulators, ntimepoints)
+            bestmatrix = np.reshape(best, (self._narticulators, -1))
+
+            ## Add/Subtract from each of its values
+            bestmatrixlows = bestmatrix - 0.05
+            bestmatrixhighs = bestmatrix + 0.05
+
+            ## For each item in bestmatrixlows/highs, take the appropriate of min/max(best-lows/highs, currentlimits)
+            ## This is so that we don't accidentally make the limits *less* stringent
+            lows = np.reshape(self._allowed_lows, (self._narticulators, -1))
+            highs = np.reshape(self._allowed_highs, (self._narticulators, -1))
+            bestmatrixlows = np.maximum(bestmatrixlows, lows)
+            bestmatrixhighs = np.minimum(bestmatrixhighs, highs)
+
+            ## Now update our allowed highs/lows with the annealed values
+            lows[synth.laryngeal_articulator_mask, :] = bestmatrixlows[synth.laryngeal_articulator_mask, :]
+            highs[synth.laryngeal_articulator_mask, :] = bestmatrixhighs[synth.laryngeal_articulator_mask, :]
+            self._allowed_lows = np.reshape(lows, (-1,))
+            self._allowed_highs = np.reshape(highs, (-1,))
+
+    def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath):
+        # Create the fitness function for phase 1
+        fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target)
+
+        # Create the simulation and run it
+        sim = po.Simulation(self._nagents_phase1, self._agentshape, fitnessfunction,
+                            seedfunc=self._phase1_seed_function,
+                            selectionfunc=self._phase1_selection_function,
+                            crossoverfunc=None,  # Use default 2-point crossover function from library
+                            mutationfunc=self._phase1_mutation_function,
+                            elitismfunc=None,
+                            nworkers=self._nworkers,
+                            max_agents_per_generation=self._nagents_phase1,
+                            min_agents_per_generation=self._nagents_phase1)
+        best, value = sim.run(niterations=niterations, fitness=fitness_target)
+        self.best_agents_phase1 = list(sim.best_agents)
+
+        self._summarize_results(best, value, sim, savefpath)
+
+        return best
+
+    def train(self, target, savefpath=None):
+        """
+        Trains the model to mimic the given `target`, which should be an AudioSegment.
+
+        If `savefpath` is not None, we will save the sound that corresponds to the best agent at this location
+        as a WAV file.
+        """
+        if self._anneal_during_phase1:
+            masks_in_order = [
+                synth.jaw_articulator_mask,
+                synth.nasal_articulator_mask,
+                synth.lingual_articulator_support_mask,
+                synth.lingual_articulator_tongue_mask,
+                synth.labial_articulator_mask
+            ]
+            # If we pretrained already, we should add the laryngeal group to the annealed list
+            annealed_masks = list(synth.laryngeal_articulator_mask) if self._phase0_population is not None else []
+
+            for maskidx, mask in enumerate(masks_in_order):
+                # Backup the limits
+                lows = np.copy(self._allowed_lows)
+                highs = np.copy(self._allowed_highs)
+
+                # Zero out the limits except for any that have already been annealed
+                zeromask = np.array(sorted(list(set(list(annealed_masks) + list(mask)))))  # Uh.. sorry...
+                self._allowed_lows, self._allowed_highs = self._zero_limits(zeromask)
+
+                # Log the new limits as interleaved format
+                loglims = np.zeros((self._narticulators, 2 * len(self._articulation_time_points_ms)))
+                loglims[:, 0::2] = np.reshape(self._allowed_lows, (self._narticulators, -1))
+                loglims[:, 1::2] = np.reshape(self._allowed_highs, (self._narticulators, -1))
+                durations = [(t1, t2) for t1, t2 in zip(self._articulation_time_points_ms, self._articulation_time_points_ms)]
+                durations = [t for t in itertools.chain.from_iterable(durations)]
+                logging.info("New limits:\n{}".format(pandas.DataFrame(loglims, index=synth.articularizers, columns=durations)))
+
+                # Our target for the simulation is based on which group we are training
+                try:
+                    niterations = self._phase1_niterations[maskidx]
+                except TypeError:
+                    niterations = self._phase1_niterations
+
+                try:
+                    fitnesstarget = self._phase1_fitness_target[maskidx]
+                except TypeError:
+                    fitnesstarget = self._phase1_fitness_target
+
+                # Now run the simulation normally
+                if savefpath is not None:
+                    fpath = os.path.splitext(savefpath)[0] + "_" + str(maskidx) + ".wav"
+                best = self._run_phase1_simulation(target, niterations, fitnesstarget, fpath)
+
+                # Add this latest mask to the list of masks that we should anneal
+                annealed_masks.extend(mask)
+
+                # Now actually anneal the values in this mask
+                ## Make best into a matrix
+                best = np.reshape(best, (self._narticulators, -1))
+
+                ## Add +/- 0.10 to the values in this mask to make new limits
+                annealedlows = best - 0.10
+                annealedhighs = best + 0.10
+
+                # Restore the lows and highs, but don't overwrite the newly annealed values
+                lows = np.reshape(lows, (self._narticulators, -1))
+                highs = np.reshape(highs, (self._narticulators, -1))
+                annealedlows = np.maximum(annealedlows, lows)         # Make sure we don't anneal our limits to be *less* stringent
+                annealedhighs = np.minimum(annealedhighs, highs)      # Ditto
+                lows[mask, :] = annealedlows[mask, :]
+                highs[mask, :] = annealedhighs[mask, :]
+                self._allowed_lows = np.reshape(lows, (-1))
+                self._allowed_highs = np.reshape(highs, (-1))
+        else:
+            # Run a normal simulation
+            self._run_phase1_simulation(target, self._phase1_niterations, self._phase1_fitness_target, savefpath)
+
+    def _summarize_results(self, best, value, sim, soundfpath):
+        """
+        Summarize `best` agent and `value`, which is its fitness.
+        """
         # Reshape the agent into a synthesis matrix
         synthmat = np.reshape(best, (self._narticulators, len(self._articulation_time_points_ms)))
 
@@ -115,12 +344,11 @@ class SynthModel:
         df = pandas.DataFrame(synthmat, index=synth.articularizers, columns=self._articulation_time_points_ms)
         logging.info("Best Value: {}; Agent:\n{}".format(value, df))
 
-        # Make a sound from this agent and save it for human consumption
-        seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
-        seg.export("OutputSound.wav", format="WAV")
-
-        # Save the population, since we will use this population as the seed for the next phase
-        self._phase0_population = np.copy(sim._agents)
+        if soundfpath:
+            # Make a sound from this agent and save it for human consumption
+            seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
+            seg.export(soundfpath, format="WAV")
+            sim.dump_history_csv(os.path.splitext(soundfpath)[0] + ".csv")
 
     def _phase0_seed_function(self):
         """
@@ -128,11 +356,45 @@ class SynthModel:
         """
         return np.random.uniform(self._allowed_lows, self._allowed_highs)
 
+    def _phase1_seed_function(self):
+        """
+        If we have pretrained (done phase 0), we use the population from that phase, with some Gaussian noise
+        added to them.
+
+        If we do not have a pretrained population, we simply do a random uniform.
+        """
+        if self._phase0_population is not None:
+            # Grab the next agent
+            agent = self._phase0_population[self._population_index, :]
+
+            # Adjust index for next time
+            self._population_index += 1
+            if self._population_index >= self._phase0_population.shape[0]:
+                self._population_index = 0
+
+            # Clip to allowed values
+            #agent = np.random.normal(agent, 0.05)  # Used to add noise, trying it without. Remove if you find this later.
+            agent = np.clip(agent, self._allowed_lows, self._allowed_highs)
+
+            return agent
+        else:
+            return np.random.uniform(self._allowed_lows, self._allowed_highs)
+
     def _phase0_selection_function(self, agents, fitnesses):
         """
         Take the top x percent.
         """
         nagents = int(agents.shape[0] * self._fraction_top_selection_phase0)
+        if nagents < 1:
+            nagents = 1
+
+        return agents[0:nagents]
+
+    def _phase1_selection_function(self, agents, fitnesses):
+        """
+        Take the top x percent.
+        """
+        nagents = int(agents.shape[0] * self._fraction_top_selection_phase1)
         if nagents < 1:
             nagents = 1
 
@@ -156,11 +418,17 @@ class SynthModel:
             nagents = 1
 
         idxs = np.random.choice(agents.shape[0], size=nagents, replace=False)
-        agents[idxs, :] = np.random.normal(agents[idxs, :], 0.25)
+        agents[idxs, :] = np.random.normal(agents[idxs, :], 0.1)
 
         # make sure to clip to the allowed boundaries
         agents[idxs, :] = np.clip(agents[idxs, :], self._allowed_lows, self._allowed_highs)
         return agents
+
+    def _phase1_mutation_function(self, agents):
+        """
+        Does exactly the same thing as Phase 0 to start with. If we need to change, we can.
+        """
+        return self._phase0_mutation_function(agents)
 
 class ParallelizableFitnessFunctionPhase0:
     def __init__(self, narticulators, duration_ms, time_points_ms):
@@ -183,33 +451,28 @@ class ParallelizableFitnessFunctionPhase0:
         seg = synth.make_seg_from_synthmat(synthmat, self.duration_ms / 1000.0, [tp / 1000.0 for tp in self.time_points_ms])
 
         # The fitness of an agent in this phase is determined by the RMS of the sound it makes,
-        # UNLESS it fails to make a human-audible sound. In which case, it is assigned a fitness of zero.
-        # TODO: Human audible is rather loosely defined by an equation like this:
-        # y = 40.11453 - 0.01683607x + 1.406211e-6x^2 - 2.371512e-11x^3
-        # Where the Y axis is dB SPL and the X axis is frequency. Above this curve is audible, below it is not.
-        # See https://www.etymotic.com/media/publications/erl-0096-1997.pdf (Hearing Thresholds by Yost and Killion, 1997)
-        # Fitness might be something like: SPL of sound minus threshold value evaluated at the sound's characteristic frequency.
-        if True:#seg.is_human_audible():
-            return seg.rms
-        else:
-            return 0.0
+        return seg.rms
 
 class ParallelizableFitnessFunctionPhase1:
-    def __init__(self, narticulators, duration_ms, time_points_ms, prototype_sound, prototype_index):
+    def __init__(self, narticulators, duration_ms, time_points_ms, prototype_sound):
         """
         :param narticulators: How many articulators?
         :param duration_ms: The total ms of articulation we should create from each agent.
         :param time_points_ms: The time points (in ms) at which to change the values of each articulator.
         :param prototype_sound: AudioSegment of the prototypical sound for this index.
-        :param prototype_index: The raw index for this proto-phoneme cluster.
         """
         self.narticulators = narticulators
         self.duration_ms = duration_ms
         self.time_points_ms = time_points_ms
         self.ntimepoints = len(time_points_ms)
-        self.prototype_index = prototype_index
 
-        # TODO: Calculate what you need from the sound
+        # Forward process the target sound so that we don't have to do it every single time we execute
+        target = prototype_sound.to_numpy_array().astype(float)
+        target += abs(min(target))
+        if max(target) != min(target):
+            target /= max(target) - min(target)
+        self._normalized_target = target
+        assert sum(self._normalized_target[self._normalized_target < 0]) == 0
 
     def __call__(self, agent):
         """
@@ -218,35 +481,57 @@ class ParallelizableFitnessFunctionPhase1:
         synthmat = np.reshape(agent, (self.narticulators, self.ntimepoints))
         seg = synth.make_seg_from_synthmat(synthmat, self.duration_ms / 1000.0, [tp / 1000.0 for tp in self.time_points_ms])
 
-        # TODO:
-        #    # During phase 1, the reward is based on how well we match the prototype sound
-        #    # for the given cluster index
-        #
-        #    # Shift the wave form up by most negative value
-        #    ours = seg.to_numpy_array().astype(float)
-        #    most_neg_val = min(ours)
-        #    ours += abs(most_neg_val)
-        #
-        #    prototype = self.cluster_prototypes[int(self.observed_cluster_index)].to_numpy_array().astype(float)
-        #    most_neg_val = min(prototype)
-        #    prototype += abs(most_neg_val)
-        #
-        #    assert sum(ours[ours < 0]) == 0
-        #    assert sum(prototype[prototype < 0]) == 0
-        #
-        #    # Divide by the amplitude
-        #    if max(ours) != min(ours):
-        #        ours /= max(ours) - min(ours)
-        #    if max(prototype) != min(prototype):
-        #        prototype /= max(prototype) - min(prototype)
-        #
-        #    # Now you have values in the interval [0, 1]
-        #
-        #    # XCorr with some amount of zero extension
-        #    xcor = np.correlate(ours, prototype, mode='full')
-        #
-        #    # Find the single maximum value along the xcor vector
-        #    # This is the place at which the waves match each other best
-        #    # Take the xcor value at this location as the reward
-        #    rew = max(xcor)
-        #
+        # Shift the wave form up by most negative value
+        ours = seg.to_numpy_array().astype(float)
+        most_neg_val = min(ours)
+        ours += abs(most_neg_val)
+        if max(ours) != min(ours):
+            ours /= max(ours) - min(ours)
+
+        assert sum(ours[ours < 0]) == 0
+
+        # Cross correlate with some amount of zero extension
+        xcor = np.correlate(ours, self._normalized_target, mode='full')
+
+        # Find the single maximum value along the xcor vector
+        # This is the place at which the waves match each other best
+        return max(xcor)
+
+def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, targetfpaths: [str]) -> [SynthModel]:
+    """
+    Trains a new SynthModel for each target in `targetfpaths`. Returns the trained
+    SynthModels.
+
+    TODO: This function should not return a list of SynthModels eventually. Instead,
+    it should return a single object (of some as of yet, undecided class) that should
+    contain the best agent from each SynthModel. SynthModels are massive objects,
+    and returning a list of them is crazy when all we really want is a single numpy
+    array from each one.
+
+    TODO: targetfpaths should be changed to a lookup table of cluster-index -> soundfpath.
+    """
+    # Get some configurations
+    sample_rate_hz = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
+    sample_width = config.getint('preprocessing', 'bytewidth')
+    nchannels = config.getint('preprocessing', 'nchannels')
+
+    # This is what we will return (after training them of course)
+    trained_models = []
+
+    # Now train the models
+    for fpath in targetfpaths:
+        savefpath = os.path.basename(fpath) + ".synthmimic.wav"
+        # Since it takes so long to train each of these, it would be a real shame
+        # if something lame like a non-existent file crashed us after we trained
+        # several. Let's just log any errors and move on.
+        try:
+            print("Training the model to mimic {} and saving to: {}".format(fpath, savefpath))
+
+            seg = asg.from_file(fpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
+            copymodel = copy.deepcopy(pretrained_model)
+            copymodel.train(seg, savefpath=savefpath)
+            trained_models.append(copymodel)
+        except Exception as e:
+            print("Something went wrong with target found at {}. Specifically: {}.".format(fpath, e))
+
+    return trained_models
