@@ -21,6 +21,7 @@ import multiprocessing as mp
 import numpy as np
 import os
 import random
+import shutil
 import sklearn
 import tensorflow as tf
 import tqdm
@@ -386,6 +387,11 @@ def _build_vae(config):
     # Get TensorBoard directory
     tbdir = config.getstr('autoencoder', 'tbdir')
     assert os.path.isdir(tbdir) or tbdir.lower() == "none", "{} is not a valid directory. Please fix tbdir in 'autoencoder' section of config file.".format(tbdir)
+
+    # Remove anything in the tbdir already
+    if tbdir is not None:
+        shutil.rmtree(tbdir)  # Remove the directory and everything in it
+        os.mkdir(tbdir)       # Remake the directory
 
     # Encoder model
     inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
