@@ -35,11 +35,13 @@ def load_spectrograms_from_directory(d, numspecs=None):
     arr = np.array(specs)
     return np.expand_dims(arr, -1)
 
-def analyze_single_segment(model: vae.VariationalAutoEncoder, targetfpath: str):
+def analyze_single_segment(model: vae.VariationalAutoEncoder, targetfpath: str, visualize=False):
     """
     Plot the location of the given segment after we encode it. Plots the average of 100 encodings
     of it as well as the average distribution from the 100 tries.
     Also plots the 100 encodings and distributions.
+
+    If visualize is True, we will plot stuff.
     """
     sample_rate_hz  = 16000.0    # 16kHz sample rate
     bytewidth       = 2          # 16-bit samples
@@ -55,30 +57,33 @@ def analyze_single_segment(model: vae.VariationalAutoEncoder, targetfpath: str):
     start_s = 0
     _frequencies, _times, amplitudes = seg.spectrogram(start_s, duration_s, window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
     amplitudes *= 255.0 / np.max(np.abs(amplitudes))
-    amplitudes = amplitudes.astype(np.uint8)
+    amplitudes = amplitudes / 255.0
     amplitudes = np.expand_dims(amplitudes, -1)  # add color channel
     amplitudes = np.repeat(amplitudes[np.newaxis, :, :, :], 100, axis=0)  # Repeat into batch dimension
     means, logvars, encodings = model._encoder.predict(amplitudes, batch_size=None, steps=1)
 
     stdevs = np.exp(0.5 * logvars)
-    # Visualize where the encodings ended up
 
-    # Plot where each encoding is
-    plt.scatter(encodings[:, 0], encodings[:, 1])
-    plt.title("Scatter Plot of Encodings for {}".format(targetfpath))
-    plt.show()
+    if visualize:
+        # Plot where each encoding is
+        plt.scatter(encodings[:, 0], encodings[:, 1])
+        plt.title("Scatter Plot of Encodings for {}".format(targetfpath))
+        plt.show()
 
-    # Plot the distributions as circles whose means determine location and whose radii are composed
-    # of the standard deviations
-    plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
-    plt.title("Distributions the Encodings were drawn From for {}".format(targetfpath))
-    plt.show()
+        # Plot the distributions as circles whose means determine location and whose radii are composed
+        # of the standard deviations
+        plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
+        plt.title("Distributions the Encodings were drawn From for {}".format(targetfpath))
+        plt.show()
 
-    # TODO: average and overlap
+    embedding = np.mean(encodings, axis=0)
+    mean = np.mean(means, axis=0)
+    stdev = np.mean(stdevs, axis=0)
+    return embedding, mean, stdev
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("USAGE: <path to model> <path to spectrogram image directory>")
+    if len(sys.argv) not in (3, 4):
+        print("USAGE: <path to model> <path to spectrogram image directory> [optional wav fpath]")
         exit(1)
     elif not os.path.isfile(sys.argv[1]):
         print("{} is not a valid file. Need a path to a trained VAE.".format(sys.argv[1]))
@@ -86,13 +91,18 @@ if __name__ == "__main__":
     elif not os.path.isdir(sys.argv[2]):
         print("{} is not a valid directory. Need a path to a directory of preprocessed spectrograms.".format(sys.argv[2]))
         exit(3)
+    elif len(sys.argv) == 4 and not os.path.isfile(sys.argv[3]):
+        print("{} is not a valid file. Need a path to an audio file.".format(sys.argv[3]))
+        exit(4)
+
+    visualize_single_embedding = len(sys.argv) == 4
 
     # Load the configuration
     configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
     config = configuration.load(None, fpath=configfpath)
 
     # Random seed
-    np.random.seed(1263262)
+    #np.random.seed(1263262)
 
     # Load the VAE
     autoencoder = p1._build_vae(config)
@@ -101,7 +111,6 @@ if __name__ == "__main__":
     # Load a bunch of spectrograms into a batch
     specs = load_spectrograms_from_directory(sys.argv[2])
     nspecs = specs.shape[0]
-    #specs = np.expand_dims(specs[0, :, :, :], 0)
 
     # Run the batch to get the encodings
     batchsize = config.getint('autoencoder', 'batchsize')
@@ -137,13 +146,30 @@ if __name__ == "__main__":
     stdevs = np.exp(0.5 * logvars)
     # Visualize where the encodings ended up
 
+    # If we want to plot where a particular wav file ends up,
+    # let's do that
+    if visualize_single_embedding:
+        single_encoding, single_mean, single_stdev = analyze_single_segment(autoencoder, sys.argv[3])
+
     # Plot where each encoding is
     plt.scatter(encodings[:, 0], encodings[:, 1])
     plt.title("Scatter Plot of Encodings")
+    if visualize_single_embedding:
+        for fname in os.listdir("/home/max/repos/ArtieInfant/scripts/tune_spectrogram/english_vowels"):
+            fpath = os.path.join("/home/max/repos/ArtieInfant/scripts/tune_spectrogram/english_vowels", fname)
+            if not fpath.endswith(".sh"):
+                single_encoding, single_mean, single_stdev = analyze_single_segment(autoencoder, fpath)
+                plt.scatter(single_encoding[0], single_encoding[1], c='red')
     plt.show()
 
     # Plot the distributions as circles whose means determine location and whose radii are composed
     # of the standard deviations
     plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
     plt.title("Distributions the Encodings were drawn From")
+    if visualize_single_embedding:
+        for fname in os.listdir("/home/max/repos/ArtieInfant/scripts/tune_spectrogram/english_vowels"):
+            fpath = os.path.join("/home/max/repos/ArtieInfant/scripts/tune_spectrogram/english_vowels", fname)
+            if not fpath.endswith(".sh"):
+                single_encoding, single_mean, single_stdev = analyze_single_segment(autoencoder, fpath)
+                plt.scatter(single_mean[0], single_mean[1], s=np.square(single_stdev * 10), c='red')
     plt.show()
