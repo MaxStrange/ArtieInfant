@@ -198,9 +198,10 @@ def _predict_on_sound_files(fpaths: [str], dpath: str, model: vae.VariationalAut
         amplitudes = amplitudes / 255.0
         amplitudes = np.expand_dims(amplitudes, -1)  # add color channel
         specs.append(amplitudes)
+    specs = np.array(specs)
 
     # Predict from the encoder portion of the model
-    if specs:
+    if specs.shape[0] > 0:
         means, logvars, encodings = model._encoder.predict(specs)
     else:
         means, logvars, encodings = None, None, None
@@ -246,5 +247,5 @@ if __name__ == "__main__":
     plt.title("Distributions the Embeddings were drawn From")
     plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
     if special_means is not None:
-        plt.scatter(special_means[0], special_means[1], s=np.square(special_stdevs * 10), c='red')
+        plt.scatter(special_means[:, 0], special_means[:, 1], s=np.square(special_stdevs * 10), c='red')
     plt.show()
