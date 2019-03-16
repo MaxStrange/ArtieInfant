@@ -1,5 +1,5 @@
-## Scratch Directory
+# Scratch Directory
 
-This directory is for holding stuff that will eventually be converted into something (a ROS node, or a script or whatever), but right now needs to be built in a separate location - mostly
-this will be for machine learning models that will be developed here and trained, and then once finished, converted into a ROS node and put in the ros folder.
-
+This directory contains code that I used at some point to train or tune or debug or whatever.
+This code mostly used to live in the scripts directory, but I would like that directory to
+contain only truly reusable scripts that have a single dedicated purpose.
