@@ -2,6 +2,7 @@
 Load the given spectrogram model, run a bunch of spectrograms through it,
 then see what it does with them in its 2D latent space.
 """
+import argparse
 import audiosegment as asg
 import imageio
 import matplotlib.pyplot as plt
@@ -81,53 +82,61 @@ def analyze_single_segment(model: vae.VariationalAutoEncoder, targetfpath: str, 
     stdev = np.mean(stdevs, axis=0)
     return embedding, mean, stdev
 
-if __name__ == "__main__":
-    if len(sys.argv) not in (3, 4):
-        print("USAGE: <path to model> <path to spectrogram image directory> [optional wav fpath]")
+def _validate_args(args):
+    """
+    Validates the arguments and exits if any of them do not make sense.
+    """
+    if not os.path.isfile(args.model):
+        print("{} is not a valid path to a VAE model.".format(args.model))
         exit(1)
-    elif not os.path.isfile(sys.argv[1]):
-        print("{} is not a valid file. Need a path to a trained VAE.".format(sys.argv[1]))
+    if not os.path.isdir(args.specdir):
+        print("{} is not a valid path to a directory of spectrograms.".format(args.specdir))
         exit(2)
-    elif not os.path.isdir(sys.argv[2]):
-        print("{} is not a valid directory. Need a path to a directory of preprocessed spectrograms.".format(sys.argv[2]))
-        exit(3)
-    elif len(sys.argv) == 4 and not os.path.isfile(sys.argv[3]):
-        print("{} is not a valid file. Need a path to an audio file.".format(sys.argv[3]))
+    if args.file:
+        for fpath in args.file:
+            if not os.path.isfile(fpath):
+                print("{} is not a valid path to a sound file.".format(fpath))
+                exit(3)
+    if args.dir and not os.path.isdir(args.dir):
+        print("{} is not a valid directory of sound files.".format(args.dir))
         exit(4)
 
-    visualize_single_embedding = len(sys.argv) == 4
-
-    # Load the configuration
-    configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
-    config = configuration.load(None, fpath=configfpath)
-
-    # Random seed
-    #np.random.seed(1263262)
-
-    # Load the VAE
+def _build_the_vae(config, model):
     autoencoder = p1._build_vae(config)
-    autoencoder.load_weights(sys.argv[1])
+    try:
+        autoencoder.load_weights(model)
+    except Exception as e:
+        print("Something went wrong while trying to load the given model. Perhaps the weights don't match with the current architecture? {}".format(e))
+        exit(5)
+    return autoencoder
 
+def _predict_on_spectrograms(specdir: str, config: configuration.Configuration, autoencoder: vae.VariationalAutoEncoder):
+    """
+    Returns the values of the spectrogram predictions for each spectrogram found in specdir.
+    """
     # Load a bunch of spectrograms into a batch
-    specs = load_spectrograms_from_directory(sys.argv[2])
+    specs = load_spectrograms_from_directory(specdir)
     nspecs = specs.shape[0]
-
-    # Run the batch to get the encodings
-    batchsize = config.getint('autoencoder', 'batchsize')
+    if nspecs == 0:
+        print("Could not find any spectrograms in {}.".format(specdir))
+        exit(6)
 
     try:
         # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
-        means, logvars, encodings = autoencoder._encoder.predict(specs, batch_size=None, steps=1)
+        means, logvars, encodings = autoencoder._encoder.predict(specs)
     except Exception:
         print("Probably out of memory. Trying as an image generator instead.")
         specs = None  # Hint to the GC
 
         # Remove the useless subdirectory from the path (the imagedatagen needs it, but can't be told about it... ugh)
-        pathsplit = sys.argv[2].rstrip(os.sep).split(os.sep)
+        pathsplit = args.specdir.rstrip(os.sep).split(os.sep)
         root = os.path.join(*[os.sep if p == '' else p for p in pathsplit[0:-1]])
+
+        # Set up based on config file
+        batchsize = config.getint('autoencoder', 'batchsize')
         nworkers = config.getint('autoencoder', 'nworkers')
         imshapes = config.getlist('autoencoder', 'input_shape')[0:2]  # take only the first two dimensions (not channels)
-        imshapes = [int(i) for i in imshapes]
+        imshapes = [int(i) for i in imshapes]  # They are strings in the config file, so convert them to ints
         imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
         print("Creating datagen...")
         datagen = imreader.flow_from_directory(root,
@@ -143,33 +152,99 @@ if __name__ == "__main__":
                                             use_multiprocessing=False,
                                             workers=nworkers)
 
-    stdevs = np.exp(0.5 * logvars)
-    # Visualize where the encodings ended up
+    return means, logvars, encodings
 
-    # If we want to plot where a particular wav file ends up,
-    # let's do that
-    if visualize_single_embedding:
-        single_encoding, single_mean, single_stdev = analyze_single_segment(autoencoder, sys.argv[3])
+def _predict_on_sound_files(fpaths: [str], dpath: str, model: vae.VariationalAutoEncoder):
+    """
+    Run the given model on each file in fpaths and each file in dpath. These are sound files, not spectrograms,
+    so they need to be converted to spectrograms first.
+
+    If fpaths and dpaths are both None or empty, we return None, None, None.
+    """
+    sample_rate_hz  = 16000.0    # 16kHz sample rate
+    bytewidth       = 2          # 16-bit samples
+    nchannels       = 1          # mono
+    duration_s      = 0.5        # Duration of each complete spectrogram
+    window_length_s = 0.03       # How long each FFT is
+    overlap         = 0.2        # How much each FFT overlaps with each other one
+
+    if dpath is None:
+        dpath = []
+    if fpaths is None:
+        fpaths = []
+
+    # Combine all the fpaths into a single fpath list
+    if dpath:
+        for root, _dnames, fnames in os.walk(dpath):
+            for fname in fnames:
+                fpath = os.path.join(root, fname)
+                fpaths.append(fpath)
+
+    # Load all the segments and resample them appropriately
+    segs = []
+    for fpath in fpaths:
+        try:
+            segs.append(asg.from_file(fpath).resample(sample_rate_hz, bytewidth, nchannels))
+        except asg.pydub.audio_segment.CouldntDecodeError:
+            print("NOTE: Couldn't decode {} as an audio file.".format(fpath))
+            continue
+
+    # Convert each segment into a spectrogram
+    specs = []
+    for seg in segs:
+        start_s = 0
+        _frequencies, _times, amplitudes = seg.spectrogram(start_s, duration_s, window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
+        amplitudes *= 255.0 / np.max(np.abs(amplitudes))
+        amplitudes = amplitudes / 255.0
+        amplitudes = np.expand_dims(amplitudes, -1)  # add color channel
+        specs.append(amplitudes)
+
+    # Predict from the encoder portion of the model
+    if specs:
+        means, logvars, encodings = model._encoder.predict(specs)
+    else:
+        means, logvars, encodings = None, None, None
+    return means, logvars, encodings
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("model", help="Path to trained VAE model that matches the architecture in ArtieInfant")
+    parser.add_argument("specdir", help="Path to spectrogram image directory")
+    parser.add_argument("-f", "--file", action="append", help="A sound file to run through the VAE (after conversion to spectrogram)")
+    parser.add_argument("-d", "--dir", help="A directory of sound files to run through the VAE (after conversion to spectrogram)")
+    args = parser.parse_args()
+    _validate_args(args)
+
+    # Load the configuration
+    configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
+    config = configuration.load(None, fpath=configfpath)
+
+    # Random seed
+    np.random.seed(1263262)
+
+    # Load the VAE
+    autoencoder = _build_the_vae(config, args.model)
+
+    # Run the batch to get the encodings
+    means, logvars, encodings = _predict_on_spectrograms(args.specdir, config, autoencoder)
+    stdevs = np.exp(0.5 * logvars)
+
+    # If the user specified a directory or a list of files, embed them too. We'll paint them red.
+    special_means, special_logvars, special_encodings = _predict_on_sound_files(args.file, args.dir, autoencoder)
+    if special_logvars is not None:
+        special_stdevs = np.exp(0.5 * special_logvars)
 
     # Plot where each encoding is
+    plt.title("Scatter Plot of Embeddings")
     plt.scatter(encodings[:, 0], encodings[:, 1])
-    plt.title("Scatter Plot of Encodings")
-    if visualize_single_embedding:
-        for fname in os.listdir("/home/max/repos/ArtieInfant/scripts/tune_spectrogram/english_vowels"):
-            fpath = os.path.join("/home/max/repos/ArtieInfant/scripts/tune_spectrogram/english_vowels", fname)
-            if not fpath.endswith(".sh"):
-                single_encoding, single_mean, single_stdev = analyze_single_segment(autoencoder, fpath)
-                plt.scatter(single_encoding[0], single_encoding[1], c='red')
+    if special_encodings is not None:
+        plt.scatter(special_encodings[:, 0], special_encodings[:, 1], c='red')
     plt.show()
 
     # Plot the distributions as circles whose means determine location and whose radii are composed
     # of the standard deviations
+    plt.title("Distributions the Embeddings were drawn From")
     plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
-    plt.title("Distributions the Encodings were drawn From")
-    if visualize_single_embedding:
-        for fname in os.listdir("/home/max/repos/ArtieInfant/scripts/tune_spectrogram/english_vowels"):
-            fpath = os.path.join("/home/max/repos/ArtieInfant/scripts/tune_spectrogram/english_vowels", fname)
-            if not fpath.endswith(".sh"):
-                single_encoding, single_mean, single_stdev = analyze_single_segment(autoencoder, fpath)
-                plt.scatter(single_mean[0], single_mean[1], s=np.square(single_stdev * 10), c='red')
+    if special_means is not None:
+        plt.scatter(special_means[0], special_means[1], s=np.square(special_stdevs * 10), c='red')
     plt.show()
