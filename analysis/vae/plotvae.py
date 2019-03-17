@@ -216,6 +216,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     _validate_args(args)
 
+    # Come up with a name for the special sound group we are plottting (if we are plotting them)
+    # This is useful for saving the figures
+    if args.dir:
+        name = os.path.basename(args.dir)
+    else:
+        name = None
+
     # Load the configuration
     configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
     config = configuration.load(None, fpath=configfpath)
@@ -240,6 +247,7 @@ if __name__ == "__main__":
     plt.scatter(encodings[:, 0], encodings[:, 1])
     if special_encodings is not None:
         plt.scatter(special_encodings[:, 0], special_encodings[:, 1], c='red')
+    plt.savefig("scatter_{}_embeddings_{}.png".format(encodings.shape[0], name))
     plt.show()
 
     # Plot the distributions as circles whose means determine location and whose radii are composed
@@ -248,4 +256,5 @@ if __name__ == "__main__":
     plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
     if special_means is not None:
         plt.scatter(special_means[:, 0], special_means[:, 1], s=np.square(special_stdevs * 10), c='red')
+    plt.savefig("scatter_{}_distros_{}.png".format(encodings.shape[0], name))
     plt.show()

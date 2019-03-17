@@ -77,6 +77,8 @@ def _plot_input_output_spectrograms(ipath, autoencoder):
     plt.pcolormesh(ts, fs, spec)
     plt.subplot(122)
     plt.pcolormesh(ts, fs, decoded_spec)
+    name = os.path.splitext(os.path.basename(ipath))[0]
+    plt.savefig("spectrogram_{}.png".format(name))
     plt.show()
 
     return spec.shape
@@ -126,6 +128,7 @@ def _plot_topographic_swathe(autoencoder, shape, low, high):
             plt.subplot(n, n, k)
             plt.pcolormesh(ts, fs, sample)
             k += 1
+    plt.savefig("spectrogram_swathe_{:.1f}_{:.1f}.png".format(low, high))
     plt.show()
 
 if __name__ == "__main__":
