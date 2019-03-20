@@ -97,14 +97,14 @@ class VariationalAutoEncoder:
             https://github.com/keras-team/keras/issues/10137
             """
             reconstruction_loss = self._build_loss(loss, flattened_input_shape)
-            kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
+#            kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
+
             #kl_loss = K.print_tensor(kl_loss, message="KL")
             #reconstruction_loss = K.print_tensor(reconstruction_loss, message="RL")
 
-#            vae_loss = K.mean(reconstruction_loss + kl_loss)
-            vae_loss = (reconstruction_loss * 0.90) + (kl_loss * 0.10)
+#            vae_loss = K.mean((reconstruction_loss * 0.95) + (kl_loss * 0.05))
+            vae_loss = K.mean(reconstruction_loss + K.sum(z_log_var ** 2, axis=-1))
 
-            #vae_loss = K.print_tensor(vae_loss, message="VL")
             return vae_loss
 
         self._vae.compile(optimizer=optimizer, loss=_vae_loss)
@@ -144,6 +144,15 @@ class VariationalAutoEncoder:
         sigma = 1.0
         size = self._latent_dim
         return np.random.normal(mu, sigma, size)
+
+    def sample_from_gaussian(self, mu: tuple, sigma: tuple):
+        """
+        Same as `sample` but instead of sampling from the normal distribution, samples from the given
+        Gaussian.
+
+        mu and sigma must be tuples of floats, of shape self._latent_dim.
+        """
+        return np.random.normal(mu, sigma)
 
     def predict(self, *args, **kwargs):
         """

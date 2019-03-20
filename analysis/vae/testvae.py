@@ -94,13 +94,26 @@ def _plot_samples_from_latent_space(autoencoder, shape):
     fs = [f for f in range(0, shape[0])]
     ts = [t for t in range(0, shape[1])]
 
-    nsamples = 4
-    plt.title("From Encoder Dist")
-    for subpltidx in range(1, nsamples + 1):
-        z = [autoencoder.sample()]  # Take z from the encoder's distribution
-        sample = np.reshape(autoencoder.predict([z]), shape)
-        plt.subplot(100 + (nsamples * 10) + subpltidx)
-        plt.pcolormesh(ts, fs, sample * 255.0)
+    # List of distros to sample from (mu, sigma)
+    # Change this to suit your needs
+    distros = [
+        ((3.7, -3.7), (1.2, 0.4)),
+        ((2.8, -2.8), (1.0, 0.3)),
+        ((2.3, -2.0), (2.0, 1.5)),
+        ((5.0, -1.0), (4.0, 0.5)),
+    ]
+
+    # Go through each distro and sample from it several times
+    # Decode the samples
+    nsamples = 6
+    for j, (mu, sigma) in enumerate(distros):
+        for i in range(1, nsamples):
+            z = [autoencoder.sample_from_gaussian(mu, sigma)]
+            sample = np.reshape(autoencoder.predict([z]), shape)
+            plt.subplot(len(distros), nsamples, i + (j * nsamples))
+            plt.title("({:.2f},{:.2f})".format(z[0][0], z[0][1]))
+            plt.pcolormesh(ts, fs, sample * 255.0)
+    # Plot everything
     plt.show()
 
 def _plot_topographic_swathe(autoencoder, shape, low, high):
