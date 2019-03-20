@@ -122,8 +122,6 @@ def _plot_topographic_swathe(autoencoder, shape, low, high):
     Only works if we have a 2D embedding space (in 3D we would need a cube,
     and beyond that is impossible to visualize intuitively).
     """
-    # linearly spaced coordinates corresponding to the 2D plot
-    # of digit classes in the latent space
     n = 8
     grid_x = np.linspace(low, high, n)
     grid_y = np.linspace(low, high, n)[::-1]
