@@ -329,6 +329,7 @@ def _convert_to_images(config):
     # Get a bunch of config stuff
     folder_to_convert_from = config.getstr('preprocessing', 'destination')
     folder_to_save_images = config.getstr('preprocessing', 'images_destination')
+    folder_to_save_wavs = config.getstr('preprocessing', 'folder_to_save_wavs')
     seconds_per_spectrogram = config.getfloat('preprocessing', 'seconds_per_spectrogram')
     window_length_s = config.getfloat('preprocessing', 'spectrogram_window_length_s')
     overlap = config.getfloat('preprocessing', 'spectrogram_window_overlap')
@@ -354,7 +355,7 @@ def _convert_to_images(config):
                     segment = segment.resample(sample_rate_Hz=resample_to_hz)
                     if use_filterbank:
                         # TODO: Apply a bank of filters, then recombine before taking the spectrogram
-                        pass
+                        raise NotImplementedError("Filterbank is not currently implemented.")
                     fs, ts, amps = segment.spectrogram(window_length_s=window_length_s, overlap=overlap)
                     #amps = 10.0 * np.log10(amps + 1e-9)  # This seems to make the output array a little harder to see in black/white
                     amps *= 255.0 / np.max(np.abs(amps))
@@ -364,35 +365,15 @@ def _convert_to_images(config):
                     path_to_save = os.path.join(folder_to_save_images, fname_to_save)
                     imageio.imwrite(path_to_save, amps)
                     # Also save the segment that we created the spectrogram from
-                    segment.export("{}_{}.wav".format(fname, idx), format="WAV")
+                    segment.export("{}_{}.wav".format(os.path.join(folder_to_save_wavs, fname), idx), format="WAV")
             except Exception as e:
                 logging.warn("Could not convert file {}: {}".format(fpath, e))
 
-def _build_vae(config):
+
+def _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir):
     """
-    Builds the Variational AutoEncoder and returns it. Uses parameters from the config file.
+    Builds model 1 of the VAE.
     """
-    # Get the input shape that the Encoder layer expects
-    input_shape = config.getlist('autoencoder', 'input_shape', type=int)
-
-    # Get the dimensionality of the embedding space
-    latent_dim = config.getint('autoencoder', 'nembedding_dims')
-
-    # Get the optimizer
-    optimizer = config.getstr('autoencoder', 'optimizer')
-
-    # Get the loss function
-    loss = config.getstr('autoencoder', 'loss')
-
-    # Get TensorBoard directory
-    tbdir = config.getstr('autoencoder', 'tbdir')
-    assert os.path.isdir(tbdir) or tbdir.lower() == "none", "{} is not a valid directory. Please fix tbdir in 'autoencoder' section of config file.".format(tbdir)
-
-    # Remove anything in the tbdir already
-    if tbdir is not None:
-        shutil.rmtree(tbdir)  # Remove the directory and everything in it
-        os.mkdir(tbdir)       # Remake the directory
-
     # Encoder model
     inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
     x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
@@ -439,6 +420,44 @@ def _build_vae(config):
                                                 encoder=encoder, decoder=decoder, inputlayer=inputs,
                                                 decoderinputlayer=decoderinputs, tbdir=tbdir)
     return autoencoder
+
+def _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir):
+    """
+    Builds model 2 of the VAE.
+    """
+    raise NotImplementedError("This VAE architecture is not yet implemented.")
+
+def _build_vae(config):
+    """
+    Builds the Variational AutoEncoder and returns it. Uses parameters from the config file.
+    """
+    # Get the input shape that the Encoder layer expects
+    input_shape = config.getlist('autoencoder', 'input_shape', type=int)
+
+    # Get the dimensionality of the embedding space
+    latent_dim = config.getint('autoencoder', 'nembedding_dims')
+
+    # Get the optimizer
+    optimizer = config.getstr('autoencoder', 'optimizer')
+
+    # Get the loss function
+    loss = config.getstr('autoencoder', 'loss')
+
+    # Get TensorBoard directory
+    tbdir = config.getstr('autoencoder', 'tbdir')
+    assert os.path.isdir(tbdir) or tbdir.lower() == "none", "{} is not a valid directory. Please fix tbdir in 'autoencoder' section of config file.".format(tbdir)
+
+    # Remove anything in the tbdir already
+    if tbdir is not None:
+        shutil.rmtree(tbdir)  # Remove the directory and everything in it
+        os.mkdir(tbdir)       # Remake the directory
+
+    if input_shape == (241, 20, 1):
+        return _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir)
+    elif input_shape == (161, 6, 1):
+        return _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir)
+    else:
+        raise ValueError("Spectrogram shape must be one of the allowed input shapes for the different VAE models, but is {}".format(input_shape))
 
 def _train_vae(autoencoder, config):
     """
@@ -549,7 +568,6 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
         print("Pretraining the voice synthesizer. Learning to coo...")
         synthmodel.pretrain()
 
-    # -- VAE -- train then run over a suitable sample of audio to save enough embeddings for the prototypes/clustering
     # Train the VAE to a suitable level of accuracy
     autoencoder = _build_vae(config)
     autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
@@ -562,39 +580,17 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
         autoencoder.save_weights(fpath_to_save)
     else:
         logging.info("Attempting to load autoencoder weights from {}".format(autoencoder_weights_fpath))
-        #autoencoder.load_weights(autoencoder_weights_fpath)
+        autoencoder.load_weights(autoencoder_weights_fpath)
 
-    # Now use the VAE on the test split and save the output embedding information along with the input audio file
+    # Now use the VAE on the test split and save pairs of (audiofile, coordinates in embedding space)
     # TODO
 
-    # Load the saved embeddings into a dataset
-    # Run clusterer = sklearn.cluster.MeanShift(bandwidth=None, seeds=None, bin_seeding=False, min_bin_freq=1, cluster_all=True, n_jobs=-1)
-
-    # TODO:
-    #       # Use the trained VAE on ~1,000 (or more?) audio samples, saving each audio sample along with its embedding.
-    #   Mean Shift Cluster - cluster the saved embeddings using sklearn.mean_shift_cluster (or whatever it's called). This will tell us how many clusters.
-    #       # Load the saved embeddings into a dataset
-    #       # Run the SKLearn algorithm over the dataset to determine how many clusters and to get cluster indexes.
-    #   Determine prototypes - Go through and send each embedding into the clusterer to get its cluster index. Take one from each cluster to form a prototype.
-    #       # Determine each saved embedding's cluster index.
-    #       # Take 'quintessential' embeddings from each cluster and save them as prototypes.
-
-
     # Train the motor cortex to produce sounds from these different embeddings
+    # The synthesizer uses the autoencoder to evaluate how close its output is to the target sound
+    # in latent space.
     if train_synth:
-        # TODO: Replace target_sounds with prototypical sounds (or with a lookup table of cluster index to sound file).
+        # TODO: Replace target_sounds with prototypical sounds
         basedir = "/home/max/repos/ArtieInfant/scripts/genes/sounds"
         target_sounds = [os.path.join(basedir, fname) for fname in os.listdir(basedir)]
         ret = motorcortex.train_on_targets(config, synthmodel, target_sounds)
         print("Got", ret, "back")
-
-    #   Inference: Save the trained RL agent and then you can use it to make noises based on cluster index inputs.
-    #   You now have trained this:
-    #   [1]  ->  /a/
-    #   [2]  ->  /g/
-    #   [.]  ->  ..
-    #   [9]  ->  /b/
-    #   [.]  ->  ..
-    #   Which means that you now have a map of phonemes.
-    #   You also have an embedding space that can be sampled from. That sample could then be run through the clusterer to determine
-    #   the index of the sample, which would then determine which sound it was. I'm not sure what this gives you... but it seems like it might be important.

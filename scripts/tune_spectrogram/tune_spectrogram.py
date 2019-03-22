@@ -29,12 +29,12 @@ if __name__ == "__main__":
     nchannels       = 1          # mono
 
     # Spectrogram
-    duration_s      = 0.5        # Duration of each complete spectrogram
-    window_length_s = 0.03       # How long each FFT is
+    duration_s      = 0.10        # Duration of each complete spectrogram
+    window_length_s = 0.020       # How long each FFT is
     overlap         = 0.2        # How much each FFT overlaps with each other one
 
     # Track
-    first_start_s   = 16          # Where in the track should we start grabbing spectrograms?
+    first_start_s   = 7          # Where in the track should we start grabbing spectrograms?
     #################################################################
 
     # Load the audio file into an AudioSegment
@@ -46,9 +46,10 @@ if __name__ == "__main__":
         idx = i - 1
         start_s = idx * duration_s + first_start_s
         frequencies, times, amplitudes = seg.spectrogram(start_s, duration_s, window_length_s=window_length_s, overlap=overlap)
+        print("Fs, ts, amps:", frequencies.shape, times.shape, amplitudes.shape)
 
         # Log the amplitudes to help with contrast
-        amplitudes = 10 * np.log10(amplitudes + 1e-9)
+        #amplitudes = 10 * np.log10(amplitudes + 1e-9)
 
         # Plot into a subplot
         subplotidx = 100 + (nspectrograms * 10) + i

@@ -15,7 +15,7 @@ import senses
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--test", action="store_true", help="Runs the experiment using the test configuration.")
+    parser.add_argument("config", help="The name (not the path) of the config file to use.")
     parser.add_argument("--loglevel", choices=["warn", "info", "debug"], default="debug", help="Log level for debug logging during the experiment.")
     parser.add_argument("--logfile", type=str, default="experimentlog.log", help="Path to the log file to write logs to.")
     parser.add_argument("--preprocess", action="store_true", help="Preprocesses all the data as part of training.")
@@ -30,8 +30,7 @@ if __name__ == "__main__":
     logging.basicConfig(filename=args.logfile, filemode='w', level=loglevel)
 
     # Load the correct config file
-    configname = "testthesis" if args.test else "thesis"
-    config = configuration.load(configname)
+    config = configuration.load(args.config)
 
     # Random seed
     randomseed = config.getint('experiment', 'random-seed')
