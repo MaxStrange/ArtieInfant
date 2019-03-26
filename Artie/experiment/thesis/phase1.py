@@ -536,6 +536,32 @@ def _train_vae(autoencoder, config):
                               validation_data=testgen,
                               validation_steps=nsteps_per_validation)
 
+def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, np.array)]:
+    """
+    Uses the test split as found in the config file to test the autoencoder, and saves
+    its embeddings along with the paths to the targets in a list that is returned.
+
+    Returns a list of tuples of the form (audiofile, embedding coordinates as NP array).
+    """
+    testdir = config.getstr('autoencoder', 'testsplit_root')
+
+    # Load a bunch of spectrograms into a batch
+    assert os.path.isdir(testdir), "'testsplit_root' in 'autoencoder' must be a valid directory, but is {}".format(testdir)
+
+    pathnames = [p for p in os.listdir(testdir) if os.path.splitext(p)[1].lower() == ".png"]
+    paths = [os.path.abspath(os.path.join(testdir, p)) for p in pathnames]
+    specs = [imageio.imread(p) / 255.0 for p in paths]
+    specs = np.expand_dims(np.array(specs), -1)
+
+    logging.info("Found {} spectrograms to feed into the autoencoder at inference time.".format(specs.shape[0]))
+
+    # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
+    # We will only use the means of the distros, not the actual encodings, as the means are simply
+    # what is approximated by the encodings (though with uncertainty - the amount of uncertainty is measured in _logvars)
+    means, _logvars, _encodings = autoencoder._encoder.predict(specs)
+
+    return [tup for tup in zip(paths, means)]
+
 def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=False, train_vae=False, train_synth=False):
     """
     Entry point for Phase 1.
@@ -583,14 +609,13 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
         autoencoder.load_weights(autoencoder_weights_fpath)
 
     # Now use the VAE on the test split and save pairs of (audiofile, coordinates in embedding space)
-    # TODO
+    mimicry_targets = _infer_with_vae(autoencoder, config)
 
     # Train the motor cortex to produce sounds from these different embeddings
     # The synthesizer uses the autoencoder to evaluate how close its output is to the target sound
     # in latent space.
     if train_synth:
-        # TODO: Replace target_sounds with prototypical sounds
-        basedir = "/home/max/repos/ArtieInfant/scripts/genes/sounds"
-        target_sounds = [os.path.join(basedir, fname) for fname in os.listdir(basedir)]
-        ret = motorcortex.train_on_targets(config, synthmodel, target_sounds)
-        print("Got", ret, "back")
+        # TODO: Fix train_on_targets to take whatever type mimicry_targets is
+        # TODO: train_on_targets must take the autoencoder and use it in the genetic algorithm's loss function
+        ret = motorcortex.train_on_targets(config, synthmodel, mimicry_targets, autoencoder)
+        print("Got", ret, "back")  # TODO: Do something useful instead of just printing
