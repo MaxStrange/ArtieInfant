@@ -452,9 +452,9 @@ def _build_vae(config):
         shutil.rmtree(tbdir)  # Remove the directory and everything in it
         os.mkdir(tbdir)       # Remake the directory
 
-    if input_shape == (241, 20, 1):
+    if list(input_shape) == [241, 20, 1]:
         return _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir)
-    elif input_shape == (161, 6, 1):
+    elif list(input_shape) == [161, 6, 1]:
         return _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir)
     else:
         raise ValueError("Spectrogram shape must be one of the allowed input shapes for the different VAE models, but is {}".format(input_shape))
