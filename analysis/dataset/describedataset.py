@@ -7,6 +7,7 @@ import audiosegment as asg
 import datetime
 import math
 import os
+import statistics
 
 class Statistics:
     """
@@ -36,6 +37,8 @@ class Statistics:
         self.enddate = None                 # The datetime of the last recording
         self.avgfilesperday = 0.0           # The average number of recordings per day
         self.stdevfilesperday = 0.0         # The standard deviation of recordings per day
+
+        self.dates_to_nfiles = {}           # A dict of the form {datetime: nfiles on that date}
 
     def add(self, seg: asg.AudioSegment, date: datetime.datetime) -> None:
         """
@@ -78,20 +81,35 @@ class Statistics:
         # File lengths
         self.filelengthsseconds.append(segsecs)
 
+        # Datetime
+        if date in self.dates_to_nfiles:
+            self.dates_to_nfiles[date] += 1
+        else:
+            self.dates_to_nfiles[date] = 0
+
+    def _compute_stdev(self, ls: [float], mean: float) -> float:
+        """
+        Computes the standard deviation of the given list of floats, given
+        its mean. This only really makes sense for Gaussians.
+        """
+        return statistics.pstdev(ls, mu=mean)
+
     def compute(self) -> None:
         """
         Does final computations on the dataset.
         """
-        dates_to_nfiles = {}  # The number of files recorded on a day, for each day
-        self.avgfilesperday = sum([n for n in dates_to_nfiles.values()]) / len(dates_to_nfiles.keys())
+        # Averages
+        self.avgfilesperday = sum([n for n in self.dates_to_nfiles.values()]) / len(self.dates_to_nfiles.keys())
         self.avgfilelengthseconds = self.totalseconds / self.nfiles
         self.avgotherseconds = self.totalotherseconds / self.nfiles
         self.avgsilenceseconds = self.totalsilenceseconds / self.nfiles
         self.avgvoiceseconds = self.totalvoiceseconds / self.nfiles
 
-        self.stdevfilelengthseconds = None
-        self.stdevfilesperday = None
+        # Standard deviations
+        self.stdevfilelengthseconds = self._compute_stdev(self.filelengthsseconds, self.avgfilelengthseconds)
+        self.stdevfilesperday = self._compute_stdev([n for n in self.dates_to_nfiles.values()], self.avgfilesperday)
 
+        # Dates
         sorteddates = sorted(self.datetimes)
         if sorteddates:
             self.startdate = sorteddates[0]
@@ -100,18 +118,47 @@ class Statistics:
             self.startdate = None
             self.enddate = None
 
+    def __str__(self):
+        def printdurations(msg, secs):
+            return "{} {} seconds, {} hours, {} days\n".format(msg, secs, secs / 3600.0, secs / (3600.0 * 24))
+
+        s = "================= DATASET ================\n"
+        s += "N Recordings: {}\n".format(self.nfiles)
+
+        s += printdurations("Total Duration:", self.totalseconds)
+        s += printdurations("Total Silence:", self.totalseconds)
+        s += printdurations("Total Voice:", self.totalvoiceseconds)
+
+        s += printdurations("Average Length of Each Recording:", self.avgfilelengthseconds)
+        s += printdurations("Minimum Recording Length:", self.minfilelengthseconds)
+        s += printdurations("Maximum Recording Length:", self.maxfilelengthseconds)
+        s += printdurations("Standard Deviation of Recording Length:", self.stdevfilelengthseconds)
+
+        s += printdurations("Average Amount of Silence in a Recording:", self.avgsilenceseconds)
+        s += printdurations("Average Amount of Voice in a Recording:", self.avgvoiceseconds)
+        s += printdurations("Average Amount of Non-Silence, Non-Voice Sound in a Recording:", self.avgotherseconds)
+
+        s += "First date: {}\n".format(self.startdate)
+        s += "Last date: {}\n".format(self.enddate)
+
+        s += "Average Number of Recordings Per Day: {}\n".format(self.avgfilesperday)
+        s += "Standard Deviation of Recordings Per Day: {}\n".format(self.stdevfilesperday)
+        s += "==========================================\n"
+        return s
+
     def describe(self) -> None:
         """
         Describes the dataset based on the statistics we have computed.
         Plots and does whatever else. You know.
         """
-        pass
+        print(self)
 
     def save(self, fpath: str) -> None:
         """
         Saves all of our stats to `fpath`.
         """
-        pass
+        with open(fpath, 'w') as f:
+            f.write(self)
 
 def parse_date_from_fname(fname: str) -> datetime.datetime:
     """
