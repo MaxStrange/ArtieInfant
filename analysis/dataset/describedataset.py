@@ -88,7 +88,8 @@ class Statistics:
         if date in self.dates_to_nfiles:
             self.dates_to_nfiles[date] += 1
         else:
-            self.dates_to_nfiles[date] = 0
+            self.dates_to_nfiles[date] = 1
+        self.datetimes.append(date)
 
     def _compute_stdev(self, ls: [float], mean: float) -> float:
         """
@@ -129,8 +130,9 @@ class Statistics:
         s += "N Recordings: {}\n".format(self.nfiles)
 
         s += printdurations("Total Duration:", self.totalseconds)
-        s += printdurations("Total Silence:", self.totalseconds)
+        s += printdurations("Total Silence:", self.totalsilenceseconds)
         s += printdurations("Total Voice:", self.totalvoiceseconds)
+        s += printdurations("Total Other:", self.totalotherseconds)
 
         s += printdurations("Average Length of Each Recording:", self.avgfilelengthseconds)
         s += printdurations("Minimum Recording Length:", self.minfilelengthseconds)
@@ -161,7 +163,7 @@ class Statistics:
         Saves all of our stats to `fpath`.
         """
         with open(fpath, 'w') as f:
-            f.write(self)
+            f.write(str(self))
 
 def parse_date_from_fname(fname: str) -> datetime.datetime:
     """
@@ -188,9 +190,12 @@ if __name__ == "__main__":
             if os.path.splitext(fname)[-1].lower() in (".wav", ".ogg"):
                 fpath = os.path.join(root, fname)
                 print("Loading in {}...".format(fpath))
-                seg = asg.from_file(fpath).resample(channels=1)
-                date = parse_date_from_fname(fname)
-                stats.add(seg, date)
+                try:
+                    seg = asg.from_file(fpath).resample(channels=1)
+                    date = parse_date_from_fname(fname)
+                    stats.add(seg, date)
+                except Exception as e:
+                    print("!! COULD NOT IMPORT {}: {}".format(fname, e))
 
     stats.compute()
     stats.describe()
