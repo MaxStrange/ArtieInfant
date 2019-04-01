@@ -50,24 +50,27 @@ class Statistics:
         self.totalseconds += segsecs
 
         # Silence
-        nonsilence = seg.filter_silence(duration=5.0, threshold_percentage=5.0)
+        nonsilence = seg.filter_silence(duration_s=5.0, threshold_percentage=5.0)
         self.totalsilenceseconds += (len(seg) - len(nonsilence)) / 1000.0
 
         # Voice
-        voices = [s for s in seg.detect_voice() if s[0] == 'v']
+        voices = [s for (v, s) in seg.detect_voice() if v == 'v']
         if len(voices) >= 2:
             voice = voices[0].reduce(voices[1:])
+            voicesecs = len(voice) / 1000.0
         elif len(voices) == 1:
             voice = voices[0]
+            voicesecs = len(voice) / 1000.0
         else:
             voice = None
+            voicesecs = 0.0
 
-        if voice:
-            self.totalvoiceseconds += len(voice) / 1000.0
+        self.totalvoiceseconds += voicesecs
 
         # Other
+        voice_ms = voicesecs * 1000.0
         silence_ms = len(seg) - len(nonsilence)
-        otherseconds = (len(seg) - (len(voice) + silence_ms)) / 1000.0
+        otherseconds = (len(seg) - (voice_ms + silence_ms)) / 1000.0
         if otherseconds > 0.0:
             self.totalotherseconds == otherseconds
 
@@ -164,8 +167,10 @@ def parse_date_from_fname(fname: str) -> datetime.datetime:
     """
     Returns the datetime for the given recording, based on its name.
     """
-    # TODO: See the dataset sorting script you used when importing the data in the first place
-    return ""
+    year = int(fname[:4])
+    month = int(fname[4:6])
+    day = int(fname[6:8])
+    return datetime.datetime(year, month, day)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -183,7 +188,7 @@ if __name__ == "__main__":
             if os.path.splitext(fname)[-1].lower() in (".wav", ".ogg"):
                 fpath = os.path.join(root, fname)
                 print("Loading in {}...".format(fpath))
-                seg = asg.from_file(fpath)
+                seg = asg.from_file(fpath).resample(channels=1)
                 date = parse_date_from_fname(fname)
                 stats.add(seg, date)
 
