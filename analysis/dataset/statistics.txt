@@ -1,0 +1,18 @@
+================= DATASET ================
+N Recordings: 1942
+Total Duration: 3286381.0000000005 seconds, 912.8836111111112 hours, 38.03681712962963 days
+Total Silence: 1921772.7489999996 seconds, 533.825763611111 hours, 22.242740150462957 days
+Total Voice: 280382.7599999999 seconds, 77.88409999999998 hours, 3.245170833333332 days
+Total Other: 0.0 seconds, 0.0 hours, 0.0 days
+Average Length of Each Recording: 1692.2662203913494 seconds, 0.47007395010870817 hours, 0.01958641458786284 days
+Minimum Recording Length: 0.159 seconds, 4.4166666666666665e-05 hours, 1.8402777777777778e-06 days
+Maximum Recording Length: 17092.907 seconds, 4.748029722222222 hours, 0.19783457175925925 days
+Standard Deviation of Recording Length: 1731.9819352281393 seconds, 0.48110609311892755 hours, 0.020046087213288648 days
+Average Amount of Silence in a Recording: 989.5843197734292 seconds, 0.274884533270397 hours, 0.011453522219599875 days
+Average Amount of Voice in a Recording: 144.3783522142121 seconds, 0.04010509783728114 hours, 0.0016710457432200475 days
+Average Amount of Non-Silence, Non-Voice Sound in a Recording: 0.0 seconds, 0.0 hours, 0.0 days
+First date: 2017-06-08 00:00:00
+Last date: 2018-02-24 00:00:00
+Average Number of Recordings Per Day: 8.159663865546218
+Standard Deviation of Recordings Per Day: 4.4210786038553325
+==========================================
