@@ -24,17 +24,17 @@ if __name__ == "__main__":
     # Here are the configurations that you should tune to your liking
     #################################################################
     # Resampling
-    sample_rate_hz  = 16000.0    # 16kHz sample rate
+    sample_rate_hz  = 8000.0    # 16kHz sample rate
     bytewidth       = 2          # 16-bit samples
     nchannels       = 1          # mono
 
     # Spectrogram
-    duration_s      = 0.10        # Duration of each complete spectrogram
+    duration_s      = 0.30        # Duration of each complete spectrogram
     window_length_s = 0.020       # How long each FFT is
     overlap         = 0.2        # How much each FFT overlaps with each other one
 
     # Track
-    first_start_s   = 7          # Where in the track should we start grabbing spectrograms?
+    first_start_s   = 14          # Where in the track should we start grabbing spectrograms?
     #################################################################
 
     # Load the audio file into an AudioSegment

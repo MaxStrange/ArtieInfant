@@ -356,7 +356,7 @@ def _convert_to_images(config):
                     if use_filterbank:
                         # TODO: Apply a bank of filters, then recombine before taking the spectrogram
                         raise NotImplementedError("Filterbank is not currently implemented.")
-                    fs, ts, amps = segment.spectrogram(window_length_s=window_length_s, overlap=overlap)
+                    _fs, _ts, amps = segment.spectrogram(window_length_s=window_length_s, overlap=overlap)
                     #amps = 10.0 * np.log10(amps + 1e-9)  # This seems to make the output array a little harder to see in black/white
                     amps *= 255.0 / np.max(np.abs(amps))
                     amps = amps.astype(np.uint8)
