@@ -3,12 +3,24 @@ This is the phase 1 file.
 
 This file's API consists simply of the function run(), which will run phase 1 of the thesis experiment.
 """
+from experiment.analysis import ae                      # pylint: disable=locally-disabled, import-error
+from experiment.analysis import production              # pylint: disable=locally-disabled, import-error
+from experiment.configuration import ConfigError        # pylint: disable=locally-disabled, import-error
 from internals.motorcortex import motorcortex           # pylint: disable=locally-disabled, import-error
 from internals.vae import vae                           # pylint: disable=locally-disabled, import-error
+from internals.vae import ae as vanilla                 # pylint: disable=locally-disabled, import-error
 from senses.voice_detector import voice_detector as vd  # pylint: disable=locally-disabled, import-error
 from senses.dataproviders import sequence as seq        # pylint: disable=locally-disabled, import-error
 
-from keras.layers import Lambda, Input, Dense, Conv2D, UpSampling2D, MaxPooling2D, Flatten, Reshape, BatchNormalization
+from keras.layers import BatchNormalization
+from keras.layers import Conv2D
+from keras.layers import Dense
+from keras.layers import Flatten
+from keras.layers import Input
+from keras.layers import Lambda
+from keras.layers import Reshape
+from keras.layers import UpSampling2D
+from keras.models import Model
 from keras import backend as K
 from keras import preprocessing
 
@@ -369,63 +381,216 @@ def _convert_to_images(config):
             except Exception as e:
                 logging.warn("Could not convert file {}: {}".format(fpath, e))
 
-
-def _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir):
+def _build_vae1(is_variational, input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_prop, recon_loss_prop, std_loss_prop):
     """
     Builds model 1 of the VAE.
     """
-    # Encoder model
-    inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
-    x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
-    x = BatchNormalization()(x)
-    x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(32, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(32, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
-    x = Flatten()(x)
-    encoder = Dense(128, activation='relu')(x)
+    if is_variational:
+        # Encoder model
+        inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
+        x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = Flatten()(x)
+        encoder = Dense(128, activation='relu')(x)
 
-    # Decoder model
-    decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
-    x = Dense(128, activation='relu')(decoderinputs)
-    x = Reshape(target_shape=(4, 4, 8))(x)
-    x = UpSampling2D((2, 1))(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(8, (3 ,3), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 2))(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(32, (3 ,3), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 1))(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(64, (3 ,3), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 1))(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(128, (3 ,3), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 1))(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(64, (8, 4), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = UpSampling2D((1, 2))(x)
-    x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
-    x = BatchNormalization()(x)
-    x = UpSampling2D((2, 2))(x)
-    decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+        # Decoder model
+        decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
+        x = Dense(128, activation='relu')(decoderinputs)
+        x = Reshape(target_shape=(4, 4, 8))(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(128, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 4), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((1, 2))(x)
+        x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((2, 2))(x)
+        decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
 
-    autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
-                                                encoder=encoder, decoder=decoder, inputlayer=inputs,
-                                                decoderinputlayer=decoderinputs, tbdir=tbdir)
+        autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
+                                                    kl_loss_prop=kl_loss_prop, recon_loss_prop=recon_loss_prop, std_loss_prop=std_loss_prop,
+                                                    encoder=encoder, decoder=decoder, inputlayer=inputs,
+                                                    decoderinputlayer=decoderinputs, tbdir=tbdir)
+    else:
+        inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
+        x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = Flatten()(x)
+        encoder = Dense(128, activation='relu')(x)
+
+        decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
+        x = Dense(128, activation='relu')(decoderinputs)
+        x = Reshape(target_shape=(4, 4, 8))(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(128, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 4), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((1, 2))(x)
+        x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((2, 2))(x)
+        decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+
+        autoencoder = vanilla.AutoEncoder(input_shape, latent_dim, optimizer, loss, encoder, decoder, inputs, decoderinputs)
+
     return autoencoder
 
-def _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir):
+def _build_vae2(is_variational, input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_prop, recon_loss_prop, std_loss_prop):
     """
     Builds model 2 of the VAE.
     """
-    raise NotImplementedError("This VAE architecture is not yet implemented.")
+    if is_variational:
+        # Encoder model
+        inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 81, 18, 1)
+        x = Conv2D(128, (8, 3), strides=(2, 1), activation='relu', padding='valid')(inputs)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (6, 3), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (6, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (4, 4), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (4, 4), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = Flatten()(x)
+        x = BatchNormalization()(x)
+        encoder = Dense(128, activation='relu')(x)
+
+        decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
+        x = Dense(128, activation='relu')(decoderinputs)
+        x = Reshape(target_shape=(4, 4, 8))(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (6, 3), activation='relu', padding='valid')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (6, 3), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (6, 3), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 1), activation='relu', padding='valid')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (8, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(16, (3, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+
+        autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
+                                                    kl_loss_prop=kl_loss_prop, recon_loss_prop=recon_loss_prop, std_loss_prop=std_loss_prop,
+                                                    encoder=encoder, decoder=decoder, inputlayer=inputs,
+                                                    decoderinputlayer=decoderinputs, tbdir=tbdir)
+    else:
+        inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 81, 18, 1)
+        x = Conv2D(128, (8, 3), strides=(2, 1), activation='relu', padding='valid')(inputs)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (6, 3), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (6, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (4, 4), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (4, 4), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = Flatten()(x)
+        x = BatchNormalization()(x)
+        encoder = Dense(128, activation='relu')(x)
+
+        decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
+        x = Dense(128, activation='relu')(decoderinputs)
+        x = Reshape(target_shape=(4, 4, 8))(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (6, 3), activation='relu', padding='valid')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (6, 3), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (6, 3), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 1), activation='relu', padding='valid')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (8, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(16, (3, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+
+        autoencoder = vanilla.AutoEncoder(input_shape, latent_dim, optimizer, loss, encoder, decoder, inputs, decoderinputs)
+
+    return autoencoder
 
 def _build_vae(config):
     """
@@ -440,12 +605,28 @@ def _build_vae(config):
     # Get the optimizer
     optimizer = config.getstr('autoencoder', 'optimizer')
 
-    # Get the loss function
+    # Get the reconstructive loss function
     loss = config.getstr('autoencoder', 'loss')
+
+    # Value between 0 and 1.0 that shows how much of the whole VAE loss function to assign to KL loss
+    kl_loss_proportion = config.getfloat('autoencoder', 'kl_loss_proportion')
+
+    # Value between 0 and 1.0 that shows how much of the whole VAE loss function to assign to reconstructive loss
+    reconstructive_loss_proportion = config.getfloat('autoencoder', 'reconstructive_loss_proportion')
+
+    # Value between 0 and 1.0 that shows how much of the whole VAE loss function to assign to the variance portion
+    std_loss_proportion = config.getfloat('autoencoder', 'std_loss_proportion')
+
+    # Are we variational or vanilla?
+    is_variational = config.getbool('autoencoder', 'is_variational')
 
     # Get TensorBoard directory
     tbdir = config.getstr('autoencoder', 'tbdir')
     assert os.path.isdir(tbdir) or tbdir.lower() == "none", "{} is not a valid directory. Please fix tbdir in 'autoencoder' section of config file.".format(tbdir)
+    # Now create a subdirectory in it
+    experiment_name = config.getstr('experiment', 'name')
+    tbdir = os.path.join(tbdir, experiment_name)
+    os.makedirs(tbdir, exist_ok=True)
 
     # Remove anything in the tbdir already
     if tbdir is not None:
@@ -453,9 +634,9 @@ def _build_vae(config):
         os.mkdir(tbdir)       # Remake the directory
 
     if list(input_shape) == [241, 20, 1]:
-        return _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir)
-    elif list(input_shape) == [161, 6, 1]:
-        return _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir)
+        return _build_vae1(is_variational, input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_proportion, reconstructive_loss_proportion, std_loss_proportion)
+    elif list(input_shape) == [81, 18, 1]:
+        return _build_vae2(is_variational, input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_proportion, reconstructive_loss_proportion, std_loss_proportion)
     else:
         raise ValueError("Spectrogram shape must be one of the allowed input shapes for the different VAE models, but is {}".format(input_shape))
 
@@ -466,6 +647,12 @@ def _train_vae(autoencoder, config):
     # The root of the preprocessed data directory
     root = config.getstr('autoencoder', 'preprocessed_data_root')
     assert os.path.isdir(root), "{} is not a valid path.".format(root)
+
+    # The root of the test split
+    test = config.getstr('autoencoder', 'testsplit_root')
+    if test.endswith("useless_subdirectory") or test.endswith("useless_subdirectory" + os.sep):
+        test = os.path.dirname(test)
+    assert os.path.isdir(test), "{} is not a valid path.".format(test)
 
     # Get whether or not we should visualize during training
     visualize = config.getbool('autoencoder', 'visualize')
@@ -499,9 +686,8 @@ def _train_vae(autoencoder, config):
         callbacks = []
 
     logging.info("Loading images from {}".format(root))
-    validation_fraction = 0.1
-    nsteps_per_validation = steps_per_epoch * validation_fraction
-    imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0, validation_split=validation_fraction)
+    nsteps_per_validation = steps_per_epoch
+    imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
     print("Creating datagen...")
     datagen = imreader.flow_from_directory(root,
                                             target_size=imshapes,
@@ -511,10 +697,10 @@ def _train_vae(autoencoder, config):
                                             batch_size=batchsize,
                                             shuffle=True,
                                             save_to_dir=None,
-                                            save_format='png',
-                                            subset="training")
+                                            save_format='png')
     print("Creating testgen...")
-    testgen = imreader.flow_from_directory(root,
+    testreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
+    testgen = testreader.flow_from_directory(test,#root,
                                             target_size=imshapes,
                                             color_mode='grayscale',
                                             classes=None,
@@ -522,8 +708,7 @@ def _train_vae(autoencoder, config):
                                             batch_size=batchsize,
                                             shuffle=True,
                                             save_to_dir=None,
-                                            save_format='png',
-                                            subset="validation")
+                                            save_format='png')
     print("Training...")
     autoencoder.fit_generator(datagen,
                               batchsize,
@@ -536,33 +721,90 @@ def _train_vae(autoencoder, config):
                               validation_data=testgen,
                               validation_steps=nsteps_per_validation)
 
-def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, np.array)]:
+def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, str, np.array)]:
     """
-    Uses the test split as found in the config file to test the autoencoder, and saves
-    its embeddings along with the paths to the targets in a list that is returned.
-
-    Returns a list of tuples of the form (audiofile, embedding coordinates as NP array).
+    Returns a list of tuples of the form (spectrogram_fpath, audiofile_fpath, embedding coordinates as NP array).
     """
-    testdir = config.getstr('autoencoder', 'testsplit_root')
+    if autoencoder is None:
+        raise NotImplementedError("Currently, we need an autoencoder here.")
 
-    # Load a bunch of spectrograms into a batch
-    assert os.path.isdir(testdir), "'testsplit_root' in 'autoencoder' must be a valid directory, but is {}".format(testdir)
+    try:
+        # Try interpreting this configuration as an int - if so, that's the number of random
+        # targets drawn from the test split
+        print("Finding all the images in the test split...")
+        testdir = config.getstr('autoencoder', 'testsplit_root')
+        pathnames = [p for p in os.listdir(testdir) if os.path.splitext(p)[1].lower() == ".png"]
+        paths = [os.path.abspath(os.path.join(testdir, p)) for p in pathnames]
 
-    pathnames = [p for p in os.listdir(testdir) if os.path.splitext(p)[1].lower() == ".png"]
-    paths = [os.path.abspath(os.path.join(testdir, p)) for p in pathnames]
-    specs = [imageio.imread(p) / 255.0 for p in paths]
+        # Draw n random items from the test split as our targets
+        nitems_to_mimic = config.getint('synthesizer', 'mimicry-targets')
+        mimicry_targets = [random.choice(paths) for _ in range(nitems_to_mimic)]
+    except ConfigError:
+        # Other possibility is that the configuration item is a list of file paths to target
+        mimicry_targets = config.getlist('synthesizer', 'mimicry-targets')
+
+    print("Reading in all the images...")
+    specs = [imageio.imread(p) / 255.0 for p in mimicry_targets]
     specs = np.expand_dims(np.array(specs), -1)
 
     logging.info("Found {} spectrograms to feed into the autoencoder at inference time.".format(specs.shape[0]))
 
-    # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
-    # We will only use the means of the distros, not the actual encodings, as the means are simply
-    # what is approximated by the encodings (though with uncertainty - the amount of uncertainty is measured in _logvars)
-    means, _logvars, _encodings = autoencoder._encoder.predict(specs)
+    print("Predicting on each image in the mimicry list...")
+    if isinstance(autoencoder, vae.VariationalAutoEncoder):
+        # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
+        # We will only use the means of the distros, not the actual encodings, as the means are simply
+        # what is approximated by the encodings (though with uncertainty - the amount of uncertainty is measured in _logvars)
+        means, _logvars, _encodings = autoencoder._encoder.predict(specs)
+    else:
+        # The encoder only outputs embeddings. But these are functionally the same as means for our purposes.
+        means = autoencoder._encoder.predict(specs)
 
-    return [tup for tup in zip(paths, means)]
+    # We have a list of .png files. But we want the WAVs that they correspond to. Let's find them.
+    pngs_and_means = [tup for tup in zip(mimicry_targets, means)]
+    folder = config.getstr('preprocessing', 'folder_to_save_wavs')  # This is where we saved the corresponding wav files
+    fpaths_and_means = [(p, ae.convert_spectpath_to_audiofpath(folder, p), embedding) for p, embedding in pngs_and_means]
+    if len(fpaths_and_means) < 10:
+        logging.info("mimicry targets:\n{}".format(fpaths_and_means))
+    else:
+        logging.info("Too many mimicry targets to list. Have: {}".format(len(fpaths_and_means)))
 
-def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=False, train_vae=False, train_synth=False):
+    return fpaths_and_means
+
+def _train_or_load_autoencoder(train_vae: bool, config) -> vae.VariationalAutoEncoder:
+    """
+    If `train_vae` is `True`, we use the config file to determine stuff and train a VAE.
+    If it is `False`, we attempt to use the config to load an already trained VAE.
+    If we cannot find one, we return None and issue a warning over logging.
+    """
+    # Build the right autoencoder model
+    autoencoder = _build_vae(config)
+
+    if train_vae:
+        name = config.getstr('experiment', 'name')
+        ae_savedir = config.getstr('autoencoder', 'weights_path')
+        ae_savefpath = os.path.join(ae_savedir, name)
+        fpath_to_save = "{}.h5".format(ae_savefpath)
+
+        # Train the autoencoder
+        logging.info("Training the autoencoder. Models will be saved to: {}".format(fpath_to_save))
+        _train_vae(autoencoder, config)
+
+        # Save the model's weights
+        autoencoder.save_weights(fpath_to_save)
+    else:
+        try:
+            # Load the weights into the constructed autoencoder model
+            autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
+            logging.info("Attempting to load autoencoder weights from {}".format(autoencoder_weights_fpath))
+            autoencoder.load_weights(autoencoder_weights_fpath)
+        except OSError:
+            # Couldn't find a model and we weren't told to train one. Hopefully user knows what they're doing
+            logging.warn("Could not find any autoencoder.")
+            autoencoder = None
+
+    return autoencoder
+
+def run(config, savedir, preprocess=False, preprocess_part_two=False, pretrain_synth=False, train_vae=False, train_synth=False):
     """
     Entry point for Phase 1.
 
@@ -585,37 +827,33 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
 
     # Convert the preprocessed audio files into spectrograms and save them as image files
     if preprocess_part_two:
-        print("Converting all preprocessed sound files into spectrograms and saving them as images...")
+        print("Converting all preprocessed sound files into spectrograms and saving them as images. This will take the rest of forever...")
         _convert_to_images(config)
 
     # Pretrain the voice synthesizer to make non-specific noise
-    synthmodel = motorcortex.SynthModel(config)
     if pretrain_synth:
         print("Pretraining the voice synthesizer. Learning to coo...")
+        synthmodel = motorcortex.SynthModel(config)
         synthmodel.pretrain()
-
-    # Train the VAE to a suitable level of accuracy
-    autoencoder = _build_vae(config)
-    autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
-    if train_vae:
-        print("Training the variational autoencoder to embed the spectrograms into a two dimensional probabilistic embedding...")
-        timestamp = datetime.datetime.now().strftime("date-%Y-%m-%d-time-%H-%M")
-        fpath_to_save = "{}_{}.h5".format(autoencoder_weights_fpath, timestamp)
-        logging.info("Training the autoencoder. Models will be saved to: {}".format(fpath_to_save))
-        _train_vae(autoencoder, config)
-        autoencoder.save_weights(fpath_to_save)
+        production.analyze_pretrained_model(config, synthmodel.phase0_artifacts_dir, savedir, "pretraining", synthmodel)
     else:
-        logging.info("Attempting to load autoencoder weights from {}".format(autoencoder_weights_fpath))
-        autoencoder.load_weights(autoencoder_weights_fpath)
+        synthmodel = None
 
-    # Now use the VAE on the test split and save pairs of (audiofile, coordinates in embedding space)
-    mimicry_targets = _infer_with_vae(autoencoder, config)
+    # Get a trained autoencoder
+    autoencoder = _train_or_load_autoencoder(train_vae, config)
+    if train_vae:
+        print("Analyzing the autoencoder...")
+        ae.analyze(config, autoencoder, savedir)
 
     # Train the motor cortex to produce sounds from these different embeddings
     # The synthesizer uses the autoencoder to evaluate how close its output is to the target sound
     # in latent space.
     if train_synth:
-        # TODO: Fix train_on_targets to take whatever type mimicry_targets is
-        # TODO: train_on_targets must take the autoencoder and use it in the genetic algorithm's loss function
-        ret = motorcortex.train_on_targets(config, synthmodel, mimicry_targets, autoencoder)
-        print("Got", ret, "back")  # TODO: Do something useful instead of just printing
+        # Now use the VAE on the test split and save pairs of (audiofile, coordinates in embedding space)
+        mimicry_targets = _infer_with_vae(autoencoder, config)
+
+        if synthmodel is None:
+            synthmodel = motorcortex.SynthModel(config)
+
+        trained_synth_models = motorcortex.train_on_targets(config, synthmodel, mimicry_targets, autoencoder)
+        production.analyze_models(config, trained_synth_models, savedir, [target[1] for target in mimicry_targets])

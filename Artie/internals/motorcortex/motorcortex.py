@@ -5,13 +5,18 @@ import audiosegment as asg
 import collections
 import copy
 import experiment.configuration as configuration # pylint: disable=locally-disabled, import-error
+import imageio
 import itertools
 import logging
 import numpy as np
 import os
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
 import pandas
+import pickle
 import primordialooze as po
+import random
+import tempfile
+import traceback
 
 class SynthModel:
     """
@@ -36,6 +41,13 @@ class SynthModel:
         self._narticulators = len(self._allowed_values.keys())
         self._articulation_duration_ms = config.getfloat('synthesizer', 'phoneme-durations-ms')
         self._nworkers = config.getint('synthesizer', 'nworkers-phase0')
+        experimentname = config.getstr('experiment', 'name')
+
+        # Get spectrogram information
+        self.seconds_per_spectrogram = config.getfloat('preprocessing', 'seconds_per_spectrogram')
+        self.window_length_s = config.getfloat('preprocessing', 'spectrogram_window_length_s')
+        self.overlap = config.getfloat('preprocessing', 'spectrogram_window_overlap')
+        self.resample_to_hz = config.getfloat('preprocessing','spectrogram_sample_rate_hz')
 
         # Get parameters for Phase 0
         self._nagents_phase0 = config.getint('synthesizer', 'nagents-phase0')
@@ -44,12 +56,23 @@ class SynthModel:
         self._fraction_top_selection_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase0')
         self._fraction_mutate_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase0')
         self._anneal_after_phase0 = config.getbool('synthesizer', 'anneal-after-phase0')
+        phase0_artifacts_dir = config.getstr('synthesizer', 'pretraining-output-directory')
+        self.phase0_artifacts_dir = os.path.join(phase0_artifacts_dir, experimentname)
+
+        crossoverfunc_phase0 = config.getstr('synthesizer', 'crossover-function-phase0')
+        if crossoverfunc_phase0 == '2-point':
+            self._phase0_crossover_function = None  # Primordial Ooze defaults to 2-point
+        elif crossoverfunc_phase0.strip().lower() != "none":
+            raise ValueError("crossover-function-phase0 must be either '2-point' or 'None', but is {}".format(crossoverfunc_phase0))
 
         # Get parameters for Phase 1
         self._nagents_phase1 = config.getint('synthesizer', 'nagents-phase1')
         self._fraction_top_selection_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase1')
         self._fraction_mutate_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase1')
         self._anneal_during_phase1 = config.getbool('synthesizer', 'anneal-during-phase1')
+        phase1_artifacts_dir = config.getstr('synthesizer', 'training-output-directory')
+        self.phase1_artifacts_dir = os.path.join(phase1_artifacts_dir, experimentname)
+
         # These can be lists
         try:
             self._phase1_niterations = config.getlist('synthesizer', 'niterations-phase1', type=int)
@@ -65,6 +88,12 @@ class SynthModel:
                 raise configuration.ConfigError()
         except configuration.ConfigError:
             self._phase1_fitness_target = config.getstr('synthesizer', 'fitness-target-phase1')
+
+        crossoverfunc_phase1 = config.getstr('synthesizer', 'crossover-function-phase1')
+        if crossoverfunc_phase1 == '2-point':
+            self._phase1_crossover_function = None  # Primordial Ooze defaults to 2-point
+        elif crossoverfunc_phase1.strip().lower() != "none":
+            raise ValueError("crossover-function-phase1 must be either '2-point' or 'None', but is {}".format(crossoverfunc_phase1))
 
         # Validate the fractions
         if self._fraction_mutate_phase0 < 0.0 or self._fraction_mutate_phase0 > 1.0:
@@ -157,6 +186,11 @@ class SynthModel:
         self._population_index = 0
         self.best_agents_phase0 = None
         self.best_agents_phase1 = None
+        self._phase1_population = None
+
+        # Create the save directories if they don't exist
+        os.makedirs(self.phase0_artifacts_dir, exist_ok=True)
+        os.makedirs(self.phase1_artifacts_dir, exist_ok=True)
 
     def _zero_limits(self, articulator_mask):
         """
@@ -206,7 +240,7 @@ class SynthModel:
         best, value = sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
         self.best_agents_phase0 = list(sim.best_agents)
 
-        self._summarize_results(best, value, sim, "Phase0OutputSound.wav")
+        self._summarize_results(best, value, sim, "Phase0OutputSound.wav", is_phase0=True)
 
         # Save the population, since we will use this population as the seed for the next phase
         self._phase0_population = np.copy(sim._agents)
@@ -237,34 +271,77 @@ class SynthModel:
             self._allowed_lows = np.reshape(lows, (-1,))
             self._allowed_highs = np.reshape(highs, (-1,))
 
-    def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath):
-        # Create the fitness function for phase 1
-        fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target)
+    def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath, fitness_function_name, target_coords, autoencoder, seedfunc=None):
+        if fitness_function_name.lower().strip() == 'xcor':
+            # Create the fitness function for phase 1
+            nworkers = self._nworkers
+            fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators,
+                                                                  self._articulation_duration_ms,
+                                                                  self._articulation_time_points_ms,
+                                                                  target)
+        elif fitness_function_name.lower().strip() == 'euclid':
+            nworkers = 0  # Can't parallelize this fitness function.... I know it says you can
+            fitnessfunction = ParallelizableFitnessFunctionDistance(self._narticulators,
+                                                                    self._articulation_duration_ms,
+                                                                    self._articulation_time_points_ms,
+                                                                    target_coords,
+                                                                    autoencoder,
+                                                                    self.seconds_per_spectrogram,
+                                                                    self.window_length_s,
+                                                                    self.overlap,
+                                                                    self.resample_to_hz)
+        elif fitness_function_name.lower().strip() == 'random':
+            nworkers = self._nworkers
+            fitnessfunction = ParallelizableFitnessFunctionRandom()
+        else:
+            raise ValueError("'fitness_function_name' is {}, but must be an allowed value.".format(fitness_function_name))
+
+        if seedfunc is None:
+            seedfunc = self._phase1_seed_function
+        elif not callable(seedfunc):
+            raise ValueError("'seedfunc' must be callable. Is: {}".format(seedfunc))
 
         # Create the simulation and run it
         sim = po.Simulation(self._nagents_phase1, self._agentshape, fitnessfunction,
-                            seedfunc=self._phase1_seed_function,
+                            seedfunc=seedfunc,
                             selectionfunc=self._phase1_selection_function,
-                            crossoverfunc=None,  # Use default 2-point crossover function from library
+                            crossoverfunc=self._phase1_crossover_function,
                             mutationfunc=self._phase1_mutation_function,
                             elitismfunc=None,
-                            nworkers=self._nworkers,
+                            nworkers=nworkers,
                             max_agents_per_generation=self._nagents_phase1,
                             min_agents_per_generation=self._nagents_phase1)
         best, value = sim.run(niterations=niterations, fitness=fitness_target)
         self.best_agents_phase1 = list(sim.best_agents)
+        self._phase1_population = np.copy(sim._agents)
 
         self._summarize_results(best, value, sim, savefpath)
 
         return best
 
-    def train(self, target, savefpath=None):
+    def save(self, fpath):
+        """
+        Serializes the model into the given `fpath`. To load, call this module's `load` function.
+        """
+        with open(fpath, 'wb') as f:
+            pickle.dump(self, f)
+
+    def train(self, target, savefpath=None, fitness_function_name='xcor', target_coords=None, autoencoder=None):
         """
         Trains the model to mimic the given `target`, which should be an AudioSegment.
 
         If `savefpath` is not None, we will save the sound that corresponds to the best agent at this location
         as a WAV file.
+
+        If fitness_function_name is 'euclid', we use 1/euclidean distance between target_coords and
+        the embedding location as determined by encoding each item using the autoencoder as the fitness function.
+
+        If fitness_function_name is 'xcor', we use the cross correlation and ignore `target_coords` and `autoencoder`.
+
+        If fitness_function_name is 'random', we simply return a random number in the interval [0, 100] for each agent.
         """
+        self.target = target.name
+
         if self._anneal_during_phase1:
             masks_in_order = [
                 synth.jaw_articulator_mask,
@@ -304,10 +381,18 @@ class SynthModel:
                 except TypeError:
                     fitnesstarget = self._phase1_fitness_target
 
+                # Our seed function needs to pick up where we left off
+                if maskidx == 0:
+                    # Just use the normal phase1 seed function
+                    seedfunc = None
+                else:
+                    # Use the special annealing seed function, which will pick up where we left off
+                    seedfunc = Phase1AnnealingSeedFunction(np.copy(self._phase1_population))
+
                 # Now run the simulation normally
                 if savefpath is not None:
                     fpath = os.path.splitext(savefpath)[0] + "_" + str(maskidx) + ".wav"
-                best = self._run_phase1_simulation(target, niterations, fitnesstarget, fpath)
+                best = self._run_phase1_simulation(target, niterations, fitnesstarget, fpath, fitness_function_name, target_coords, autoencoder, seedfunc=seedfunc)
 
                 # Add this latest mask to the list of masks that we should anneal
                 annealed_masks.extend(mask)
@@ -331,9 +416,9 @@ class SynthModel:
                 self._allowed_highs = np.reshape(highs, (-1))
         else:
             # Run a normal simulation
-            self._run_phase1_simulation(target, self._phase1_niterations, self._phase1_fitness_target, savefpath)
+            self._run_phase1_simulation(target, self._phase1_niterations, self._phase1_fitness_target, savefpath, fitness_function_name, target_coords, autoencoder)
 
-    def _summarize_results(self, best, value, sim, soundfpath):
+    def _summarize_results(self, best, value, sim, soundfpath, is_phase0=False):
         """
         Summarize `best` agent and `value`, which is its fitness.
         """
@@ -346,6 +431,10 @@ class SynthModel:
 
         if soundfpath:
             # Make a sound from this agent and save it for human consumption
+            if is_phase0:
+                soundfpath = os.path.join(self.phase0_artifacts_dir, soundfpath)
+            else:
+                soundfpath = os.path.join(self.phase1_artifacts_dir, soundfpath)
             seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
             seg.export(soundfpath, format="WAV")
             sim.dump_history_csv(os.path.splitext(soundfpath)[0] + ".csv")
@@ -373,7 +462,6 @@ class SynthModel:
                 self._population_index = 0
 
             # Clip to allowed values
-            #agent = np.random.normal(agent, 0.05)  # Used to add noise, trying it without. Remove if you find this later.
             agent = np.clip(agent, self._allowed_lows, self._allowed_highs)
 
             return agent
@@ -402,7 +490,13 @@ class SynthModel:
 
     def _phase0_crossover_function(self, agents):
         """
-        For now, does nothing. Genetic variation is introduced solely by mutation.
+        Do nothing. This behavior is specified by the config file.
+        """
+        return agents
+
+    def _phase1_crossover_function(self, agents):
+        """
+        Do nothing. This behavior is specified by the config file.
         """
         return agents
 
@@ -497,41 +591,152 @@ class ParallelizableFitnessFunctionPhase1:
         # This is the place at which the waves match each other best
         return max(xcor)
 
-def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, targetfpaths: [str]) -> [SynthModel]:
+class ParallelizableFitnessFunctionRandom:
     """
-    Trains a new SynthModel for each target in `targetfpaths`. Returns the trained
-    SynthModels.
+    A parallelizable fitness function to test the correlation of fitness function with
+    actually getting any better at saying the target.
+    """
+    def __init__(self):
+        pass
 
-    TODO: This function should not return a list of SynthModels eventually. Instead,
-    it should return a single object (of some as of yet, undecided class) that should
-    contain the best agent from each SynthModel. SynthModels are massive objects,
-    and returning a list of them is crazy when all we really want is a single numpy
-    array from each one.
+    def __call__(self, agent):
+        """
+        Just returns a uniform random number between 0 and 100 every time.
+        """
+        return random.randint(0, 100)
 
-    TODO: targetfpaths should be changed to a lookup table of cluster-index -> soundfpath.
+class ParallelizableFitnessFunctionDistance:
+    def __init__(self, narticulators, duration_ms, time_points_ms, target_coords, autoencoder,
+                    seconds_per_spectrogram, window_length_s, overlap, resample_to_hz):
+        """
+        :param narticulators: How many articulators?
+        :param duration_ms: The total ms of articulation we should create from each agent.
+        :param time_points_ms: The time points (in ms) at which to change the values of each articulator.
+        :param prototype_sound: AudioSegment of the prototypical sound for this index.
+        :param target_coords: The target coordinates
+        :param autoencoder: A trained autoencoder
+        """
+        self.narticulators = narticulators
+        self.duration_ms = duration_ms
+        self.time_points_ms = time_points_ms
+        self.ntimepoints = len(time_points_ms)
+        self.target_coords = target_coords
+        self.autoencoder = autoencoder
+        self.seconds_per_spectrogram = seconds_per_spectrogram
+        self.window_length_s = window_length_s
+        self.overlap = overlap
+        self.resample_to_hz = resample_to_hz
+
+    def __call__(self, agent):
+        """
+        This fitness function evaluates an agent on how well it matches the prototype sound.
+        """
+        synthmat = np.reshape(agent, (self.narticulators, self.ntimepoints))
+        seg = synth.make_seg_from_synthmat(synthmat, self.duration_ms / 1000.0, [tp / 1000.0 for tp in self.time_points_ms])
+
+        if int(len(seg) / 1000) != int(self.seconds_per_spectrogram):
+            raise ValueError("The segments that the synthesizer is set up to create are not the right length. They are {} seconds, but need to be {} seconds.".format(len(seg) / 1000, self.seconds_per_spectrogram))
+
+        # Convert the segment to a spectrogram for input to the autoencoder
+        seg = seg.resample(sample_rate_Hz=self.resample_to_hz)
+        _fs, _ts, amps = seg.spectrogram(window_length_s=self.window_length_s, overlap=self.overlap)
+
+        # Do the exact same steps as you did when preprocessing the spectrograms and then
+        # feeding them into the vae in the first place
+        amps *= 255.0 / np.max(np.abs(amps))
+        amps = amps.astype(np.uint8)
+        amps = amps.astype(np.float32)
+        amps /= 255.0
+
+        amps = np.expand_dims(np.array(amps), -1)  # Give it a "color" channel
+        amps = np.expand_dims(np.array(amps), 0)   # Give it a batch channel
+
+        # Now get the location of this spectrogram in the latent space by feeding it into the encoder
+        try:
+            # Try a variational one
+            mean, _logvars, _encodings = self.autoencoder._encoder.predict(amps)
+        except ValueError:
+            # We have a vanilla autoencoder
+            mean = self.autoencoder._encoder.predict(amps)
+
+        # Return the fitness
+        return 1.0 / (np.linalg.norm(mean - self.target_coords) + 1e-9)
+
+def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, mimicry_targets: [(str, str, np.ndarray)], autoencoder) -> None:
+    """
+    Trains a new SynthModel for some number of targets in `mimicry_targets`.
+
+    Does this by using whatever fitness function is specified in the config file.
+    If the config file specifies cross correlation, then the autoencoder is not used,
+    and instead the candidate sounds are compared against the target sound directly.
+    If the config file specifies that we should use the embedding space, then candidate
+    sounds are fed into the encoder and their locations in latent space are used -
+    specifically, we try to minimize the distance between the candidate's location in
+    latent space and the target's location in latent space.
+
+    :param config: The configuration file for the experiment
+    :param pretrained_model: A (potentially pretrained) synthesis model.
+    :param mimicry_targets: A list of tuples of the form (spectrogramfpath, audiofpath, coordinates-in-latent-space)
+    :param autoencoder: An autoencoder to use in the fitness function for evaluating the location of candidate
+                        sounds in latent space.
+    :returns: A list of trained models
     """
     # Get some configurations
     sample_rate_hz = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
     sample_width = config.getint('preprocessing', 'bytewidth')
     nchannels = config.getint('preprocessing', 'nchannels')
+    fitness_function_name = config.getstr('synthesizer', 'fitness-function')
 
-    # This is what we will return (after training them of course)
+    if fitness_function_name.lower() not in ('xcor', 'euclid', 'random'):
+        raise ValueError("Fitness function must be one of 'xcor', 'euclid', or 'random', but is {}".format(fitness_function_name))
+
+    # We are going to try to train several synthesizers
     trained_models = []
+    logging.info("Attempting to train synthesizers for each of the following {} items: {}".format(len(mimicry_targets), mimicry_targets))
 
     # Now train the models
-    for fpath in targetfpaths:
-        savefpath = os.path.basename(fpath) + ".synthmimic.wav"
+    for specfpath, audiofpath, target_coords in mimicry_targets:
+        # We will save a file to this name in a directory specified by the config file
+        savefpath = os.path.basename(audiofpath) + ".synthmimic.wav"
+
         # Since it takes so long to train each of these, it would be a real shame
         # if something lame like a non-existent file crashed us after we trained
         # several. Let's just log any errors and move on.
         try:
-            print("Training the model to mimic {} and saving to: {}".format(fpath, savefpath))
+            msg = "Training the model to mimic {} and saving to: {}".format(audiofpath, savefpath)
+            print(msg)
+            logging.info(msg)
 
-            seg = asg.from_file(fpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
+            # Get the appropriate audiosegment
+            seg = asg.from_file(audiofpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
+
+            # Make a deep copy of the pretrained model
             copymodel = copy.deepcopy(pretrained_model)
-            copymodel.train(seg, savefpath=savefpath)
+
+            # Train the new copy
+            copymodel.train(seg, savefpath=savefpath, fitness_function_name=fitness_function_name, target_coords=target_coords, autoencoder=autoencoder)
+
+            # Add it to the list of trained models
             trained_models.append(copymodel)
-        except Exception as e:
-            print("Something went wrong with target found at {}. Specifically: {}.".format(fpath, e))
+        except Exception:
+            print("Something went wrong with target found at {} (spec: {}). Specifically:.".format(audiofpath, specfpath))
+            traceback.print_exc()
 
     return trained_models
+
+def load(fpath):
+    """
+    Deserializes an object created from `SynthModel.save()` into a SynthModel object.
+    """
+    with open(fpath, 'rb') as f:
+        return pickle.load(f)
+
+class Phase1AnnealingSeedFunction:
+    def __init__(self, population):
+        self._index = 0
+        self._pop = population
+
+    def __call__(self):
+        agent = self._pop[self._index,:]
+        self._index += 1
+        return agent

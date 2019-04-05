@@ -89,48 +89,105 @@ def cnn_ae(input_shape):
     """
     Returns a CNN autoencoder model.
     """
+    # Version 2.0
     inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
     x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
     x = BatchNormalization()(x)
     x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
     x = BatchNormalization()(x)
-    x = Conv2D(32, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+    x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
     x = BatchNormalization()(x)
-    x = Conv2D(32, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
+    x = Conv2D(64, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
     x = BatchNormalization()(x)
-    x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+    x = Conv2D(32, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
     x = BatchNormalization()(x)
-    x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+    x = Conv2D(32, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(16, (2, 2), strides=(1, 1), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(8, (2, 2), strides=(1, 1), activation='relu', padding='valid')(x)
     x = Flatten()(x)
     x = Dense(32, activation='relu')(x)
     x = Dense(128, activation='relu')(x)
     x = Reshape(target_shape=(4, 4, 8))(x)
     x = UpSampling2D((2, 1))(x)
     x = BatchNormalization()(x)
-    x = Conv2D(8, (3 ,3), activation='relu', padding='same')(x)
+    x = Conv2D(16, (4 ,3), activation='relu', padding='same')(x)
     x = UpSampling2D((2, 2))(x)
     x = BatchNormalization()(x)
-    x = Conv2D(32, (3 ,3), activation='relu', padding='same')(x)
+    x = Conv2D(32, (6 ,3), activation='relu', padding='same')(x)
     x = UpSampling2D((2, 1))(x)
     x = BatchNormalization()(x)
-    x = Conv2D(64, (3 ,3), activation='relu', padding='same')(x)
+    x = Conv2D(64, (8 ,2), activation='relu', padding='same')(x)
     x = UpSampling2D((2, 1))(x)
     x = BatchNormalization()(x)
-    x = Conv2D(128, (3 ,3), activation='relu', padding='same')(x)
+    x = Conv2D(128, (8 ,2), activation='relu', padding='same')(x)
     x = UpSampling2D((2, 1))(x)
     x = BatchNormalization()(x)
-    x = Conv2D(64, (8, 4), activation='relu', padding='valid')(x)
+    x = Conv2D(128, (8, 2), activation='relu', padding='valid')(x)
     x = BatchNormalization()(x)
     x = UpSampling2D((1, 2))(x)
+    x = Conv2D(64, (8, 2), activation='relu', padding='same')(x)
+    x = BatchNormalization()(x)
+    x = UpSampling2D((2, 3))(x)
+    x = Conv2D(64, (8, 2), strides=(1, 2), activation='relu', padding='same')(x)
+    x = BatchNormalization()(x)
     x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
     x = BatchNormalization()(x)
-    x = UpSampling2D((2, 2))(x)
-    x = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+    x = Conv2D(16, (8, 2), activation='relu', padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(8, (8, 2), activation='relu', padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(1, (2, 2), activation='relu', padding='valid')(x)
 
     m = Model(inputs=inputs, outputs=x)
     m.summary()
 
     return m
+
+    # Version 1.5
+    #inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
+    #x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
+    #x = BatchNormalization()(x)
+    #x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+    #x = BatchNormalization()(x)
+    #x = Conv2D(32, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+    #x = BatchNormalization()(x)
+    #x = Conv2D(32, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
+    #x = BatchNormalization()(x)
+    #x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+    #x = BatchNormalization()(x)
+    #x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+    #x = Flatten()(x)
+    #x = Dense(32, activation='relu')(x)
+    #x = Dense(128, activation='relu')(x)
+    #x = Reshape(target_shape=(4, 4, 8))(x)
+    #x = UpSampling2D((2, 1))(x)
+    #x = BatchNormalization()(x)
+    #x = Conv2D(8, (3 ,3), activation='relu', padding='same')(x)
+    #x = UpSampling2D((2, 2))(x)
+    #x = BatchNormalization()(x)
+    #x = Conv2D(32, (3 ,3), activation='relu', padding='same')(x)
+    #x = UpSampling2D((2, 1))(x)
+    #x = BatchNormalization()(x)
+    #x = Conv2D(64, (3 ,3), activation='relu', padding='same')(x)
+    #x = UpSampling2D((2, 1))(x)
+    #x = BatchNormalization()(x)
+    #x = Conv2D(128, (3 ,3), activation='relu', padding='same')(x)
+    #x = UpSampling2D((2, 1))(x)
+    #x = BatchNormalization()(x)
+    #x = Conv2D(64, (8, 4), activation='relu', padding='valid')(x)
+    #x = BatchNormalization()(x)
+    #x = UpSampling2D((1, 2))(x)
+    #x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
+    #x = BatchNormalization()(x)
+    #x = UpSampling2D((2, 2))(x)
+    #x = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+
+    #m = Model(inputs=inputs, outputs=x)
+    #m.summary()
+
+    #return m
 
 def load_data(datadir, maxnum=2000):
     """
@@ -175,20 +232,22 @@ if __name__ == "__main__":
 
     if convolutional:
         x_train = np.expand_dims(x_train, -1)  # Add channel image
-        x_train = x_train / 255.0
+        x_train = 10.0 * np.log10(x_train + 1e-9)  # apply some gain
+        maxval = np.amax(x_train)
+        x_train = x_train / maxval
         if args.vae:
             latentdim = 2
             ae = cnn_vae(x_train[0].shape, latentdim, args.optimizer, args.loss, args.tbdir)
         else:
             ae = cnn_ae(x_train[0].shape)
             ae.compile(args.optimizer, loss=args.loss)
-        ae.fit(x_train, x_train, epochs=args.nepochs, batch_size=args.batchsize)
     else:
         x_train = np.reshape(x_train, (-1, imlength))
         x_train = np.expand_dims(x_train[0,:], 0)
         ae = vanilla_ae(imlength)
         ae.compile('adadelta', loss='mse')
-        ae.fit(x_train, x_train, epochs=200, batch_size=4)
+
+    ae.fit(x_train, x_train, epochs=args.nepochs, batch_size=args.batchsize)
 
     if args.vae:
         ae.save_weights("models/VAE.h5")
@@ -196,7 +255,7 @@ if __name__ == "__main__":
     for i in range(min(5, x_train.shape[0])):
         if args.vae:
             outputs = ae.encode_decode(np.expand_dims(x_train[i,:], 0))
-            outputs *= 255.0
+            outputs *= maxval
         else:
             outputs = ae.predict(np.expand_dims(x_train[i,:], 0))
         inputs = np.reshape(x_train[i,:], imshape)

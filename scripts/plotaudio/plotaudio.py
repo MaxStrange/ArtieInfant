@@ -11,11 +11,20 @@ import numpy as np
 #################################################
 #### These are the parameters I have been using #
 #################################################
-sample_rate_hz  = 16000.0    # 16kHz sample rate
+# ---- for long spectrograms ------
+#sample_rate_hz  = 16000.0    # 16kHz sample rate
+#bytewidth       = 2          # 16-bit samples
+#nchannels       = 1          # mono
+#duration_s      = 0.5        # Duration of each complete spectrogram
+#window_length_s = 0.03       # How long each FFT is
+#overlap         = 0.2        # How much each FFT overlaps with each other one
+
+# ---- for short spectrograms ------
+sample_rate_hz  = 8000.0    # 8kHz sample rate
 bytewidth       = 2          # 16-bit samples
 nchannels       = 1          # mono
-duration_s      = 0.5        # Duration of each complete spectrogram
-window_length_s = 0.03       # How long each FFT is
+duration_s      = 0.3        # Duration of each complete spectrogram
+window_length_s = 0.02       # How long each FFT is
 overlap         = 0.2        # How much each FFT overlaps with each other one
 #################################################
 
@@ -35,7 +44,11 @@ if __name__ == "__main__":
     print("  -> Human audible?", seg.human_audible())
 
     plt.title("Raw Values")
-    plt.plot(seg.to_numpy_array())
+    arr = seg.to_numpy_array()
+    times = np.linspace(0, len(arr) / seg.frame_rate, num=len(arr))
+    plt.plot(times, seg.to_numpy_array())
+    plt.xlabel("Time (s)")
+    plt.ylabel("PCM")
     plt.show()
 
     plt.title("Histogram")
@@ -48,5 +61,8 @@ if __name__ == "__main__":
 
     plt.title("Spectrogram")
     fs, ts, amps = seg.spectrogram(0, duration_s, window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
+    #amps = 10.0 * np.log10(amps)
     plt.pcolormesh(ts, fs, amps)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Hz")
     plt.show()
