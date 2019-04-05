@@ -100,9 +100,13 @@ class VariationalAutoEncoder:
             https://github.com/keras-team/keras/issues/10137
             """
             reconstruction_loss = self._build_loss(loss, flattened_input_shape)
-            kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
-#            vae_loss = K.mean((reconstruction_loss * 1.00) + (kl_loss * 1.00))
-            vae_loss = K.mean(reconstruction_loss + K.sum(z_log_var ** 2, axis=-1))
+            if use_kl:
+                kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
+            else:
+                kl_loss = 0
+
+            vae_loss = K.mean((reconstruction_loss * 1.00) + (kl_loss * 1.00))
+#            vae_loss = K.mean(reconstruction_loss + K.sum(z_log_var ** 2, axis=-1))
 
             return vae_loss
 
