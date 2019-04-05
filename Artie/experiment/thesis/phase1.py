@@ -370,7 +370,7 @@ def _convert_to_images(config):
                 logging.warn("Could not convert file {}: {}".format(fpath, e))
 
 
-def _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir, use_kl):
+def _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_prop, recon_loss_prop, std_loss_prop):
     """
     Builds model 1 of the VAE.
     """
@@ -417,12 +417,12 @@ def _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir, use_kl):
     decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
 
     autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
-                                                use_kl=use_kl,
+                                                kl_loss_prop=kl_loss_prop, recon_loss_prop=recon_loss_prop, std_loss_prop=std_loss_prop,
                                                 encoder=encoder, decoder=decoder, inputlayer=inputs,
                                                 decoderinputlayer=decoderinputs, tbdir=tbdir)
     return autoencoder
 
-def _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir, use_kl):
+def _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_prop, recon_loss_prop, std_loss_prop):
     """
     Builds model 2 of the VAE.
     """
@@ -447,6 +447,15 @@ def _build_vae(config):
     # Get whether we want to use the KL divergence as part of this VAE
     use_kl = config.getstr('autoencoder', 'use_kl')
 
+    # Value between 0 and 1.0 that shows how much of the whole VAE loss function to assign to KL loss
+    kl_loss_proportion = config.getfloat('autoencoder', 'kl_loss_proportion')
+
+    # Value between 0 and 1.0 that shows how much of the whole VAE loss function to assign to reconstructive loss
+    reconstructive_loss_proportion = config.getfloat('autoencoder', 'reconstructive_loss_proportion')
+
+    # Value between 0 and 1.0 that shows how much of the whole VAE loss function to assign to the variance portion
+    std_loss_proportion = config.getfloat('autoencoder', 'std_loss_proportion')
+
     # Get TensorBoard directory
     tbdir = config.getstr('autoencoder', 'tbdir')
     assert os.path.isdir(tbdir) or tbdir.lower() == "none", "{} is not a valid directory. Please fix tbdir in 'autoencoder' section of config file.".format(tbdir)
@@ -457,9 +466,9 @@ def _build_vae(config):
         os.mkdir(tbdir)       # Remake the directory
 
     if list(input_shape) == [241, 20, 1]:
-        return _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir, use_kl)
+        return _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_proportion, reconstructive_loss_proportion,std_loss_proportion)
     elif list(input_shape) == [81, 18, 1]:
-        return _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir, use_kl)
+        return _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_proportion, reconstructive_loss_proportion,std_loss_proportion)
     else:
         raise ValueError("Spectrogram shape must be one of the allowed input shapes for the different VAE models, but is {}".format(input_shape))
 

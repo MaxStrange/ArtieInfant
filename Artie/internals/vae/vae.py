@@ -58,14 +58,18 @@ class VariationalAutoEncoder:
     that conforms to a normal distribution.
     """
     def __init__(self, input_shape, latent_dim, optimizer, loss, *,
-                        use_kl=True, encoder=None, decoder=None, inputlayer=None,
+                        kl_loss_prop=0.5, recon_loss_prop=0.5, std_loss_prop=0.0, encoder=None, decoder=None, inputlayer=None,
                         decoderinputlayer=None, save_intermediate_models=False, tbdir=None):
         """
         :param input_shape:                 (tuple) The shape of the input data.
         :param latent_dim:                  (int) The dimensionality of the latent vector space.
         :param optimizer:                   String representation of the optimizer.
         :param loss:                        String representation of the loss function.
-        :param use_kl:                      If `True`, we will use the KL divergence as part of the loss function.
+        :param kl_loss_prop:                Value between 0 and 1.0 that shows how much of the whole VAE loss function to assign to KL loss
+        :param recon_loss_prop:             Value between 0 and 1.0 that shows how much of the whole VAE loss function to
+                                            assign to reconstructive loss
+        :param std_loss_prop:               Value between 0 and 1.0 that shows how much of the whole VAE loss function
+                                            to assign to the variance portion
         :param encoder:                     The encoder layer. This must be the result of a sequence of Keras functional calls.
                                             You will also need to pass in the encoder's inputlayer.
                                             If None provided, we use a reasonable default for the MNIST dataset.
@@ -100,13 +104,8 @@ class VariationalAutoEncoder:
             https://github.com/keras-team/keras/issues/10137
             """
             reconstruction_loss = self._build_loss(loss, flattened_input_shape)
-            if use_kl:
-                kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
-            else:
-                kl_loss = 0
-
-            vae_loss = K.mean((reconstruction_loss * 1.00) + (kl_loss * 1.00))
-#            vae_loss = K.mean(reconstruction_loss + K.sum(z_log_var ** 2, axis=-1))
+            kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
+            vae_loss = K.mean((reconstruction_loss * recon_loss_prop) + (kl_loss * kl_loss_prop) + ((z_log_var ** 2) * std_loss_prop))
 
             return vae_loss
 
