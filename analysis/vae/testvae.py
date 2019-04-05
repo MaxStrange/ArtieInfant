@@ -3,6 +3,7 @@ Load the given spectrogram model and test it on an input image, showing the imag
 
 Also shows a sampling from latent space.
 """
+import argparse
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,32 +30,34 @@ def plot_stats_of_embeddings_for_wav_file(audiofpath):
     # Compute embeddings from the encoder portion for each spectrogram
     raise NotImplementedError("Future Self! remember to do this!")
 
-if __name__ == "__main__":
-    if len(sys.argv) not in [3, 4]:
-        print("USAGE: <path to model> <path to spectrogram image> [path to audiofile]")
+def _validate_args(args):
+    """
+    Exits after printing a helpful error message if any of the args don't make sense.
+    """
+    if not os.path.isfile(args.model):
+        print("{} is not a valid file. Need a valid trained VAE weights file.".format(args.model))
         exit(1)
-    elif not os.path.isfile(sys.argv[1]):
-        print("{} is not a valid file. Need a path to a trained VAE.".format(sys.argv[1]))
-        exit(2)
-    elif not os.path.isfile(sys.argv[2]):
-        print("{} is not a valid file. Need a path to a preprocessed spectrogram.".format(sys.argv[2]))
-        exit(3)
-    elif len(sys.argv) == 4 and not os.path.isfile(sys.argv[3]):
-        print("{} is not a valid file. Need a path to a raw audio file.".format(sys.argv[3]))
+    if args.image:
+        for ipath in args.image:
+            if not os.path.isfile(ipath):
+                print("{} is not a valid path to a spectrogram.".format(ipath))
+                exit(2)
+    if args.topo:
+        low, high = args.topo
+        if low >= high:
+            print("Low ({}) must be less than high ({})".format(low, high))
+            exit(3)
 
-    # Load the configuration
-    configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
-    config = configuration.load(None, fpath=configfpath)
+def _plot_input_output_spectrograms(ipath, autoencoder):
+    """
+    Loads `ipath` into a spectrogram and then runs it through
+    `autoencoder`. Plots the input on the left and the output
+    on the right.
 
-    # Random seed
-    np.random.seed(643662)
-
-    # Load the VAE
-    autoencoder = p1._build_vae(config)
-    autoencoder.load_weights(sys.argv[1])
-
-    # Load the spectrogram
-    spec = imageio.imread(sys.argv[2])
+    Returns the shape of the spectrograms so other functions
+    don't have to figure it out.
+    """
+    spec = imageio.imread(ipath)
     spec = spec / 255.0  # ImageDataGenerator rescale factor of 1.0/255.0
     assert len(spec.shape) == 2, "Shape of spectrogram before encode/decode is {}. Expected (nrows, ncols)".format(spec)
 
@@ -69,43 +72,104 @@ if __name__ == "__main__":
     ts = [t for t in range(0, spec.shape[1])]
 
     # Display before and after
-    plt.title("Before (left) and After (right)")
+    plt.title("Before (left) and After (right) for {}".format(os.path.basename(ipath)))
     plt.subplot(121)
     plt.pcolormesh(ts, fs, spec)
     plt.subplot(122)
     plt.pcolormesh(ts, fs, decoded_spec)
+    name = os.path.splitext(os.path.basename(ipath))[0]
+    plt.savefig("spectrogram_{}.png".format(name))
     plt.show()
 
-    # Take a few samples from latent space and see what we get
-    nlatentdims = config.getint('autoencoder', 'nembedding_dims')
-    nsamples = 4
-    for subpltidx in range(1, nsamples + 1):
-        z = [autoencoder.sample()]  # Take z from the normal distribution
-        sample = np.reshape(autoencoder.predict([z]), spec.shape)
-        plt.subplot(100 + (nsamples * 10) + subpltidx)
-        plt.title("From Normal Dist")
-        plt.pcolormesh(ts, fs, sample * 255.0)
+    return spec.shape
+
+def _plot_samples_from_latent_space(autoencoder, shape):
+    """
+    Samples embeddings from latent space and decodes them. Then plots them.
+
+    `shape` is the shape of the spectrogram that we will be getting out of
+    the decoder.
+    """
+    # Make up some bogus frequencies and times
+    fs = [f for f in range(0, shape[0])]
+    ts = [t for t in range(0, shape[1])]
+
+    # List of distros to sample from (mu, sigma)
+    # Change this to suit your needs
+    distros = [
+        ((3.7, -3.7), (1.2, 0.4)),
+        ((2.8, -2.8), (1.0, 0.3)),
+        ((2.3, -2.0), (2.0, 1.5)),
+        ((5.0, -1.0), (4.0, 0.5)),
+    ]
+
+    # Go through each distro and sample from it several times
+    # Decode the samples
+    nsamples = 6
+    for j, (mu, sigma) in enumerate(distros):
+        for i in range(1, nsamples):
+            z = [autoencoder.sample_from_gaussian(mu, sigma)]
+            sample = np.reshape(autoencoder.predict([z]), shape)
+            plt.subplot(len(distros), nsamples, i + (j * nsamples))
+            plt.title("({:.2f},{:.2f})".format(z[0][0], z[0][1]))
+            plt.pcolormesh(ts, fs, sample * 255.0)
+    # Plot everything
     plt.show()
+
+def _plot_topographic_swathe(autoencoder, shape, low, high):
+    """
+    Plot a topographic swathe; square from low to high in x and y.
+    Only works if we have a 2D embedding space (in 3D we would need a cube,
+    and beyond that is impossible to visualize intuitively).
+    """
+    n = 8
+    grid_x = np.linspace(low, high, n)
+    grid_y = np.linspace(low, high, n)[::-1]
+
+    # Make up some bogus frequencies and times
+    fs = [f for f in range(0, shape[0])]
+    ts = [t for t in range(0, shape[1])]
+
+    k = 1
+    for yi in grid_y:
+        for xi in grid_x:
+            z_sample = np.array([[xi, yi]])
+            x_decoded = autoencoder.predict(z_sample) * 255.0
+            sample = np.reshape(x_decoded, shape)
+            plt.subplot(n, n, k)
+            plt.pcolormesh(ts, fs, sample)
+            k += 1
+    plt.savefig("spectrogram_swathe_{:.1f}_{:.1f}.png".format(low, high))
+    plt.show()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("model", help="Path to VAE model weights for the current architecture")
+    parser.add_argument("-i", "--image", action="append", help="A spectogram image to try to recreate")
+    parser.add_argument("-t", "--topo", nargs=2, type=float, help="(low, high). Show a topographical swathe between low and high.")
+    args = parser.parse_args()
+
+    _validate_args(args)
+
+    # Load the configuration
+    configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
+    config = configuration.load(None, fpath=configfpath)
+
+    # Random seed
+    np.random.seed(643662)
+
+    # Load the VAE
+    autoencoder = p1._build_vae(config)
+    autoencoder.load_weights(sys.argv[1])
+
+    # Load the spectrograms and run the model over them
+    for ipath in args.image:
+        shape = _plot_input_output_spectrograms(ipath, autoencoder)
+
+    # Take a few samples from latent space just to see what we get
+    _plot_samples_from_latent_space(autoencoder, shape)
 
     # If we have a 2D embedding space, let's vary each dimension and plot a grid
-    if nlatentdims == 2:
-        # linearly spaced coordinates corresponding to the 2D plot
-        # of digit classes in the latent space
-        n = 8
-        grid_x = np.linspace(-4, 4, n)
-        grid_y = np.linspace(-4, 4, n)[::-1]
-
-        k = 1
-        for i, yi in enumerate(grid_y):
-            for j, xi in enumerate(grid_x):
-                z_sample = np.array([[xi, yi]])
-                x_decoded = autoencoder.predict(z_sample) * 255.0
-                sample = np.reshape(x_decoded, spec.shape)
-                plt.subplot(n, n, k)
-                plt.pcolormesh(ts, fs, sample)
-                k += 1
-        plt.show()
-
-    if len(sys.argv) == 4:
-        audiofpath = sys.argv[3]
-        plot_stats_of_embeddings_for_wav_file(audiofpath)
+    nlatentdims = config.getint('autoencoder', 'nembedding_dims')
+    if args.topo and nlatentdims == 2:
+        _plot_topographic_swathe(autoencoder, shape, args.topo[0], args.topo[1])
