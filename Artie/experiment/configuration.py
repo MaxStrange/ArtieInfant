@@ -124,24 +124,16 @@ class Configuration:
         self._sanity_check_args(section, value)
         return self.rawconfig[section][value].strip()
 
-def load(experiment_name, fpath=None):
+def load(fpath):
     """
-    Loads the given `fpath` if not None. If None, loads the configuration
-    named '<experiment_name>.cfg' in experiment/configfiles.
+    Loads the given `fpath`.
 
     If we can't find the file, we throw a ValueError.
 
-    :param experiment_name: The name of the experiment. Will be used as part of the file name
-                            if fpath is not specified.
     :param fpath:           If specified, experiment_name is ignored and we try to load the given
                             file into a configuration.
     :returns:               Configuration instance.
     """
-    if fpath is None:
-        ourdir = os.path.dirname(os.path.abspath(__file__))
-        fname = "{}.cfg".format(experiment_name)
-        fpath = os.path.join(ourdir, "configfiles", fname)
-
     if not os.path.isfile(fpath):
         raise ValueError("Could not find {} to load as a config file.".format(fpath))
 

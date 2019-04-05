@@ -57,12 +57,15 @@ class VariationalAutoEncoder:
     is constrained to learning an embedding of the input vectors
     that conforms to a normal distribution.
     """
-    def __init__(self, input_shape, latent_dim, optimizer, loss, encoder=None, decoder=None, inputlayer=None, decoderinputlayer=None, save_intermediate_models=False, tbdir=None):
+    def __init__(self, input_shape, latent_dim, optimizer, loss, *,
+                        use_kl=True, encoder=None, decoder=None, inputlayer=None,
+                        decoderinputlayer=None, save_intermediate_models=False, tbdir=None):
         """
         :param input_shape:                 (tuple) The shape of the input data.
         :param latent_dim:                  (int) The dimensionality of the latent vector space.
         :param optimizer:                   String representation of the optimizer.
         :param loss:                        String representation of the loss function.
+        :param use_kl:                      If `True`, we will use the KL divergence as part of the loss function.
         :param encoder:                     The encoder layer. This must be the result of a sequence of Keras functional calls.
                                             You will also need to pass in the encoder's inputlayer.
                                             If None provided, we use a reasonable default for the MNIST dataset.

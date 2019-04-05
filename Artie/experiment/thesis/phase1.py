@@ -370,7 +370,7 @@ def _convert_to_images(config):
                 logging.warn("Could not convert file {}: {}".format(fpath, e))
 
 
-def _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir):
+def _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir, use_kl):
     """
     Builds model 1 of the VAE.
     """
@@ -417,11 +417,12 @@ def _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir):
     decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
 
     autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
+                                                use_kl=use_kl,
                                                 encoder=encoder, decoder=decoder, inputlayer=inputs,
                                                 decoderinputlayer=decoderinputs, tbdir=tbdir)
     return autoencoder
 
-def _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir):
+def _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir, use_kl):
     """
     Builds model 2 of the VAE.
     """
@@ -440,8 +441,11 @@ def _build_vae(config):
     # Get the optimizer
     optimizer = config.getstr('autoencoder', 'optimizer')
 
-    # Get the loss function
+    # Get the reconstructive loss function
     loss = config.getstr('autoencoder', 'loss')
+
+    # Get whether we want to use the KL divergence as part of this VAE
+    use_kl = config.getstr('autoencoder', 'use_kl')
 
     # Get TensorBoard directory
     tbdir = config.getstr('autoencoder', 'tbdir')
@@ -453,9 +457,9 @@ def _build_vae(config):
         os.mkdir(tbdir)       # Remake the directory
 
     if list(input_shape) == [241, 20, 1]:
-        return _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir)
-    elif list(input_shape) == [161, 6, 1]:
-        return _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir)
+        return _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir, use_kl)
+    elif list(input_shape) == [81, 18, 1]:
+        return _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir, use_kl)
     else:
         raise ValueError("Spectrogram shape must be one of the allowed input shapes for the different VAE models, but is {}".format(input_shape))
 
