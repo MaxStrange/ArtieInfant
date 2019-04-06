@@ -33,7 +33,6 @@ def _analyze_2d_latent_space(autoencoder: vae.VariationalAutoEncoder, training_r
                 special_stdevs = np.exp(0.5 * special_logvars)
             plotvae._plot_variational_latent_space(encodings, special_encodings, "vowels", means, stdevs, special_means, special_stdevs)
 
-
 def analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, nembedding_dims: int, training_root: str, testsplit_root: str, batchsize: int, imshapes: [int], specargs: {}) -> None:
     """
     Analyze the latent space of the given `autoencoder`. This will only work if
@@ -43,10 +42,6 @@ def analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, nembedding_dim
         raise NotImplementedError("Currently can't analyze 1-dimensional embeddings. Implement me!")
     elif nembedding_dims == 2:
         _analyze_2d_latent_space(autoencoder, training_root, testsplit_root, batchsize, imshapes, specargs)
-
-        # Plot test split
-        # Plot split we trained on
-        # Plot both again, but this time with red circles for vowels
     elif nembedding_dims == 3:
         raise NotImplementedError("Currently can't analyze 3-dimensional embeddings. Implement me!")
     else:
