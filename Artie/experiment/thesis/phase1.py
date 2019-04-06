@@ -641,19 +641,30 @@ def _train_or_load_autoencoder(train_vae: bool, config) -> vae.VariationalAutoEn
     If it is `False`, we attempt to use the config to load an already trained VAE.
     If we cannot find one, we return None and issue a warning over logging.
     """
+    # Build the right autoencoder model
     autoencoder = _build_vae(config)
+
+    # Get a path to either save or load weights for the model we just constructed
     autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
+
     if train_vae:
+        # Add timestamp to weights fpath
         timestamp = datetime.datetime.now().strftime("date-%Y-%m-%d-time-%H-%M")
         fpath_to_save = "{}_{}.h5".format(autoencoder_weights_fpath, timestamp)
+
+        # Train the autoencoder
         logging.info("Training the autoencoder. Models will be saved to: {}".format(fpath_to_save))
         _train_vae(autoencoder, config)
+
+        # Save the model's weights
         autoencoder.save_weights(fpath_to_save)
     else:
         try:
+            # Load the weights into the constructed autoencoder model
             logging.info("Attempting to load autoencoder weights from {}".format(autoencoder_weights_fpath))
             autoencoder.load_weights(autoencoder_weights_fpath)
         except FileNotFoundError:
+            # Couldn't find a model and we weren't told to train one. Hopefully user knows what they're doing
             logging.warn("Could not find any autoencoder.")
             autoencoder = None
 
