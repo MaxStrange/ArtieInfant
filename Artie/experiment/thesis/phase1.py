@@ -3,12 +3,21 @@ This is the phase 1 file.
 
 This file's API consists simply of the function run(), which will run phase 1 of the thesis experiment.
 """
+from experiment.analysis import ae                      # pylint: disable=locally-disabled, import-error
+from experiment.analysis import production              # pylint: disable=locally-disabled, import-error
 from internals.motorcortex import motorcortex           # pylint: disable=locally-disabled, import-error
 from internals.vae import vae                           # pylint: disable=locally-disabled, import-error
 from senses.voice_detector import voice_detector as vd  # pylint: disable=locally-disabled, import-error
 from senses.dataproviders import sequence as seq        # pylint: disable=locally-disabled, import-error
 
-from keras.layers import Lambda, Input, Dense, Conv2D, UpSampling2D, MaxPooling2D, Flatten, Reshape, BatchNormalization
+from keras.layers import BatchNormalization
+from keras.layers import Conv2D
+from keras.layers import Dense
+from keras.layers import Flatten
+from keras.layers import Input
+from keras.layers import Lambda
+from keras.layers import Reshape
+from keras.layers import UpSampling2D
 from keras import backend as K
 from keras import preprocessing
 
@@ -428,6 +437,57 @@ def _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_prop, r
     """
     raise NotImplementedError("This VAE architecture is not yet implemented.")
 
+    # TODO
+    # Encoder model
+    inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 81, 18, 1)
+    x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
+    x = BatchNormalization()(x)
+    x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(32, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(32, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+    x = Flatten()(x)
+    encoder = Dense(128, activation='relu')(x)
+
+    # Decoder model
+    decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
+    x = Dense(128, activation='relu')(decoderinputs)
+    x = Reshape(target_shape=(4, 4, 8))(x)
+    x = UpSampling2D((2, 1))(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(8, (3 ,3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 2))(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(32, (3 ,3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 1))(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(64, (3 ,3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 1))(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(128, (3 ,3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 1))(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(64, (8, 4), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
+    x = UpSampling2D((1, 2))(x)
+    x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
+    x = BatchNormalization()(x)
+    x = UpSampling2D((2, 2))(x)
+    decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+
+    autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
+                                                kl_loss_prop=kl_loss_prop, recon_loss_prop=recon_loss_prop, std_loss_prop=std_loss_prop,
+                                                encoder=encoder, decoder=decoder, inputlayer=inputs,
+                                                decoderinputlayer=decoderinputs, tbdir=tbdir)
+    return autoencoder
+
+
+
 def _build_vae(config):
     """
     Builds the Variational AutoEncoder and returns it. Uses parameters from the config file.
@@ -443,9 +503,6 @@ def _build_vae(config):
 
     # Get the reconstructive loss function
     loss = config.getstr('autoencoder', 'loss')
-
-    # Get whether we want to use the KL divergence as part of this VAE
-    use_kl = config.getstr('autoencoder', 'use_kl')
 
     # Value between 0 and 1.0 that shows how much of the whole VAE loss function to assign to KL loss
     kl_loss_proportion = config.getfloat('autoencoder', 'kl_loss_proportion')
@@ -556,6 +613,9 @@ def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, n
 
     Returns a list of tuples of the form (audiofile, embedding coordinates as NP array).
     """
+    if autoencoder is None:
+        raise NotImplementedError("Currently, we need an autoencoder here.")
+
     testdir = config.getstr('autoencoder', 'testsplit_root')
 
     # Load a bunch of spectrograms into a batch
@@ -574,6 +634,30 @@ def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, n
     means, _logvars, _encodings = autoencoder._encoder.predict(specs)
 
     return [tup for tup in zip(paths, means)]
+
+def _train_or_load_autoencoder(train_vae: bool, config) -> vae.VariationalAutoEncoder:
+    """
+    If `train_vae` is `True`, we use the config file to determine stuff and train a VAE.
+    If it is `False`, we attempt to use the config to load an already trained VAE.
+    If we cannot find one, we return None and issue a warning over logging.
+    """
+    autoencoder = _build_vae(config)
+    autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
+    if train_vae:
+        timestamp = datetime.datetime.now().strftime("date-%Y-%m-%d-time-%H-%M")
+        fpath_to_save = "{}_{}.h5".format(autoencoder_weights_fpath, timestamp)
+        logging.info("Training the autoencoder. Models will be saved to: {}".format(fpath_to_save))
+        _train_vae(autoencoder, config)
+        autoencoder.save_weights(fpath_to_save)
+    else:
+        try:
+            logging.info("Attempting to load autoencoder weights from {}".format(autoencoder_weights_fpath))
+            autoencoder.load_weights(autoencoder_weights_fpath)
+        except FileNotFoundError:
+            logging.warn("Could not find any autoencoder.")
+            autoencoder = None
+
+    return autoencoder
 
 def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=False, train_vae=False, train_synth=False):
     """
@@ -598,28 +682,21 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
 
     # Convert the preprocessed audio files into spectrograms and save them as image files
     if preprocess_part_two:
-        print("Converting all preprocessed sound files into spectrograms and saving them as images...")
+        print("Converting all preprocessed sound files into spectrograms and saving them as images. This will take the rest of forever...")
         _convert_to_images(config)
 
     # Pretrain the voice synthesizer to make non-specific noise
-    synthmodel = motorcortex.SynthModel(config)
     if pretrain_synth:
         print("Pretraining the voice synthesizer. Learning to coo...")
+        synthmodel = motorcortex.SynthModel(config)
         synthmodel.pretrain()
-
-    # Train the VAE to a suitable level of accuracy
-    autoencoder = _build_vae(config)
-    autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
-    if train_vae:
-        print("Training the variational autoencoder to embed the spectrograms into a two dimensional probabilistic embedding...")
-        timestamp = datetime.datetime.now().strftime("date-%Y-%m-%d-time-%H-%M")
-        fpath_to_save = "{}_{}.h5".format(autoencoder_weights_fpath, timestamp)
-        logging.info("Training the autoencoder. Models will be saved to: {}".format(fpath_to_save))
-        _train_vae(autoencoder, config)
-        autoencoder.save_weights(fpath_to_save)
     else:
-        logging.info("Attempting to load autoencoder weights from {}".format(autoencoder_weights_fpath))
-        autoencoder.load_weights(autoencoder_weights_fpath)
+        synthmodel = None
+
+    # Get a trained autoencoder
+    autoencoder = _train_or_load_autoencoder(train_vae, config)
+    if train_vae:
+        ae.analyze(config, autoencoder)
 
     # Now use the VAE on the test split and save pairs of (audiofile, coordinates in embedding space)
     mimicry_targets = _infer_with_vae(autoencoder, config)
@@ -628,6 +705,8 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
     # The synthesizer uses the autoencoder to evaluate how close its output is to the target sound
     # in latent space.
     if train_synth:
+        if synthmodel is None:
+            synthmodel = motorcortex.SynthModel(config)
         # TODO: Fix train_on_targets to take whatever type mimicry_targets is
         # TODO: train_on_targets must take the autoencoder and use it in the genetic algorithm's loss function
         ret = motorcortex.train_on_targets(config, synthmodel, mimicry_targets, autoencoder)
