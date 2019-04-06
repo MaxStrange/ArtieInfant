@@ -110,7 +110,7 @@ def _build_the_vae(config, model):
         exit(5)
     return autoencoder
 
-def _predict_on_spectrograms(specdir: str, config: configuration.Configuration, autoencoder: vae.VariationalAutoEncoder):
+def _predict_on_spectrograms(specdir: str, autoencoder: vae.VariationalAutoEncoder, batchsize: int, nworkers: int, imshapes: [int]):
     """
     Returns the values of the spectrogram predictions for each spectrogram found in specdir.
     """
@@ -133,10 +133,6 @@ def _predict_on_spectrograms(specdir: str, config: configuration.Configuration, 
         root = os.path.join(*[os.sep if p == '' else p for p in pathsplit[0:-1]])
 
         # Set up based on config file
-        batchsize = config.getint('autoencoder', 'batchsize')
-        nworkers = config.getint('autoencoder', 'nworkers')
-        imshapes = config.getlist('autoencoder', 'input_shape')[0:2]  # take only the first two dimensions (not channels)
-        imshapes = [int(i) for i in imshapes]  # They are strings in the config file, so convert them to ints
         imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
         print("Creating datagen...")
         datagen = imreader.flow_from_directory(root,
@@ -154,20 +150,14 @@ def _predict_on_spectrograms(specdir: str, config: configuration.Configuration, 
 
     return means, logvars, encodings
 
-def _predict_on_sound_files(fpaths: [str], dpath: str, model: vae.VariationalAutoEncoder):
+def _predict_on_sound_files(fpaths: [str], dpath: str, model: vae.VariationalAutoEncoder,
+    sample_rate_hz=16000.0, bytewidth=2, nchannels=1, duration_s=0.5, window_length_s=0.03, overlap=0.2):
     """
     Run the given model on each file in fpaths and each file in dpath. These are sound files, not spectrograms,
     so they need to be converted to spectrograms first.
 
     If fpaths and dpaths are both None or empty, we return None, None, None.
     """
-    sample_rate_hz  = 16000.0    # 16kHz sample rate
-    bytewidth       = 2          # 16-bit samples
-    nchannels       = 1          # mono
-    duration_s      = 0.5        # Duration of each complete spectrogram
-    window_length_s = 0.03       # How long each FFT is
-    overlap         = 0.2        # How much each FFT overlaps with each other one
-
     if dpath is None:
         dpath = []
     if fpaths is None:
@@ -207,6 +197,35 @@ def _predict_on_sound_files(fpaths: [str], dpath: str, model: vae.VariationalAut
         means, logvars, encodings = None, None, None
     return means, logvars, encodings
 
+def _plot_variational_latent_space(encodings, special_encodings, name, means, stdevs, special_means, special_stdevs):
+    """
+    Does the plotting that all the rest of this file's functions are centered around.
+
+    :param encodings: The embeddings that we will plot in blue.
+    :param special_encodings: Embeddings to plot in red.
+    :param name: Name of the group of the special encodings.
+    :param means: Means of the blues.
+    :param stdevs: STDevs of the blues.
+    :param special_means: Means of the reds.
+    :param special_stdevs: STDevs of the reds.
+    """
+    # Plot where each encoding is
+    plt.title("Scatter Plot of Embeddings")
+    plt.scatter(encodings[:, 0], encodings[:, 1])
+    if special_encodings is not None:
+        plt.scatter(special_encodings[:, 0], special_encodings[:, 1], c='red')
+    plt.savefig("scatter_{}_embeddings_{}.png".format(encodings.shape[0], name))
+    plt.show()
+
+    # Plot the distributions as circles whose means determine location and whose radii are composed
+    # of the standard deviations
+    plt.title("Distributions the Embeddings were drawn From")
+    plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
+    if special_means is not None:
+        plt.scatter(special_means[:, 0], special_means[:, 1], s=np.square(special_stdevs * 10), c='red')
+    plt.savefig("scatter_{}_distros_{}.png".format(encodings.shape[0], name))
+    plt.show()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("model", help="Path to trained VAE model that matches the architecture in ArtieInfant")
@@ -234,7 +253,11 @@ if __name__ == "__main__":
     autoencoder = _build_the_vae(config, args.model)
 
     # Run the batch to get the encodings
-    means, logvars, encodings = _predict_on_spectrograms(args.specdir, config, autoencoder)
+    batchsize = config.getint('autoencoder', 'batchsize')
+    nworkers = config.getint('autoencoder', 'nworkers')
+    imshapes = config.getlist('autoencoder', 'input_shape')[0:2]  # take only the first two dimensions (not channels)
+    imshapes = [int(i) for i in imshapes]  # They are strings in the config file, so convert them to ints
+    means, logvars, encodings = _predict_on_spectrograms(args.specdir, autoencoder, batchsize, nworkers, imshapes)
     stdevs = np.exp(0.5 * logvars)
 
     # If the user specified a directory or a list of files, embed them too. We'll paint them red.
@@ -242,19 +265,4 @@ if __name__ == "__main__":
     if special_logvars is not None:
         special_stdevs = np.exp(0.5 * special_logvars)
 
-    # Plot where each encoding is
-    plt.title("Scatter Plot of Embeddings")
-    plt.scatter(encodings[:, 0], encodings[:, 1])
-    if special_encodings is not None:
-        plt.scatter(special_encodings[:, 0], special_encodings[:, 1], c='red')
-    plt.savefig("scatter_{}_embeddings_{}.png".format(encodings.shape[0], name))
-    plt.show()
-
-    # Plot the distributions as circles whose means determine location and whose radii are composed
-    # of the standard deviations
-    plt.title("Distributions the Embeddings were drawn From")
-    plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
-    if special_means is not None:
-        plt.scatter(special_means[:, 0], special_means[:, 1], s=np.square(special_stdevs * 10), c='red')
-    plt.savefig("scatter_{}_distros_{}.png".format(encodings.shape[0], name))
-    plt.show()
+    _plot_variational_latent_space(encodings, special_encodings, name, means, stdevs, special_means, special_stdevs)
