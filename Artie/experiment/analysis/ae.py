@@ -49,17 +49,19 @@ def analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, nembedding_dim
     else:
         raise ValueError("nembedding_dims must be 1, 2, or 3, but is {}".format(nembedding_dims))
 
-def analyze_reconstruction(autoencoder: vae.VariationalAutoEncoder) -> None:
+def analyze_reconstruction(impaths, autoencoder: vae.VariationalAutoEncoder) -> None:
     """
     Plot an input spectrogram side-by-side with itself after reconstruction
     """
-    raise NotImplementedError
+    for impath in impaths:
+        testvae._plot_input_output_spectrograms(impath, autoencoder)
 
-def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder) -> None:
+def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder, shape: [int], low: float, high: float) -> None:
     """
     If a Variational AE, this samples from latent space and plots a swathe of spectrograms.
     """
-    raise NotImplementedError
+    testvae._plot_samples_from_latent_space(autoencoder, shape)
+    testvae._plot_topographic_swathe(autoencoder, shape, low, high)
 
 def analyze(config, autoencoder: vae.VariationalAutoEncoder) -> None:
     """
@@ -67,6 +69,9 @@ def analyze(config, autoencoder: vae.VariationalAutoEncoder) -> None:
     Saves analysis artifacts in an appropriate place, based again on `config`.
     """
     # Get what we need from the config file
+    swathe_low      = config.getfloat('autoencoder', 'topographic_swathe_low')
+    swathe_high     = config.getfloat('autoencoder', 'topographic_swathe_high')
+    reconspects     = config.getlist('autoencoder', 'spectrograms_to_reconstruct')
     duration_s      = config.getfloat('preprocessing', 'seconds_per_spectrogram')
     window_length_s = config.getfloat('preprocessing', 'spectrogram_window_length_s')
     overlap         = config.getfloat('preprocessing', 'spectrogram_window_overlap')
@@ -95,7 +100,9 @@ def analyze(config, autoencoder: vae.VariationalAutoEncoder) -> None:
     else:
         logging.warn("Cannot do any reasonable latent space visualization for embedding spaces of dimensionality greater than 3.")
 
-    analyze_reconstruction(autoencoder)
+    print("Analyzing reconstruction...")
+    analyze_reconstruction(reconspects, autoencoder)
 
     if isinstance(autoencoder, vae.VariationalAutoEncoder):
-        analyze_variational_sampling(autoencoder)
+        print("Analyzing variational stuff...")
+        analyze_variational_sampling(autoencoder, imshapes, swathe_low, swathe_high)

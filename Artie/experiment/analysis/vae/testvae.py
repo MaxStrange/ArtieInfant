@@ -5,6 +5,7 @@ Also shows a sampling from latent space.
 """
 import argparse
 import imageio
+import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -69,7 +70,13 @@ def _plot_input_output_spectrograms(ipath, autoencoder):
     fs = [f for f in range(0, spec.shape[0])]
     ts = [t for t in range(0, spec.shape[1])]
 
+    # Calculate the MSE of the two
+    reconloss = np.sum(np.square(spec - decoded_spec))
+
     # Display before and after
+    msg = "Reconstructive loss for {}: {}".format(ipath, reconloss)
+    print(msg)
+    logging.info(msg)
     plt.title("Before (left) and After (right) for {}".format(os.path.basename(ipath)))
     plt.subplot(121)
     plt.pcolormesh(ts, fs, spec)

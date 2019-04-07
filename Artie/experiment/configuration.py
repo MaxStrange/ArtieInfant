@@ -106,7 +106,7 @@ class Configuration:
         each item in the list to the given type (which must be a function - like int, float, or list).
         """
         ret = []
-        for item in s.split(' '):
+        for item in s.split():
             if not item:
                 continue
             if type is not None:
