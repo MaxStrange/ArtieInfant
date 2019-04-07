@@ -12,7 +12,7 @@ import sys
 
 sys.path.append(os.path.abspath("../../Artie/experiment"))
 sys.path.append(os.path.abspath("../../Artie"))
-import thesis.phase1 as p1                                      # pylint: disable=locally-disabled, import-error
+import experiment.thesis.phase1 as p1                           # pylint: disable=locally-disabled, import-error
 import experiment.configuration as configuration                # pylint: disable=locally-disabled, import-error
 
 def plot_stats_of_embeddings_for_wav_file(audiofpath):
