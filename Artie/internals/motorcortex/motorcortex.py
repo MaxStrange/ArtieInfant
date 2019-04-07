@@ -239,9 +239,14 @@ class SynthModel:
             self._allowed_lows = np.reshape(lows, (-1,))
             self._allowed_highs = np.reshape(highs, (-1,))
 
-    def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath):
-        # Create the fitness function for phase 1
-        fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target)
+    def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath, fitness_function_name, target_coords, autoencoder):
+        if fitness_function_name.lower().strip() == 'xcorr':
+            # Create the fitness function for phase 1
+            fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target)
+        elif fitness_function_name.lower().strip() == 'euclidean':
+            fitnessfunction = ParallelizableFitnessFunctionDistance(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target_coords, autoencoder)
+        else:
+            raise ValueError("'fitness_function_name' is {}, but must be an allowed value.".format(fitness_function_name))
 
         # Create the simulation and run it
         sim = po.Simulation(self._nagents_phase1, self._agentshape, fitnessfunction,
@@ -260,12 +265,17 @@ class SynthModel:
 
         return best
 
-    def train(self, target, savefpath=None):
+    def train(self, target, savefpath=None, fitness_function_name='xcorr', target_coords=None, autoencoder=None):
         """
         Trains the model to mimic the given `target`, which should be an AudioSegment.
 
         If `savefpath` is not None, we will save the sound that corresponds to the best agent at this location
         as a WAV file.
+
+        If fitness_function_name is 'euclidean', we use 1/euclidean distance between target_coords and
+        the embedding location as determined by encoding each item using the autoencoder as the fitness function.
+
+        If fitness_function is 'xcorr', we use the cross correlation and ignore `target_coords` and `autoencoder`.
         """
         if self._anneal_during_phase1:
             masks_in_order = [
@@ -309,7 +319,7 @@ class SynthModel:
                 # Now run the simulation normally
                 if savefpath is not None:
                     fpath = os.path.splitext(savefpath)[0] + "_" + str(maskidx) + ".wav"
-                best = self._run_phase1_simulation(target, niterations, fitnesstarget, fpath)
+                best = self._run_phase1_simulation(target, niterations, fitnesstarget, fpath, fitness_function_name, target_coords, autoencoder)
 
                 # Add this latest mask to the list of masks that we should anneal
                 annealed_masks.extend(mask)
@@ -333,7 +343,7 @@ class SynthModel:
                 self._allowed_highs = np.reshape(highs, (-1))
         else:
             # Run a normal simulation
-            self._run_phase1_simulation(target, self._phase1_niterations, self._phase1_fitness_target, savefpath)
+            self._run_phase1_simulation(target, self._phase1_niterations, self._phase1_fitness_target, savefpath, fitness_function_name, target_coords, autoencoder)
 
     def _summarize_results(self, best, value, sim, soundfpath, is_phase0=False):
         """
@@ -503,30 +513,90 @@ class ParallelizableFitnessFunctionPhase1:
         # This is the place at which the waves match each other best
         return max(xcor)
 
-def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, targetfpaths: [str]) -> [SynthModel]:
+class ParallelizableFitnessFunctionDistance:
+    def __init__(self, narticulators, duration_ms, time_points_ms, prototype_sound, target_coords, autoencoder):
+        """
+        :param narticulators: How many articulators?
+        :param duration_ms: The total ms of articulation we should create from each agent.
+        :param time_points_ms: The time points (in ms) at which to change the values of each articulator.
+        :param prototype_sound: AudioSegment of the prototypical sound for this index.
+        :param target_coords: The target coordinates
+        :param autoencoder: A trained autoencoder
+        """
+        raise NotImplementedError
+        # TODO
+
+        self.narticulators = narticulators
+        self.duration_ms = duration_ms
+        self.time_points_ms = time_points_ms
+        self.ntimepoints = len(time_points_ms)
+
+        # Forward process the target sound so that we don't have to do it every single time we execute
+        target = prototype_sound.to_numpy_array().astype(float)
+        target += abs(min(target))
+        if max(target) != min(target):
+            target /= max(target) - min(target)
+        self._normalized_target = target
+        assert sum(self._normalized_target[self._normalized_target < 0]) == 0
+
+    def __call__(self, agent):
+        """
+        This fitness function evaluates an agent on how well it matches the prototype sound.
+        """
+        synthmat = np.reshape(agent, (self.narticulators, self.ntimepoints))
+        seg = synth.make_seg_from_synthmat(synthmat, self.duration_ms / 1000.0, [tp / 1000.0 for tp in self.time_points_ms])
+
+        # Shift the wave form up by most negative value
+        ours = seg.to_numpy_array().astype(float)
+        most_neg_val = min(ours)
+        ours += abs(most_neg_val)
+        if max(ours) != min(ours):
+            ours /= max(ours) - min(ours)
+
+        assert sum(ours[ours < 0]) == 0
+
+        # Cross correlate with some amount of zero extension
+        xcor = np.correlate(ours, self._normalized_target, mode='full')
+
+        # Find the single maximum value along the xcor vector
+        # This is the place at which the waves match each other best
+        return max(xcor)
+
+
+
+def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, mimicry_targets: [(str, np.ndarray)], autoencoder) -> None:
     """
-    Trains a new SynthModel for each target in `targetfpaths`. Returns the trained
-    SynthModels.
+    Trains a new SynthModel for each target in `mimicry_targets`.
 
-    TODO: This function should not return a list of SynthModels eventually. Instead,
-    it should return a single object (of some as of yet, undecided class) that should
-    contain the best agent from each SynthModel. SynthModels are massive objects,
-    and returning a list of them is crazy when all we really want is a single numpy
-    array from each one.
+    Does this by using whatever fitness function is specified in the config file.
+    If the config file specifies cross correlation, then the autoencoder is not used,
+    and instead the candidate sounds are compared against the target sound directly.
+    If the config file specifies that we should use the embedding space, then candidate
+    sounds are fed into the encoder and their locations in latent space are used -
+    specifically, we try to minimize the distance between the candidate's location in
+    latent space and the target's location in latent space.
 
-    TODO: targetfpaths should be changed to a lookup table of cluster-index -> soundfpath.
+    :param config: The configuration file for the experiment
+    :param pretrained_model: A (potentially pretrained) synthesis model.
+    :param mimicry_targets: A list of tuples of the form (audiosegment, coordinates-in-latent-space)
+    :param autoencoder: An autoencoder to use in the fitness function for evaluating the location of candidate
+                        sounds in latent space.
+    :returns: TODO: Need something that has an 'analyze()' function that we can call.
     """
     # Get some configurations
     sample_rate_hz = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
     sample_width = config.getint('preprocessing', 'bytewidth')
     nchannels = config.getint('preprocessing', 'nchannels')
+    fitness_function_name = config.getstr('synthesizer', 'fitness_function')
 
-    # This is what we will return (after training them of course)
+    # We are going to try to train several synthesizers
     trained_models = []
 
     # Now train the models
-    for fpath in targetfpaths:
+    for fpath, target_coords in mimicry_targets:
+        # We will save a file to this name in a directory specified by the config file
         savefpath = os.path.basename(fpath) + ".synthmimic.wav"
+
         # Since it takes so long to train each of these, it would be a real shame
         # if something lame like a non-existent file crashed us after we trained
         # several. Let's just log any errors and move on.
@@ -535,9 +605,9 @@ def train_on_targets(config: configuration.Configuration, pretrained_model: Synt
 
             seg = asg.from_file(fpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
             copymodel = copy.deepcopy(pretrained_model)
-            copymodel.train(seg, savefpath=savefpath)
+            copymodel.train(seg, savefpath=savefpath, fitness_function_name=fitness_function_name, target_coords=target_coords, autoencoder=autoencoder)
             trained_models.append(copymodel)
         except Exception as e:
             print("Something went wrong with target found at {}. Specifically: {}.".format(fpath, e))
 
-    return trained_models
+    return None  # TODO

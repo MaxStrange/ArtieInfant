@@ -719,7 +719,5 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
     if train_synth:
         if synthmodel is None:
             synthmodel = motorcortex.SynthModel(config)
-        # TODO: Fix train_on_targets to take whatever type mimicry_targets is
-        # TODO: train_on_targets must take the autoencoder and use it in the genetic algorithm's loss function
-        ret = motorcortex.train_on_targets(config, synthmodel, mimicry_targets, autoencoder)
-        print("Got", ret, "back")  # TODO: Do something useful instead of just printing
+        experiment_results = motorcortex.train_on_targets(config, synthmodel, mimicry_targets, autoencoder)
+        experiment_results.analyze()
