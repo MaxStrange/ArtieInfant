@@ -47,7 +47,7 @@ def _validate_args(args):
             print("Low ({}) must be less than high ({})".format(low, high))
             exit(3)
 
-def _plot_input_output_spectrograms(ipath, autoencoder):
+def _plot_input_output_spectrograms(ipath, autoencoder, savedir):
     """
     Loads `ipath` into a spectrogram and then runs it through
     `autoencoder`. Plots the input on the left and the output
@@ -83,12 +83,13 @@ def _plot_input_output_spectrograms(ipath, autoencoder):
     plt.subplot(122)
     plt.pcolormesh(ts, fs, decoded_spec)
     name = os.path.splitext(os.path.basename(ipath))[0]
-    plt.savefig("spectrogram_{}.png".format(name))
+    save = os.path.join(savedir, "spectrogram_{}.png".format(name))
+    plt.savefig(save)
     plt.show()
 
     return spec.shape
 
-def _plot_samples_from_latent_space(autoencoder, shape):
+def _plot_samples_from_latent_space(autoencoder, shape, savedir):
     """
     Samples embeddings from latent space and decodes them. Then plots them.
 
@@ -119,9 +120,10 @@ def _plot_samples_from_latent_space(autoencoder, shape):
             plt.title("({:.2f},{:.2f})".format(z[0][0], z[0][1]))
             plt.pcolormesh(ts, fs, sample * 255.0)
     # Plot everything
+    plt.savefig(os.path.join(savedir, "samples_from_latent_space.png"))
     plt.show()
 
-def _plot_topographic_swathe(autoencoder, shape, low, high):
+def _plot_topographic_swathe(autoencoder, shape, low, high, savedir):
     """
     Plot a topographic swathe; square from low to high in x and y.
     Only works if we have a 2D embedding space (in 3D we would need a cube,
@@ -144,7 +146,7 @@ def _plot_topographic_swathe(autoencoder, shape, low, high):
             plt.subplot(n, n, k)
             plt.pcolormesh(ts, fs, sample)
             k += 1
-    plt.savefig("spectrogram_swathe_{:.1f}_{:.1f}.png".format(low, high))
+    plt.savefig(os.path.join(savedir, "spectrogram_swathe_{:.1f}_{:.1f}.png".format(low, high)))
     plt.show()
 
 if __name__ == "__main__":

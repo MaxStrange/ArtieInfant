@@ -686,6 +686,12 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
     If `train_vae` is True, we will train the variational autoencoder on the preprocessed data.
     If `train_synth` is True, we will train the voice synthesizer to mimic the prototypical proto phonemes.
     """
+    # Make a folder for the analysis results
+    experimentname = config.getstr('experiment', 'name')
+    saveroot = config.getstr('experiment', 'save_root')
+    savedir = os.path.join(saveroot, experimentname)
+    os.mkdir(savedir)
+
     # Potentially preprocess the audio
     if preprocess:
         print("Preprocessing all sounds. This will take close to forever...")
@@ -701,7 +707,7 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
         print("Pretraining the voice synthesizer. Learning to coo...")
         synthmodel = motorcortex.SynthModel(config)
         synthmodel.pretrain()
-        production.analyze_pretrained_model(config, synthmodel.phase0_artifacts_dir)
+        production.analyze_pretrained_model(config, synthmodel.phase0_artifacts_dir, savedir)
     else:
         synthmodel = None
 
@@ -709,7 +715,7 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
     autoencoder = _train_or_load_autoencoder(train_vae, config)
     if train_vae:
         print("Analyzing the autoencoder...")
-        ae.analyze(config, autoencoder)
+        ae.analyze(config, autoencoder, savedir)
 
     # Now use the VAE on the test split and save pairs of (audiofile, coordinates in embedding space)
     mimicry_targets = _infer_with_vae(autoencoder, config)

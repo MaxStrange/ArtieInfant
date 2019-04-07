@@ -2,11 +2,13 @@
 This module contains the external-facing functions for analyzing the
 synthesis stuff.
 """
+import audiosegment as asg
+import os
+
 from experiment.analysis.synthesis import analyze                           # pylint: disable=locally-disabled, import-error
 
-import audiosegment as asg
 
-def analyze_pretrained_model(config, resultsdir: str) -> None:
+def analyze_pretrained_model(config, resultsdir: str, savetodir: str) -> None:
     """
     Makes the plots and whatever other artifacts are needed for
     analysis of a pretrained articulatory synthesis model.
@@ -23,5 +25,11 @@ def analyze_pretrained_model(config, resultsdir: str) -> None:
     # Load them all in and resample them to something reasonable
     orderedsegs = [asg.from_file(fp).resample(16000, 2, 1) for fp in orderedfpaths]
 
+    # Save them in the savetodir
+    for fpath, seg in zip(orderedfpaths, orderedsegs):
+        fname = os.path.basename(fpath)
+        savepath = os.path.join(savetodir, fname)
+        seg.export(savepath, format='WAV')
+
     # Plot each one
-    analyze._analyze(orderedsegs, pngname)
+    analyze._analyze(orderedsegs, pngname, savetodir)

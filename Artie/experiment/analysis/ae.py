@@ -10,7 +10,7 @@ import logging
 import numpy as np
 import os
 
-def _analyze_2d_latent_space(autoencoder: vae.VariationalAutoEncoder, training_root: str, testsplit_root: str, batchsize: int, imshapes: [int], specargs: {}) -> None:
+def _analyze_2d_latent_space(autoencoder: vae.VariationalAutoEncoder, training_root: str, testsplit_root: str, batchsize: int, imshapes: [int], specargs: {}, savedir: str) -> None:
     """
     Analyzes a 2D latent space for an autoencoder.
     """
@@ -26,16 +26,16 @@ def _analyze_2d_latent_space(autoencoder: vae.VariationalAutoEncoder, training_r
             print("Visualizing latent space for {}...".format(directory))
             means, logvars, encodings = plotvae._predict_on_spectrograms(directory, autoencoder, batchsize, nworkers, imshapes)
             stdevs = np.exp(0.5 * logvars)
-            plotvae._plot_variational_latent_space(encodings, None, None, means, stdevs, None, None)
+            plotvae._plot_variational_latent_space(encodings, None, None, means, stdevs, None, None, savedir)
 
             # Plot the latent space of the encoder, but this time with vowels plotted in red
             print("Visualizing vowels in the latent space...")
             special_means, special_logvars, special_encodings = plotvae._predict_on_sound_files(None, voweldir, autoencoder, **specargs)
             if special_logvars is not None:
                 special_stdevs = np.exp(0.5 * special_logvars)
-            plotvae._plot_variational_latent_space(encodings, special_encodings, "vowels", means, stdevs, special_means, special_stdevs)
+            plotvae._plot_variational_latent_space(encodings, special_encodings, "vowels", means, stdevs, special_means, special_stdevs, savedir)
 
-def analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, nembedding_dims: int, training_root: str, testsplit_root: str, batchsize: int, imshapes: [int], specargs: {}) -> None:
+def analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, nembedding_dims: int, training_root: str, testsplit_root: str, batchsize: int, imshapes: [int], specargs: {}, savedir: str) -> None:
     """
     Analyze the latent space of the given `autoencoder`. This will only work if
     `nembedding_dims` is 1, 2, or 3.
@@ -43,7 +43,7 @@ def analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, nembedding_dim
     if nembedding_dims == 1:
         raise NotImplementedError("Currently can't analyze 1-dimensional embeddings. Implement me!")
     elif nembedding_dims == 2:
-        _analyze_2d_latent_space(autoencoder, training_root, testsplit_root, batchsize, imshapes, specargs)
+        _analyze_2d_latent_space(autoencoder, training_root, testsplit_root, batchsize, imshapes, specargs, savedir)
     elif nembedding_dims == 3:
         raise NotImplementedError("Currently can't analyze 3-dimensional embeddings. Implement me!")
     else:
@@ -63,7 +63,7 @@ def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder, shape:
     testvae._plot_samples_from_latent_space(autoencoder, shape)
     testvae._plot_topographic_swathe(autoencoder, shape, low, high)
 
-def analyze(config, autoencoder: vae.VariationalAutoEncoder) -> None:
+def analyze(config, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> None:
     """
     Analyzes the given `autoencoder` according to the `config`.
     Saves analysis artifacts in an appropriate place, based again on `config`.
@@ -96,7 +96,7 @@ def analyze(config, autoencoder: vae.VariationalAutoEncoder) -> None:
     }
 
     if nembedding_dims in (1, 2, 3):
-        analyze_latent_space(autoencoder, nembedding_dims, training_root, testsplit_root, batchsize, imshapes, specargs)
+        analyze_latent_space(autoencoder, nembedding_dims, training_root, testsplit_root, batchsize, imshapes, specargs, savedir)
     else:
         logging.warn("Cannot do any reasonable latent space visualization for embedding spaces of dimensionality greater than 3.")
 

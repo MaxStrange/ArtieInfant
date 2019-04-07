@@ -75,7 +75,7 @@ def _maximize():
     elif backend.lower().startswith("wx"):
         manager.frame.Maximize(True)
 
-def _analyze(segments, targetname):
+def _analyze(segments, targetname, savetodir):
     """
     Plots and saves figures.
     """
@@ -84,7 +84,8 @@ def _analyze(segments, targetname):
         plt.subplot(len(segments), 1, i + 1)
         plt.plot(s.to_numpy_array())
     _maximize()
-    plt.savefig("{}.png".format(targetname))
+    save = os.path.join(savetodir, "{}.png".format(targetname))
+    plt.savefig(save)
     plt.show()
 
 if __name__ == "__main__":
