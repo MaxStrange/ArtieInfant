@@ -701,6 +701,7 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
         print("Pretraining the voice synthesizer. Learning to coo...")
         synthmodel = motorcortex.SynthModel(config)
         synthmodel.pretrain()
+        production.analyze_pretrained_model(config, synthmodel.phase0_artifacts_dir)
     else:
         synthmodel = None
 

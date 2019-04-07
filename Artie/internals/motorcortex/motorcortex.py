@@ -44,12 +44,14 @@ class SynthModel:
         self._fraction_top_selection_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase0')
         self._fraction_mutate_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase0')
         self._anneal_after_phase0 = config.getbool('synthesizer', 'anneal-after-phase0')
+        self.phase0_artifacts_dir = config.getstr('synthesizer', 'pretraining-output-directory')
 
         # Get parameters for Phase 1
         self._nagents_phase1 = config.getint('synthesizer', 'nagents-phase1')
         self._fraction_top_selection_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase1')
         self._fraction_mutate_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase1')
         self._anneal_during_phase1 = config.getbool('synthesizer', 'anneal-during-phase1')
+        self.phase1_artifacts_dir = config.getstr('synthesizer', 'training-output-directory')
         # These can be lists
         try:
             self._phase1_niterations = config.getlist('synthesizer', 'niterations-phase1', type=int)
@@ -206,7 +208,7 @@ class SynthModel:
         best, value = sim.run(niterations=self._phase0_niterations, fitness=self._phase0_fitness_target)
         self.best_agents_phase0 = list(sim.best_agents)
 
-        self._summarize_results(best, value, sim, "Phase0OutputSound.wav")
+        self._summarize_results(best, value, sim, "Phase0OutputSound.wav", is_phase0=True)
 
         # Save the population, since we will use this population as the seed for the next phase
         self._phase0_population = np.copy(sim._agents)
@@ -333,7 +335,7 @@ class SynthModel:
             # Run a normal simulation
             self._run_phase1_simulation(target, self._phase1_niterations, self._phase1_fitness_target, savefpath)
 
-    def _summarize_results(self, best, value, sim, soundfpath):
+    def _summarize_results(self, best, value, sim, soundfpath, is_phase0=False):
         """
         Summarize `best` agent and `value`, which is its fitness.
         """
@@ -346,6 +348,10 @@ class SynthModel:
 
         if soundfpath:
             # Make a sound from this agent and save it for human consumption
+            if is_phase0:
+                soundfpath = os.path.join(self.phase0_artifacts_dir, soundfpath)
+            else:
+                soundfpath = os.path.join(self.phase1_artifacts_dir, soundfpath)
             seg = synth.make_seg_from_synthmat(synthmat, self._articulation_duration_ms / 1000.0, [tp / 1000.0 for tp in self._articulation_time_points_ms])
             seg.export(soundfpath, format="WAV")
             sim.dump_history_csv(os.path.splitext(soundfpath)[0] + ".csv")
