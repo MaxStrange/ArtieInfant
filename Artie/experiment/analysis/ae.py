@@ -23,11 +23,13 @@ def _analyze_2d_latent_space(autoencoder: vae.VariationalAutoEncoder, training_r
         for directory in (training_root, testsplit_root):
             nworkers = 1
             # Plot the latent space of the encoder
+            print("Visualizing latent space for {}...".format(directory))
             means, logvars, encodings = plotvae._predict_on_spectrograms(directory, autoencoder, batchsize, nworkers, imshapes)
             stdevs = np.exp(0.5 * logvars)
             plotvae._plot_variational_latent_space(encodings, None, None, means, stdevs, None, None)
 
             # Plot the latent space of the encoder, but this time with vowels plotted in red
+            print("Visualizing vowels in the latent space...")
             special_means, special_logvars, special_encodings = plotvae._predict_on_sound_files(None, voweldir, autoencoder, **specargs)
             if special_logvars is not None:
                 special_stdevs = np.exp(0.5 * special_logvars)
@@ -67,7 +69,7 @@ def analyze(config, autoencoder: vae.VariationalAutoEncoder) -> None:
     # Get what we need from the config file
     duration_s      = config.getfloat('preprocessing', 'seconds_per_spectrogram')
     window_length_s = config.getfloat('preprocessing', 'spectrogram_window_length_s')
-    overlap         = config.getfloat('preprocessing', 'overlap')
+    overlap         = config.getfloat('preprocessing', 'spectrogram_window_overlap')
     sample_rate_hz  = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
     bytewidth       = config.getint('preprocessing', 'bytewidth')
     nembedding_dims = config.getint('autoencoder', 'nembedding_dims')

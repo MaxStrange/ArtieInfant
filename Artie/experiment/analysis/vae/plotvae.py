@@ -5,6 +5,7 @@ then see what it does with them in its 2D latent space.
 import argparse
 import audiosegment as asg
 import imageio
+import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -116,9 +117,12 @@ def _predict_on_spectrograms(specdir: str, autoencoder: vae.VariationalAutoEncod
     specs = load_spectrograms_from_directory(specdir)
     nspecs = specs.shape[0]
     if nspecs == 0:
-        print("Could not find any spectrograms in {}.".format(specdir))
-        exit(6)
-
+        logging.warn("Could not find any spectrograms in {}. Trying {}/useless_subdirectory as well.".format(specdir, specdir))
+        specs = load_spectrograms_from_directory(os.path.join(specdir, "useless_subdirectory"))
+        nspecs = specs.shape[0]
+        if nspecs == 0:
+            print("Could not find any spectrograms in {} or {}/useless_subdirectory. Cannot predict using them.")
+            return
     try:
         # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
         means, logvars, encodings = autoencoder._encoder.predict(specs)

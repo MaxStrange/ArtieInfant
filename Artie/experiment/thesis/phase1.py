@@ -708,6 +708,7 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
     # Get a trained autoencoder
     autoencoder = _train_or_load_autoencoder(train_vae, config)
     if train_vae:
+        print("Analyzing the autoencoder...")
         ae.analyze(config, autoencoder)
 
     # Now use the VAE on the test split and save pairs of (audiofile, coordinates in embedding space)
