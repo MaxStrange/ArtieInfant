@@ -2,7 +2,7 @@
 This module contains the external-facing functions for analyzing the
 synthesis stuff.
 """
-from synthesis import analyze                           # pylint: disable=locally-disabled, import-error
+from experiment.analysis.synthesis import analyze                           # pylint: disable=locally-disabled, import-error
 
 import audiosegment as asg
 
