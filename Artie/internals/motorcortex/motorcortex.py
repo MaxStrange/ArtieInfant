@@ -5,6 +5,7 @@ import audiosegment as asg
 import collections
 import copy
 import experiment.configuration as configuration # pylint: disable=locally-disabled, import-error
+import imageio
 import itertools
 import logging
 import numpy as np
@@ -12,6 +13,7 @@ import os
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
 import pandas
 import primordialooze as po
+import tempfile
 
 class SynthModel:
     """
@@ -36,6 +38,12 @@ class SynthModel:
         self._narticulators = len(self._allowed_values.keys())
         self._articulation_duration_ms = config.getfloat('synthesizer', 'phoneme-durations-ms')
         self._nworkers = config.getint('synthesizer', 'nworkers-phase0')
+
+        # Get spectrogram information
+        self.seconds_per_spectrogram = config.getfloat('preprocessing', 'seconds_per_spectrogram')
+        self.window_length_s = config.getfloat('preprocessing', 'spectrogram_window_length_s')
+        self.overlap = config.getfloat('preprocessing', 'spectrogram_window_overlap')
+        self.resample_to_hz = config.getfloat('preprocessing','spectrogram_sample_rate_hz')
 
         # Get parameters for Phase 0
         self._nagents_phase0 = config.getint('synthesizer', 'nagents-phase0')
@@ -242,9 +250,20 @@ class SynthModel:
     def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath, fitness_function_name, target_coords, autoencoder):
         if fitness_function_name.lower().strip() == 'xcorr':
             # Create the fitness function for phase 1
-            fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target)
+            fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators,
+                                                                  self._articulation_duration_ms,
+                                                                  self._articulation_time_points_ms,
+                                                                  target)
         elif fitness_function_name.lower().strip() == 'euclidean':
-            fitnessfunction = ParallelizableFitnessFunctionDistance(self._narticulators, self._articulation_duration_ms, self._articulation_time_points_ms, target_coords, autoencoder)
+            fitnessfunction = ParallelizableFitnessFunctionDistance(self._narticulators,
+                                                                    self._articulation_duration_ms,
+                                                                    self._articulation_time_points_ms,
+                                                                    target_coords,
+                                                                    autoencoder,
+                                                                    self.seconds_per_spectrogram,
+                                                                    self.window_length_s,
+                                                                    self.overlap,
+                                                                    self.resample_to_hz)
         else:
             raise ValueError("'fitness_function_name' is {}, but must be an allowed value.".format(fitness_function_name))
 
@@ -514,7 +533,8 @@ class ParallelizableFitnessFunctionPhase1:
         return max(xcor)
 
 class ParallelizableFitnessFunctionDistance:
-    def __init__(self, narticulators, duration_ms, time_points_ms, prototype_sound, target_coords, autoencoder):
+    def __init__(self, narticulators, duration_ms, time_points_ms, target_coords, autoencoder,
+                    seconds_per_spectrogram, window_length_s, overlap, resample_to_hz):
         """
         :param narticulators: How many articulators?
         :param duration_ms: The total ms of articulation we should create from each agent.
@@ -523,21 +543,16 @@ class ParallelizableFitnessFunctionDistance:
         :param target_coords: The target coordinates
         :param autoencoder: A trained autoencoder
         """
-        raise NotImplementedError
-        # TODO
-
         self.narticulators = narticulators
         self.duration_ms = duration_ms
         self.time_points_ms = time_points_ms
         self.ntimepoints = len(time_points_ms)
-
-        # Forward process the target sound so that we don't have to do it every single time we execute
-        target = prototype_sound.to_numpy_array().astype(float)
-        target += abs(min(target))
-        if max(target) != min(target):
-            target /= max(target) - min(target)
-        self._normalized_target = target
-        assert sum(self._normalized_target[self._normalized_target < 0]) == 0
+        self.target_coords = target_coords
+        self.autoencoder = autoencoder
+        self.seconds_per_spectrogram = seconds_per_spectrogram
+        self.window_length_s = window_length_s
+        self.overlap = overlap
+        self.resample_to_hz = resample_to_hz
 
     def __call__(self, agent):
         """
@@ -546,23 +561,22 @@ class ParallelizableFitnessFunctionDistance:
         synthmat = np.reshape(agent, (self.narticulators, self.ntimepoints))
         seg = synth.make_seg_from_synthmat(synthmat, self.duration_ms / 1000.0, [tp / 1000.0 for tp in self.time_points_ms])
 
-        # Shift the wave form up by most negative value
-        ours = seg.to_numpy_array().astype(float)
-        most_neg_val = min(ours)
-        ours += abs(most_neg_val)
-        if max(ours) != min(ours):
-            ours /= max(ours) - min(ours)
+        if int(len(seg) * 1000) != int(self.seconds_per_spectrogram):
+            raise ValueError("The segments that the synthesizer is set up to create are not the right length. They are {} seconds, but need to be {} seconds.".format(len(seg) * 1000, self.seconds_per_spectrogram))
 
-        assert sum(ours[ours < 0]) == 0
+        # Convert the segment to a spectrogram for input to the autoencoder
+        seg = seg.resample(sample_rate_Hz=self.resample_to_hz)
+        _fs, _ts, amps = seg.spectrogram(window_length_s=self.window_length_s, overlap=self.overlap)
+        amps *= 255.0 / np.max(np.abs(amps))
+        amps = amps.astype(np.uint8)
+        with tempfile.TemporaryFile(mode='rwb+') as f:
+            # TODO: We should not do this if it isn't necessary. I just don't know what converting to png does
+            imageio.imwrite(f, amps)
+            spec = imageio.imread(f) / 255.0
+            spec = np.expand_dims(np.array(spec), -1)
+        mean, _logvars, _encodings = self.autoencoder._encoder.predict(spec)
 
-        # Cross correlate with some amount of zero extension
-        xcor = np.correlate(ours, self._normalized_target, mode='full')
-
-        # Find the single maximum value along the xcor vector
-        # This is the place at which the waves match each other best
-        return max(xcor)
-
-
+        return 1.0 / ((mean - self.target_coords) + 1e-9)
 
 def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, mimicry_targets: [(str, np.ndarray)], autoencoder) -> None:
     """
