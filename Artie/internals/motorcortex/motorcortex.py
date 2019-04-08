@@ -272,11 +272,13 @@ class SynthModel:
     def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath, fitness_function_name, target_coords, autoencoder):
         if fitness_function_name.lower().strip() == 'xcor':
             # Create the fitness function for phase 1
+            nworkers = self._nworkers
             fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators,
                                                                   self._articulation_duration_ms,
                                                                   self._articulation_time_points_ms,
                                                                   target)
-        elif fitness_function_name.lower().strip() == 'euclidean':
+        elif fitness_function_name.lower().strip() == 'euclid':
+            nworkers = 0  # Can't parallelize this fitness function.... I know it says you can
             fitnessfunction = ParallelizableFitnessFunctionDistance(self._narticulators,
                                                                     self._articulation_duration_ms,
                                                                     self._articulation_time_points_ms,
@@ -296,7 +298,7 @@ class SynthModel:
                             crossoverfunc=self._phase1_crossover_function,
                             mutationfunc=self._phase1_mutation_function,
                             elitismfunc=None,
-                            nworkers=self._nworkers,
+                            nworkers=nworkers,
                             max_agents_per_generation=self._nagents_phase1,
                             min_agents_per_generation=self._nagents_phase1)
         best, value = sim.run(niterations=niterations, fitness=fitness_target)
@@ -313,7 +315,7 @@ class SynthModel:
         If `savefpath` is not None, we will save the sound that corresponds to the best agent at this location
         as a WAV file.
 
-        If fitness_function_name is 'euclidean', we use 1/euclidean distance between target_coords and
+        If fitness_function_name is 'euclid', we use 1/euclidean distance between target_coords and
         the embedding location as determined by encoding each item using the autoencoder as the fitness function.
 
         If fitness_function is 'xcor', we use the cross correlation and ignore `target_coords` and `autoencoder`.
@@ -591,22 +593,28 @@ class ParallelizableFitnessFunctionDistance:
         synthmat = np.reshape(agent, (self.narticulators, self.ntimepoints))
         seg = synth.make_seg_from_synthmat(synthmat, self.duration_ms / 1000.0, [tp / 1000.0 for tp in self.time_points_ms])
 
-        if int(len(seg) * 1000) != int(self.seconds_per_spectrogram):
-            raise ValueError("The segments that the synthesizer is set up to create are not the right length. They are {} seconds, but need to be {} seconds.".format(len(seg) * 1000, self.seconds_per_spectrogram))
+        if int(len(seg) / 1000) != int(self.seconds_per_spectrogram):
+            raise ValueError("The segments that the synthesizer is set up to create are not the right length. They are {} seconds, but need to be {} seconds.".format(len(seg) / 1000, self.seconds_per_spectrogram))
 
         # Convert the segment to a spectrogram for input to the autoencoder
         seg = seg.resample(sample_rate_Hz=self.resample_to_hz)
         _fs, _ts, amps = seg.spectrogram(window_length_s=self.window_length_s, overlap=self.overlap)
+
+        # Do the exact same steps as you did when preprocessing the spectrograms and then
+        # feeding them into the vae in the first place
         amps *= 255.0 / np.max(np.abs(amps))
         amps = amps.astype(np.uint8)
-        with tempfile.TemporaryFile(mode='rwb+') as f:
-            # TODO: We should not do this if it isn't necessary. I just don't know what converting to png does
-            imageio.imwrite(f, amps)
-            spec = imageio.imread(f) / 255.0
-            spec = np.expand_dims(np.array(spec), -1)
-        mean, _logvars, _encodings = self.autoencoder._encoder.predict(spec)
+        amps = amps.astype(np.float32)
+        amps /= 255.0
 
-        return 1.0 / ((mean - self.target_coords) + 1e-9)
+        amps = np.expand_dims(np.array(amps), -1)  # Give it a "color" channel
+        amps = np.expand_dims(np.array(amps), 0)   # Give it a batch channel
+
+        # Now get the location of this spectrogram in the latent space by feeding it into the encoder
+        mean, _logvars, _encodings = self.autoencoder._encoder.predict(amps)
+
+        # Return the fitness
+        return 1.0 / (np.linalg.norm(mean - self.target_coords) + 1e-9)
 
 def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, mimicry_targets: [(str, str, np.ndarray)], autoencoder) -> None:
     """
