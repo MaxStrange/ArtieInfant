@@ -480,6 +480,8 @@ def _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_prop, r
     x = UpSampling2D((2, 1))(x)
     x = Conv2D(8, (10, 2), strides=(1, 2), activation='relu', padding='valid')(x)
     x = BatchNormalization()(x)
+    x = Conv2D(8, (1, 2), activation='relu', padding='valid')(x)
+    x = BatchNormalization()(x)
     decoder = Conv2D(1, (8, 2), activation='relu', padding='same')(x)
 
     autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
