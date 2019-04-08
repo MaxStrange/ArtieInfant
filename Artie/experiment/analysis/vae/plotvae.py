@@ -199,7 +199,19 @@ def _predict_on_sound_files(fpaths: [str], dpath: str, model: vae.VariationalAut
         means, logvars, encodings = None, None, None
     return means, logvars, encodings
 
-def _plot_variational_latent_space(encodings, special_encodings, name, means, stdevs, special_means, special_stdevs, savedir):
+def _plot_vanilla_latent_space(encodings, special_encodings, name, savedir):
+    """
+    See `_plot_variational_latent_space`.
+    """
+    # Plot where each embedding is
+    plt.title("Scatter Plot of Embeddings")
+    plt.scatter(encodings[:, 0], encodings[:, 1])
+    if special_encodings is not None:
+        plt.scatter(special_encodings[:, 0], special_encodings[:, 1], c='red')
+    plt.savefig(os.path.join(savedir, "scatter_{}_embeddings_{}.png".format(encodings.shape[0], name)))
+    plt.show()
+
+def _plot_variational_latent_space(encodings, special_encodings, name, means, stdevs, special_means, special_stdevs):
     """
     Does the plotting that all the rest of this file's functions are centered around.
 
@@ -212,14 +224,7 @@ def _plot_variational_latent_space(encodings, special_encodings, name, means, st
     :param special_stdevs: STDevs of the reds.
     :param savedir: The directory to save the artifacts to.
     """
-    # Plot where each encoding is
-    plt.title("Scatter Plot of Embeddings")
-    plt.scatter(encodings[:, 0], encodings[:, 1])
-    if special_encodings is not None:
-        plt.scatter(special_encodings[:, 0], special_encodings[:, 1], c='red')
-    save = os.path.join(savedir, "scatter_{}_embeddings_{}.png".format(encodings.shape[0], name))
-    plt.savefig(save)
-    plt.show()
+    _plot_vanilla_latent_space(encodings, special_encodings, name)
 
     # Plot the distributions as circles whose means determine location and whose radii are composed
     # of the standard deviations

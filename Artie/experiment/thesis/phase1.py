@@ -7,6 +7,7 @@ from experiment.analysis import ae                      # pylint: disable=locall
 from experiment.analysis import production              # pylint: disable=locally-disabled, import-error
 from internals.motorcortex import motorcortex           # pylint: disable=locally-disabled, import-error
 from internals.vae import vae                           # pylint: disable=locally-disabled, import-error
+from internals.vae import ae                            # pylint: disable=locally-disabled, import-error
 from senses.voice_detector import voice_detector as vd  # pylint: disable=locally-disabled, import-error
 from senses.dataproviders import sequence as seq        # pylint: disable=locally-disabled, import-error
 
@@ -18,6 +19,7 @@ from keras.layers import Input
 from keras.layers import Lambda
 from keras.layers import Reshape
 from keras.layers import UpSampling2D
+from keras.models import Model
 from keras import backend as K
 from keras import preprocessing
 
@@ -378,116 +380,161 @@ def _convert_to_images(config):
             except Exception as e:
                 logging.warn("Could not convert file {}: {}".format(fpath, e))
 
-
-def _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_prop, recon_loss_prop, std_loss_prop):
+def _build_vae1(is_variational, input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_prop, recon_loss_prop, std_loss_prop):
     """
     Builds model 1 of the VAE.
     """
-    # Encoder model
-    inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
-    x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
-    x = BatchNormalization()(x)
-    x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(32, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(32, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
-    x = Flatten()(x)
-    encoder = Dense(128, activation='relu')(x)
+    if is_variational:
+        # Encoder model
+        inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
+        x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = Flatten()(x)
+        encoder = Dense(128, activation='relu')(x)
 
-    # Decoder model
-    decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
-    x = Dense(128, activation='relu')(decoderinputs)
-    x = Reshape(target_shape=(4, 4, 8))(x)
-    x = UpSampling2D((2, 1))(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(8, (3 ,3), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 2))(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(32, (3 ,3), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 1))(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(64, (3 ,3), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 1))(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(128, (3 ,3), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 1))(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(64, (8, 4), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = UpSampling2D((1, 2))(x)
-    x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
-    x = BatchNormalization()(x)
-    x = UpSampling2D((2, 2))(x)
-    decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+        # Decoder model
+        decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
+        x = Dense(128, activation='relu')(decoderinputs)
+        x = Reshape(target_shape=(4, 4, 8))(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(128, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 4), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((1, 2))(x)
+        x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((2, 2))(x)
+        decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
 
-    autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
-                                                kl_loss_prop=kl_loss_prop, recon_loss_prop=recon_loss_prop, std_loss_prop=std_loss_prop,
-                                                encoder=encoder, decoder=decoder, inputlayer=inputs,
-                                                decoderinputlayer=decoderinputs, tbdir=tbdir)
+        autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
+                                                    kl_loss_prop=kl_loss_prop, recon_loss_prop=recon_loss_prop, std_loss_prop=std_loss_prop,
+                                                    encoder=encoder, decoder=decoder, inputlayer=inputs,
+                                                    decoderinputlayer=decoderinputs, tbdir=tbdir)
+    else:
+        inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 241, 20, 1)
+        x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (9, 2), strides=(2, 2), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(16, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = Flatten()(x)
+        x = Dense(32, activation='relu')(x)
+        x = Dense(128, activation='relu')(x)
+        x = Reshape(target_shape=(4, 4, 8))(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(128, (3 ,3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 1))(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 4), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((1, 2))(x)
+        x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+
+        autoencoder = Model(inputs=inputs, outputs=x)
+        autoencoder.summary()
+
     return autoencoder
 
-def _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_prop, recon_loss_prop, std_loss_prop):
+def _build_vae2(is_variational, input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_prop, recon_loss_prop, std_loss_prop):
     """
     Builds model 2 of the VAE.
     """
-    # Encoder model
-    inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 81, 18, 1)
-    x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
-    x = BatchNormalization()(x)
-    x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(32, (8, 2), strides=(2, 2), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(32, (2, 2), strides=(1, 2), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(16, (2, 2), strides=(1, 1), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(8, (2, 2), strides=(1, 1), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Flatten()(x)
-    encoder = Dense(128, activation='relu')(x)
+    if is_variational:
+        # Encoder model
+        inputs = Input(shape=input_shape, name="encoder-input")                 # (-1, 81, 18, 1)
+        x = Conv2D(128, (8, 2), strides=(2, 1), activation='relu', padding='valid')(inputs)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (8, 2), strides=(2, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (8, 2), strides=(2, 2), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(32, (2, 2), strides=(1, 2), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(16, (2, 2), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (2, 2), strides=(1, 1), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Flatten()(x)
+        encoder = Dense(128, activation='relu')(x)
 
-    # Decoder model
-    decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
-    x = Dense(96, activation='relu')(decoderinputs)
-    x = Reshape(target_shape=(3, 4, 8))(x)
-    x = UpSampling2D((2, 2))(x)
-    x = Conv2D(32, (3, 2), activation='relu', padding='same')(x)
-    x = BatchNormalization()(x)
-    x = UpSampling2D((2, 2))(x)
-    x = Conv2D(32, (3, 3), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(64, (3, 3), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(128, (3, 3), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(128, (4, 3), activation='relu', padding='same')(x)
-    x = BatchNormalization()(x)
-    x = UpSampling2D((2, 2))(x)
-    x = Conv2D(64, (8, 3), activation='relu', padding='same')(x)
-    x = BatchNormalization()(x)
-    x = UpSampling2D((2, 2))(x)
-    x = Conv2D(32, (8, 3), activation='relu', padding='same')(x)
-    x = BatchNormalization()(x)
-    x = UpSampling2D((2, 1))(x)
-    x = Conv2D(16, (4, 3), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = UpSampling2D((2, 1))(x)
-    x = Conv2D(8, (10, 2), strides=(1, 2), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    x = Conv2D(8, (1, 2), activation='relu', padding='valid')(x)
-    x = BatchNormalization()(x)
-    decoder = Conv2D(1, (8, 2), activation='relu', padding='same')(x)
+        # Decoder model
+        decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
+        x = Dense(96, activation='relu')(decoderinputs)
+        x = Reshape(target_shape=(3, 4, 8))(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(32, (3, 2), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(32, (3, 3), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, (3, 3), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(128, (3, 3), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(128, (4, 3), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(64, (8, 3), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(32, (8, 3), activation='relu', padding='same')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((2, 1))(x)
+        x = Conv2D(16, (4, 3), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = UpSampling2D((2, 1))(x)
+        x = Conv2D(8, (10, 2), strides=(1, 2), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(8, (1, 2), activation='relu', padding='valid')(x)
+        x = BatchNormalization()(x)
+        decoder = Conv2D(1, (8, 2), activation='relu', padding='same')(x)
 
-    autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
-                                                kl_loss_prop=kl_loss_prop, recon_loss_prop=recon_loss_prop, std_loss_prop=std_loss_prop,
-                                                encoder=encoder, decoder=decoder, inputlayer=inputs,
-                                                decoderinputlayer=decoderinputs, tbdir=tbdir)
+        autoencoder = vae.VariationalAutoEncoder(input_shape, latent_dim, optimizer, loss,
+                                                    kl_loss_prop=kl_loss_prop, recon_loss_prop=recon_loss_prop, std_loss_prop=std_loss_prop,
+                                                    encoder=encoder, decoder=decoder, inputlayer=inputs,
+                                                    decoderinputlayer=decoderinputs, tbdir=tbdir)
+    else:
+        raise NotImplementedError("Need to implement the vanilla autoencoder for this resolution of spectrogram")
     return autoencoder
 
 def _build_vae(config):
@@ -515,6 +562,9 @@ def _build_vae(config):
     # Value between 0 and 1.0 that shows how much of the whole VAE loss function to assign to the variance portion
     std_loss_proportion = config.getfloat('autoencoder', 'std_loss_proportion')
 
+    # Are we variational or vanilla?
+    is_variational = config.getbool('autoencoder', 'is_variational')
+
     # Get TensorBoard directory
     tbdir = config.getstr('autoencoder', 'tbdir')
     assert os.path.isdir(tbdir) or tbdir.lower() == "none", "{} is not a valid directory. Please fix tbdir in 'autoencoder' section of config file.".format(tbdir)
@@ -525,9 +575,9 @@ def _build_vae(config):
         os.mkdir(tbdir)       # Remake the directory
 
     if list(input_shape) == [241, 20, 1]:
-        return _build_vae1(input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_proportion, reconstructive_loss_proportion,std_loss_proportion)
+        return _build_vae1(is_variational, input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_proportion, reconstructive_loss_proportion, std_loss_proportion)
     elif list(input_shape) == [81, 18, 1]:
-        return _build_vae2(input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_proportion, reconstructive_loss_proportion,std_loss_proportion)
+        return _build_vae2(is_variational, input_shape, latent_dim, optimizer, loss, tbdir, kl_loss_proportion, reconstructive_loss_proportion, std_loss_proportion)
     else:
         raise ValueError("Spectrogram shape must be one of the allowed input shapes for the different VAE models, but is {}".format(input_shape))
 

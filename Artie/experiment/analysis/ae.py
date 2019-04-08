@@ -17,23 +17,26 @@ def _analyze_2d_latent_space(autoencoder: vae.VariationalAutoEncoder, training_r
     analysisdir = os.path.abspath(os.path.dirname(__file__))
     voweldir = os.path.join(analysisdir, "vae", "sounds", "vowels")
 
-    if not isinstance(autoencoder, vae.VariationalAutoEncoder):
-        raise NotImplementedError("Currently only able to analyze variational autoencoders. Not sure what will break if not variational.")
-    else:
-        for directory in (training_root, testsplit_root):
-            nworkers = 1
-            # Plot the latent space of the encoder
-            print("Visualizing latent space for {}...".format(directory))
-            means, logvars, encodings = plotvae._predict_on_spectrograms(directory, autoencoder, batchsize, nworkers, imshapes)
+    for directory in (training_root, testsplit_root):
+        nworkers = 1
+        # Plot the latent space of the encoder
+        print("Visualizing latent space for {}...".format(directory))
+        means, logvars, encodings = plotvae._predict_on_spectrograms(directory, autoencoder, batchsize, nworkers, imshapes)
+        if isinstance(autoencoder, vae.VariationalAutoEncoder):
             stdevs = np.exp(0.5 * logvars)
             plotvae._plot_variational_latent_space(encodings, None, None, means, stdevs, None, None, savedir)
+        else:
+            plotvae._plot_vanilla_latent_space(encodings, None, None, savedir)
 
-            # Plot the latent space of the encoder, but this time with vowels plotted in red
-            print("Visualizing vowels in the latent space...")
-            special_means, special_logvars, special_encodings = plotvae._predict_on_sound_files(None, voweldir, autoencoder, **specargs)
+        # Plot the latent space of the encoder, but this time with vowels plotted in red
+        print("Visualizing vowels in the latent space...")
+        special_means, special_logvars, special_encodings = plotvae._predict_on_sound_files(None, voweldir, autoencoder, **specargs)
+        if isinstance(autoencoder, vae.VariationalAutoEncoder):
             if special_logvars is not None:
                 special_stdevs = np.exp(0.5 * special_logvars)
             plotvae._plot_variational_latent_space(encodings, special_encodings, "vowels", means, stdevs, special_means, special_stdevs, savedir)
+        else:
+            plotvae._plot_vanilla_latent_space(encodings, special_encodings, "vowels", savedir)
 
 def analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, nembedding_dims: int, training_root: str, testsplit_root: str, batchsize: int, imshapes: [int], specargs: {}, savedir: str) -> None:
     """
