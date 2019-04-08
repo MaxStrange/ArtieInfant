@@ -705,11 +705,12 @@ def _train_or_load_autoencoder(train_vae: bool, config) -> vae.VariationalAutoEn
 
     # Get a path to either save or load weights for the model we just constructed
     autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
+    name = config.getstr('experiment', 'name')
 
     if train_vae:
         # Add timestamp to weights fpath
-        timestamp = datetime.datetime.now().strftime("date-%Y-%m-%d-time-%H-%M")
-        fpath_to_save = "{}_{}.h5".format(autoencoder_weights_fpath, timestamp)
+        timestamp = datetime.datetime.now().strftime("day-%d-time-%H-%M")
+        fpath_to_save = "{}_{}_{}.h5".format(name, autoencoder_weights_fpath, timestamp)
 
         # Train the autoencoder
         logging.info("Training the autoencoder. Models will be saved to: {}".format(fpath_to_save))
