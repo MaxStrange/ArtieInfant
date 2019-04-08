@@ -148,12 +148,12 @@ def _predict_on_spectrograms(specdir: str, autoencoder: vae.VariationalAutoEncod
                                             steps=int(nspecs / batchsize),
                                             use_multiprocessing=False,
                                             workers=nworkers)
-        if isinstance(autoencoder, vae.VariationalAutoEncoder):
-            means, logvars, encodings = aeoutput
-        else:
-            means = None
-            logvars = None
-            encodings = aeoutput
+    if isinstance(autoencoder, vae.VariationalAutoEncoder):
+        means, logvars, encodings = aeoutput
+    else:
+        means = None
+        logvars = None
+        encodings = aeoutput
 
     return means, logvars, encodings
 
@@ -222,7 +222,7 @@ def _plot_vanilla_latent_space(encodings, special_encodings, name, savedir):
     plt.savefig(os.path.join(savedir, "scatter_{}_embeddings_{}.png".format(encodings.shape[0], name)))
     plt.show()
 
-def _plot_variational_latent_space(encodings, special_encodings, name, means, stdevs, special_means, special_stdevs):
+def _plot_variational_latent_space(encodings, special_encodings, name, means, stdevs, special_means, special_stdevs, savedir):
     """
     Does the plotting that all the rest of this file's functions are centered around.
 
@@ -235,7 +235,7 @@ def _plot_variational_latent_space(encodings, special_encodings, name, means, st
     :param special_stdevs: STDevs of the reds.
     :param savedir: The directory to save the artifacts to.
     """
-    _plot_vanilla_latent_space(encodings, special_encodings, name)
+    _plot_vanilla_latent_space(encodings, special_encodings, name, savedir)
 
     # Plot the distributions as circles whose means determine location and whose radii are composed
     # of the standard deviations

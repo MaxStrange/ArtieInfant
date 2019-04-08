@@ -447,7 +447,7 @@ def _build_vae1(is_variational, input_shape, latent_dim, optimizer, loss, tbdir,
         x = Flatten()(x)
         encoder = Dense(128, activation='relu')(x)
 
-        decoderinputs = Input(shape=latent_dim, name='decoder-input')
+        decoderinputs = Input(shape=(latent_dim,), name='decoder-input')
         x = Dense(128, activation='relu')(decoderinputs)
         x = Reshape(target_shape=(4, 4, 8))(x)
         x = UpSampling2D((2, 1))(x)

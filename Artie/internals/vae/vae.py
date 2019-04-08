@@ -97,6 +97,7 @@ class VariationalAutoEncoder:
         self._outputs = self._decoder(self._encoder(self._inputs)[2])
         self._vae = Model(self._inputs, self._outputs, name='vae')
         flattened_input_shape = (np.product(np.array(input_shape)),)
+
         def _vae_loss(y_true, y_pred):
             """
             VAE loss that is broken out as a separate function. It is required to be broken
@@ -105,7 +106,8 @@ class VariationalAutoEncoder:
             """
             reconstruction_loss = self._build_loss(loss, flattened_input_shape)
             kl_loss = -0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
-            vae_loss = K.mean((reconstruction_loss * recon_loss_prop) + (kl_loss * kl_loss_prop) + ((z_log_var ** 2) * std_loss_prop))
+            stddev_loss = K.mean(K.square(z_log_var))
+            vae_loss = K.mean((reconstruction_loss * recon_loss_prop) + (kl_loss * kl_loss_prop) + (stddev_loss * std_loss_prop))
 
             return vae_loss
 
