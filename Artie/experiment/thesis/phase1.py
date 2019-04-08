@@ -682,11 +682,15 @@ def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, n
 
     logging.info("Found {} spectrograms to feed into the autoencoder at inference time.".format(specs.shape[0]))
 
-    # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
-    # We will only use the means of the distros, not the actual encodings, as the means are simply
-    # what is approximated by the encodings (though with uncertainty - the amount of uncertainty is measured in _logvars)
     print("Predicting on each image in the test split...")
-    means, _logvars, _encodings = autoencoder._encoder.predict(specs)
+    if isinstance(autoencoder, vae.VariationalAutoEncoder):
+        # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
+        # We will only use the means of the distros, not the actual encodings, as the means are simply
+        # what is approximated by the encodings (though with uncertainty - the amount of uncertainty is measured in _logvars)
+        means, _logvars, _encodings = autoencoder._encoder.predict(specs)
+    else:
+        # The encoder only outputs embeddings. But these are functionally the same as means for our purposes.
+        means = autoencoder._encoder.predict(specs)
 
     return [tup for tup in zip(paths, means)]
 
