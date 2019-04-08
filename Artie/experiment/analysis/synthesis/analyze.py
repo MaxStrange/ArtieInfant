@@ -99,7 +99,6 @@ def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_r
         fs, ts, amps = s.spectrogram(window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
         plt.pcolormesh(ts, fs, amps)
     plt.title("Spectrogram")
-    plt.show()
     plt.savefig(os.path.join(savetodir, "{}_spectrogram.png".format(targetname)))
     plt.show()
 
@@ -122,4 +121,4 @@ if __name__ == "__main__":
     orderedsegs = [asg.from_file(fp).resample(16000, 2, 1) for fp in orderedfpaths]
 
     # Plot each one
-    _analyze(orderedsegs, os.path.basename(args.resultsdir.strip(os.sep)))
+    _analyze(orderedsegs, os.path.basename(args.resultsdir.strip(os.sep)), ".", 0.5, 0.2, 16000.0)
