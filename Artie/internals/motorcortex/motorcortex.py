@@ -40,6 +40,7 @@ class SynthModel:
         self._narticulators = len(self._allowed_values.keys())
         self._articulation_duration_ms = config.getfloat('synthesizer', 'phoneme-durations-ms')
         self._nworkers = config.getint('synthesizer', 'nworkers-phase0')
+        experimentname = config.getstr('experiment', 'name')
 
         # Get spectrogram information
         self.seconds_per_spectrogram = config.getfloat('preprocessing', 'seconds_per_spectrogram')
@@ -54,7 +55,8 @@ class SynthModel:
         self._fraction_top_selection_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase0')
         self._fraction_mutate_phase0 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase0')
         self._anneal_after_phase0 = config.getbool('synthesizer', 'anneal-after-phase0')
-        self.phase0_artifacts_dir = config.getstr('synthesizer', 'pretraining-output-directory')
+        phase0_artifacts_dir = config.getstr('synthesizer', 'pretraining-output-directory')
+        self.phase0_artifacts_dir = os.path.join(phase0_artifacts_dir, experimentname)
 
         crossoverfunc_phase0 = config.getstr('synthesizer', 'crossover-function-phase0')
         if crossoverfunc_phase0 == '2-point':
@@ -67,7 +69,9 @@ class SynthModel:
         self._fraction_top_selection_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase1')
         self._fraction_mutate_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-mutate-phase1')
         self._anneal_during_phase1 = config.getbool('synthesizer', 'anneal-during-phase1')
-        self.phase1_artifacts_dir = config.getstr('synthesizer', 'training-output-directory')
+        phase1_artifacts_dir = config.getstr('synthesizer', 'training-output-directory')
+        self.phase1_artifacts_dir = os.path.join(phase1_artifacts_dir, experimentname)
+
         # These can be lists
         try:
             self._phase1_niterations = config.getlist('synthesizer', 'niterations-phase1', type=int)
@@ -182,6 +186,10 @@ class SynthModel:
         self.best_agents_phase0 = None
         self.best_agents_phase1 = None
 
+        # Create the save directories if they don't exist
+        os.makedirs(self.phase0_artifacts_dir, exist_ok=True)
+        os.makedirs(self.phase1_artifacts_dir, exist_ok=True)
+
     def _zero_limits(self, articulator_mask):
         """
         Returns self._allowed_lows and self._allowed_highs, but
@@ -262,7 +270,7 @@ class SynthModel:
             self._allowed_highs = np.reshape(highs, (-1,))
 
     def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath, fitness_function_name, target_coords, autoencoder):
-        if fitness_function_name.lower().strip() == 'xcorr':
+        if fitness_function_name.lower().strip() == 'xcor':
             # Create the fitness function for phase 1
             fitnessfunction = ParallelizableFitnessFunctionPhase1(self._narticulators,
                                                                   self._articulation_duration_ms,
@@ -298,7 +306,7 @@ class SynthModel:
 
         return best
 
-    def train(self, target, savefpath=None, fitness_function_name='xcorr', target_coords=None, autoencoder=None):
+    def train(self, target, savefpath=None, fitness_function_name='xcor', target_coords=None, autoencoder=None):
         """
         Trains the model to mimic the given `target`, which should be an AudioSegment.
 
@@ -308,8 +316,10 @@ class SynthModel:
         If fitness_function_name is 'euclidean', we use 1/euclidean distance between target_coords and
         the embedding location as determined by encoding each item using the autoencoder as the fitness function.
 
-        If fitness_function is 'xcorr', we use the cross correlation and ignore `target_coords` and `autoencoder`.
+        If fitness_function is 'xcor', we use the cross correlation and ignore `target_coords` and `autoencoder`.
         """
+        self.target = target.name
+
         if self._anneal_during_phase1:
             masks_in_order = [
                 synth.jaw_articulator_mask,
@@ -597,22 +607,6 @@ class ParallelizableFitnessFunctionDistance:
         mean, _logvars, _encodings = self.autoencoder._encoder.predict(spec)
 
         return 1.0 / ((mean - self.target_coords) + 1e-9)
-
-def _train_one_model_xcor(pretrained_model: SynthModel, audiofpath: str, sample_rate_hz: float, sample_width: int, nchannels: int, savefpath: str):
-    """
-    Trains one synthesis model using the XCORR method.
-    """
-    seg = asg.from_file(audiofpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
-    copymodel = copy.deepcopy(pretrained_model)
-    copymodel.train(seg, savefpath=savefpath)
-
-def _train_one_model():
-    """
-    """
-    seg = asg.from_file(audiofpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
-    copymodel = copy.deepcopy(pretrained_model)
-    copymodel.train(seg, savefpath=savefpath, fitness_function_name=fitness_function_name, target_coords=target_coords, autoencoder=autoencoder)
-    return copymodel
 
 def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, mimicry_targets: [(str, str, np.ndarray)], autoencoder) -> None:
     """

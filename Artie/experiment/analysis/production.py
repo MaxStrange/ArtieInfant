@@ -6,9 +6,9 @@ import audiosegment as asg
 import os
 
 from experiment.analysis.synthesis import analyze                           # pylint: disable=locally-disabled, import-error
+from internals.motorcortex import motorcortex                               # pylint: disable=locally-disabled, import-error
 
-
-def analyze_pretrained_model(config, resultsdir: str, savetodir: str) -> None:
+def analyze_pretrained_model(config, resultsdir: str, savetodir: str, targetname: str) -> None:
     """
     Makes the plots and whatever other artifacts are needed for
     analysis of a pretrained articulatory synthesis model.
@@ -18,6 +18,8 @@ def analyze_pretrained_model(config, resultsdir: str, savetodir: str) -> None:
     window_length_s = config.getfloat('preprocessing', 'spectrogram_window_length_s')
     overlap = config.getfloat('preprocessing', 'spectrogram_window_overlap')
     sample_rate_hz = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
+
+    pngname += "_" + targetname
 
     # Find all the sound files in the directory
     soundfpaths = analyze._get_soundfpaths_from_dir(resultsdir)
@@ -36,3 +38,11 @@ def analyze_pretrained_model(config, resultsdir: str, savetodir: str) -> None:
 
     # Plot each one
     analyze._analyze(orderedsegs, pngname, savetodir, window_length_s, overlap, sample_rate_hz)
+
+def analyze_models(config, trained_models: [motorcortex.SynthModel], savetodir: str) -> None:
+    """
+    Similar to `analyze_pretrained_model`, but for a list of trained models.
+    """
+    # Currently, we just do the same thing as the pretrained analysis...
+    for model in trained_models:
+        analyze_pretrained_model(config, model.phase1_artifacts_dir, savetodir, os.path.basename(model.target))

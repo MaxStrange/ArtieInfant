@@ -781,7 +781,7 @@ def run(config, savedir, preprocess=False, preprocess_part_two=False, pretrain_s
         print("Pretraining the voice synthesizer. Learning to coo...")
         synthmodel = motorcortex.SynthModel(config)
         synthmodel.pretrain()
-        production.analyze_pretrained_model(config, synthmodel.phase0_artifacts_dir, savedir)
+        production.analyze_pretrained_model(config, synthmodel.phase0_artifacts_dir, savedir, "pretraining")
     else:
         synthmodel = None
 
@@ -801,5 +801,5 @@ def run(config, savedir, preprocess=False, preprocess_part_two=False, pretrain_s
         if synthmodel is None:
             synthmodel = motorcortex.SynthModel(config)
 
-        experiment_results = motorcortex.train_on_targets(config, synthmodel, mimicry_targets, autoencoder)
-        experiment_results.analyze()
+        trained_synth_models = motorcortex.train_on_targets(config, synthmodel, mimicry_targets, autoencoder)
+        production.analyze_models(config, trained_synth_models, savedir)
