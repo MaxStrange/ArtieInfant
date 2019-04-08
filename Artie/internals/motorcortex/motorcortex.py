@@ -13,7 +13,9 @@ import os
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
 import pandas
 import primordialooze as po
+import random
 import tempfile
+import traceback
 
 class SynthModel:
     """
@@ -598,7 +600,7 @@ class ParallelizableFitnessFunctionDistance:
 
 def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, mimicry_targets: [(str, np.ndarray)], autoencoder) -> None:
     """
-    Trains a new SynthModel for each target in `mimicry_targets`.
+    Trains a new SynthModel for some number of targets in `mimicry_targets`.
 
     Does this by using whatever fitness function is specified in the config file.
     If the config file specifies cross correlation, then the autoencoder is not used,
@@ -610,7 +612,7 @@ def train_on_targets(config: configuration.Configuration, pretrained_model: Synt
 
     :param config: The configuration file for the experiment
     :param pretrained_model: A (potentially pretrained) synthesis model.
-    :param mimicry_targets: A list of tuples of the form (audiosegment, coordinates-in-latent-space)
+    :param mimicry_targets: A list of tuples of the form (audiofpath, coordinates-in-latent-space)
     :param autoencoder: An autoencoder to use in the fitness function for evaluating the location of candidate
                         sounds in latent space.
     :returns: TODO: Need something that has an 'analyze()' function that we can call.
@@ -619,10 +621,21 @@ def train_on_targets(config: configuration.Configuration, pretrained_model: Synt
     sample_rate_hz = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
     sample_width = config.getint('preprocessing', 'bytewidth')
     nchannels = config.getint('preprocessing', 'nchannels')
-    fitness_function_name = config.getstr('synthesizer', 'fitness_function')
+    fitness_function_name = config.getstr('synthesizer', 'fitness-function')
+
+    try:
+        # Try interpreting this configuration as an int - if so, that's the number of random
+        # targets drawn from the test split
+        nitems_to_mimic = config.getint('synthesizer', 'mimicry-targets')
+        mimicry_targets = [random.choice(mimicry_targets) for _ in range(nitems_to_mimic)]
+    except config.ConfigError:
+        # Other possibility is that the configuration item is a list of file paths to target
+        mimic_fpaths = config.getlist('synthesizer', 'mimicry-targets')
+        mimicry_targets = [(audiofpath, embedding) for audiofpath, embedding in mimicry_targets if audiofpath in mimic_fpaths]
 
     # We are going to try to train several synthesizers
     trained_models = []
+    logging.info("Attempting to train synthesizers for each of the following {} items: {}".format(len(mimicry_targets), mimicry_targets))
 
     # Now train the models
     for fpath, target_coords in mimicry_targets:
@@ -633,13 +646,16 @@ def train_on_targets(config: configuration.Configuration, pretrained_model: Synt
         # if something lame like a non-existent file crashed us after we trained
         # several. Let's just log any errors and move on.
         try:
-            print("Training the model to mimic {} and saving to: {}".format(fpath, savefpath))
+            msg = "Training the model to mimic {} and saving to: {}".format(fpath, savefpath)
+            print(msg)
+            logging.info(msg)
 
             seg = asg.from_file(fpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
             copymodel = copy.deepcopy(pretrained_model)
             copymodel.train(seg, savefpath=savefpath, fitness_function_name=fitness_function_name, target_coords=target_coords, autoencoder=autoencoder)
             trained_models.append(copymodel)
-        except Exception as e:
-            print("Something went wrong with target found at {}. Specifically: {}.".format(fpath, e))
+        except Exception:
+            print("Something went wrong with target found at {}. Specifically:.".format(fpath))
+            traceback.print_exc()
 
     return None  # TODO

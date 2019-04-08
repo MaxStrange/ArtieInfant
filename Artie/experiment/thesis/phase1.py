@@ -659,30 +659,47 @@ def _train_vae(autoencoder, config):
                               validation_data=testgen,
                               validation_steps=nsteps_per_validation)
 
+def _convert_spectpath_to_audiofpath(audiofolder: str, specpath: str) -> str:
+    """
+    Finds the path of the audio file that corresponds to the spectrogram
+    found at `specpath`.
+    """
+    specfname = os.path.basename(specpath)
+    wavfname = os.path.splitext(specfname)[0] + ".wav"
+    wavfpath = os.path.join(audiofolder, wavfname)
+    if not os.path.isfile(wavfpath):
+        raise FileNotFoundError("Could not find {}.".format(wavfpath))
+    return wavfpath
+
 def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, np.array)]:
     """
-    Uses the test split as found in the config file to test the autoencoder, and saves
-    its embeddings along with the paths to the targets in a list that is returned.
-
-    Returns a list of tuples of the form (audiofile, embedding coordinates as NP array).
+    Returns a list of tuples of the form (spectrogram_fpath, audiofile_fpath, embedding coordinates as NP array).
     """
     if autoencoder is None:
         raise NotImplementedError("Currently, we need an autoencoder here.")
 
-    testdir = config.getstr('autoencoder', 'testsplit_root')
+    try:
+        # Try interpreting this configuration as an int - if so, that's the number of random
+        # targets drawn from the test split
+        print("Finding all the images in the test split...")
+        testdir = config.getstr('autoencoder', 'testsplit_root')
+        pathnames = [p for p in os.listdir(testdir) if os.path.splitext(p)[1].lower() == ".png"]
+        paths = [os.path.abspath(os.path.join(testdir, p)) for p in pathnames]
 
-    # Load a bunch of spectrograms into a batch
-    assert os.path.isdir(testdir), "'testsplit_root' in 'autoencoder' must be a valid directory, but is {}".format(testdir)
+        # Draw n random items from the test split as our targets
+        nitems_to_mimic = config.getint('synthesizer', 'mimicry-targets')
+        mimicry_targets = [random.choice(paths) for _ in range(nitems_to_mimic)]
+    except config.ConfigError:
+        # Other possibility is that the configuration item is a list of file paths to target
+        mimicry_targets = config.getlist('synthesizer', 'mimicry-targets')
 
-    print("Finding all the images in the test split...")
-    pathnames = [p for p in os.listdir(testdir) if os.path.splitext(p)[1].lower() == ".png"]
-    paths = [os.path.abspath(os.path.join(testdir, p)) for p in pathnames]
-    specs = [imageio.imread(p) / 255.0 for p in paths]
+    print("Reading in all the images...")
+    specs = [imageio.imread(p) / 255.0 for p in mimicry_targets]
     specs = np.expand_dims(np.array(specs), -1)
 
     logging.info("Found {} spectrograms to feed into the autoencoder at inference time.".format(specs.shape[0]))
 
-    print("Predicting on each image in the test split...")
+    print("Predicting on each image in the mimicry list...")
     if isinstance(autoencoder, vae.VariationalAutoEncoder):
         # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
         # We will only use the means of the distros, not the actual encodings, as the means are simply
@@ -692,7 +709,12 @@ def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, n
         # The encoder only outputs embeddings. But these are functionally the same as means for our purposes.
         means = autoencoder._encoder.predict(specs)
 
-    return [tup for tup in zip(paths, means)]
+    # We have a list of .png files. But we want the WAVs that they correspond to. Let's find them.
+    pngs_and_means = [tup for tup in zip(paths, means)]
+    folder = config.getstr('preprocessing', 'folder_to_save_wavs')  # This is where we saved the corresponding wav files
+    fpaths_and_means = [(p, _convert_spectpath_to_audiofpath(folder, p), embedding) for p, embedding in pngs_and_means]
+
+    return fpaths_and_means
 
 def _train_or_load_autoencoder(train_vae: bool, config) -> vae.VariationalAutoEncoder:
     """
@@ -703,14 +725,11 @@ def _train_or_load_autoencoder(train_vae: bool, config) -> vae.VariationalAutoEn
     # Build the right autoencoder model
     autoencoder = _build_vae(config)
 
-    # Get a path to either save or load weights for the model we just constructed
-    autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
-    name = config.getstr('experiment', 'name')
-
     if train_vae:
-        # Add timestamp to weights fpath
-        timestamp = datetime.datetime.now().strftime("day-%d-time-%H-%M")
-        fpath_to_save = "{}_{}_{}.h5".format(name, autoencoder_weights_fpath, timestamp)
+        name = config.getstr('experiment', 'name')
+        ae_savedir = config.getstr('autoencoder', 'weights_path')
+        ae_savefpath = os.path.join(ae_savedir, name)
+        fpath_to_save = "{}.h5".format(ae_savefpath)
 
         # Train the autoencoder
         logging.info("Training the autoencoder. Models will be saved to: {}".format(fpath_to_save))
@@ -721,6 +740,7 @@ def _train_or_load_autoencoder(train_vae: bool, config) -> vae.VariationalAutoEn
     else:
         try:
             # Load the weights into the constructed autoencoder model
+            autoencoder_weights_fpath = config.getstr('autoencoder', 'weights_path')
             logging.info("Attempting to load autoencoder weights from {}".format(autoencoder_weights_fpath))
             autoencoder.load_weights(autoencoder_weights_fpath)
         except OSError:
