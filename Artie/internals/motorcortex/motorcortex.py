@@ -54,6 +54,12 @@ class SynthModel:
         self._anneal_after_phase0 = config.getbool('synthesizer', 'anneal-after-phase0')
         self.phase0_artifacts_dir = config.getstr('synthesizer', 'pretraining-output-directory')
 
+        crossoverfunc_phase0 = config.getstr('synthesizer', 'crossover-function-phase0')
+        if crossoverfunc_phase0 == '2-point':
+            self._phase0_crossover_function = None  # Primordial Ooze defaults to 2-point
+        elif crossoverfunc_phase0.strip().lower() != "none":
+            raise ValueError("crossover-function-phase0 must be either '2-point' or 'None', but is {}".format(crossoverfunc_phase0))
+
         # Get parameters for Phase 1
         self._nagents_phase1 = config.getint('synthesizer', 'nagents-phase1')
         self._fraction_top_selection_phase1 = config.getfloat('synthesizer', 'fraction-of-generation-to-select-phase1')
@@ -75,6 +81,12 @@ class SynthModel:
                 raise configuration.ConfigError()
         except configuration.ConfigError:
             self._phase1_fitness_target = config.getstr('synthesizer', 'fitness-target-phase1')
+
+        crossoverfunc_phase1 = config.getstr('synthesizer', 'crossover-function-phase1')
+        if crossoverfunc_phase1 == '2-point':
+            self._phase1_crossover_function = None  # Primordial Ooze defaults to 2-point
+        elif crossoverfunc_phase1.strip().lower() != "none":
+            raise ValueError("crossover-function-phase1 must be either '2-point' or 'None', but is {}".format(crossoverfunc_phase1))
 
         # Validate the fractions
         if self._fraction_mutate_phase0 < 0.0 or self._fraction_mutate_phase0 > 1.0:
@@ -271,7 +283,7 @@ class SynthModel:
         sim = po.Simulation(self._nagents_phase1, self._agentshape, fitnessfunction,
                             seedfunc=self._phase1_seed_function,
                             selectionfunc=self._phase1_selection_function,
-                            crossoverfunc=None,  # Use default 2-point crossover function from library
+                            crossoverfunc=self._phase1_crossover_function,
                             mutationfunc=self._phase1_mutation_function,
                             elitismfunc=None,
                             nworkers=self._nworkers,
@@ -437,7 +449,13 @@ class SynthModel:
 
     def _phase0_crossover_function(self, agents):
         """
-        For now, does nothing. Genetic variation is introduced solely by mutation.
+        Do nothing. This behavior is specified by the config file.
+        """
+        return agents
+
+    def _phase1_crossover_function(self, agents):
+        """
+        Do nothing. This behavior is specified by the config file.
         """
         return agents
 
