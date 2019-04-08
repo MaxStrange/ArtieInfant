@@ -598,7 +598,23 @@ class ParallelizableFitnessFunctionDistance:
 
         return 1.0 / ((mean - self.target_coords) + 1e-9)
 
-def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, mimicry_targets: [(str, np.ndarray)], autoencoder) -> None:
+def _train_one_model_xcor(pretrained_model: SynthModel, audiofpath: str, sample_rate_hz: float, sample_width: int, nchannels: int, savefpath: str):
+    """
+    Trains one synthesis model using the XCORR method.
+    """
+    seg = asg.from_file(audiofpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
+    copymodel = copy.deepcopy(pretrained_model)
+    copymodel.train(seg, savefpath=savefpath)
+
+def _train_one_model():
+    """
+    """
+    seg = asg.from_file(audiofpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
+    copymodel = copy.deepcopy(pretrained_model)
+    copymodel.train(seg, savefpath=savefpath, fitness_function_name=fitness_function_name, target_coords=target_coords, autoencoder=autoencoder)
+    return copymodel
+
+def train_on_targets(config: configuration.Configuration, pretrained_model: SynthModel, mimicry_targets: [(str, str, np.ndarray)], autoencoder) -> None:
     """
     Trains a new SynthModel for some number of targets in `mimicry_targets`.
 
@@ -612,10 +628,10 @@ def train_on_targets(config: configuration.Configuration, pretrained_model: Synt
 
     :param config: The configuration file for the experiment
     :param pretrained_model: A (potentially pretrained) synthesis model.
-    :param mimicry_targets: A list of tuples of the form (audiofpath, coordinates-in-latent-space)
+    :param mimicry_targets: A list of tuples of the form (spectrogramfpath, audiofpath, coordinates-in-latent-space)
     :param autoencoder: An autoencoder to use in the fitness function for evaluating the location of candidate
                         sounds in latent space.
-    :returns: TODO: Need something that has an 'analyze()' function that we can call.
+    :returns: A list of trained models
     """
     # Get some configurations
     sample_rate_hz = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
@@ -623,39 +639,39 @@ def train_on_targets(config: configuration.Configuration, pretrained_model: Synt
     nchannels = config.getint('preprocessing', 'nchannels')
     fitness_function_name = config.getstr('synthesizer', 'fitness-function')
 
-    try:
-        # Try interpreting this configuration as an int - if so, that's the number of random
-        # targets drawn from the test split
-        nitems_to_mimic = config.getint('synthesizer', 'mimicry-targets')
-        mimicry_targets = [random.choice(mimicry_targets) for _ in range(nitems_to_mimic)]
-    except config.ConfigError:
-        # Other possibility is that the configuration item is a list of file paths to target
-        mimic_fpaths = config.getlist('synthesizer', 'mimicry-targets')
-        mimicry_targets = [(audiofpath, embedding) for audiofpath, embedding in mimicry_targets if audiofpath in mimic_fpaths]
+    if fitness_function_name.lower() not in ('xcor', 'euclid'):
+        raise ValueError("Fitness function must be one of 'xcor' or 'euclid' but is {}".format(fitness_function_name))
 
     # We are going to try to train several synthesizers
     trained_models = []
     logging.info("Attempting to train synthesizers for each of the following {} items: {}".format(len(mimicry_targets), mimicry_targets))
 
     # Now train the models
-    for fpath, target_coords in mimicry_targets:
+    for specfpath, audiofpath, target_coords in mimicry_targets:
         # We will save a file to this name in a directory specified by the config file
-        savefpath = os.path.basename(fpath) + ".synthmimic.wav"
+        savefpath = os.path.basename(audiofpath) + ".synthmimic.wav"
 
         # Since it takes so long to train each of these, it would be a real shame
         # if something lame like a non-existent file crashed us after we trained
         # several. Let's just log any errors and move on.
         try:
-            msg = "Training the model to mimic {} and saving to: {}".format(fpath, savefpath)
+            msg = "Training the model to mimic {} and saving to: {}".format(audiofpath, savefpath)
             print(msg)
             logging.info(msg)
 
-            seg = asg.from_file(fpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
+            # Get the appropriate audiosegment
+            seg = asg.from_file(audiofpath).resample(sample_rate_Hz=sample_rate_hz, sample_width=sample_width, channels=nchannels)
+
+            # Make a deep copy of the pretrained model
             copymodel = copy.deepcopy(pretrained_model)
+
+            # Train the new copy
             copymodel.train(seg, savefpath=savefpath, fitness_function_name=fitness_function_name, target_coords=target_coords, autoencoder=autoencoder)
+
+            # Add it to the list of trained models
             trained_models.append(copymodel)
         except Exception:
-            print("Something went wrong with target found at {}. Specifically:.".format(fpath))
+            print("Something went wrong with target found at {} (spec: {}). Specifically:.".format(audiofpath, specfpath))
             traceback.print_exc()
 
-    return None  # TODO
+    return trained_models
