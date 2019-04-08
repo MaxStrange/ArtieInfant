@@ -12,8 +12,10 @@ import logging
 import numpy as np
 import os
 import output
+import random
 import shutil
 import sys
+import tensorflow as tf
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -43,6 +45,10 @@ if __name__ == "__main__":
     # Random seed
     randomseed = config.getint('experiment', 'random-seed')
     np.random.seed(randomseed)
+    random.seed(randomseed)
+    tf.set_random_seed(randomseed)
+    # Note that due to using a GPU and using multiprocessing, reproducibility is not guaranteed
+    # But the above lines do their best
 
     # Phase 1
     phase1.run(config, savedir,

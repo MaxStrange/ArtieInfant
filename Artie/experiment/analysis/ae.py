@@ -60,7 +60,8 @@ def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder, shape:
     If a Variational AE, this samples from latent space and plots a swathe of spectrograms.
     """
     testvae._plot_samples_from_latent_space(autoencoder, shape, savedir, ndims)
-    testvae._plot_topographic_swathe(autoencoder, shape, low, high, savedir, ndims)
+    if ndims < 3:
+        testvae._plot_topographic_swathe(autoencoder, shape, low, high, savedir, ndims)
 
 def analyze(config, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> None:
     """

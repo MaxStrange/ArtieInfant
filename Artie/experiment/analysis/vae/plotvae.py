@@ -2,6 +2,7 @@
 Load the given spectrogram model, run a bunch of spectrograms through it,
 then see what it does with them in its 2D latent space.
 """
+from mpl_toolkits.mplot3d import Axes3D
 import argparse
 import audiosegment as asg
 import imageio
@@ -215,17 +216,26 @@ def _plot_vanilla_latent_space(encodings, special_encodings, name, savedir, *, n
     See `_plot_variational_latent_space`.
     """
     # Plot where each embedding is
-    plt.title("Scatter Plot of Embeddings")
     if ndims == 1:
+        plt.title("Scatter Plot of Embeddings")
         plt.scatter(encodings, np.zeros_like(encodings))
         if special_encodings is not None:
             plt.scatter(special_encodings, np.zeros_like(special_encodings), c='red')
     elif ndims == 2:
+        plt.title("Scatter Plot of Embeddings")
         plt.scatter(encodings[:, 0], encodings[:, 1])
         if special_encodings is not None:
             plt.scatter(special_encodings[:, 0], special_encodings[:, 1], c='red')
     elif ndims == 3:
-        raise NotImplementedError()
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(encodings[:, 0], encodings[:, 1], encodings[:, 2])
+        if special_encodings is not None:
+            ax.scatter(special_encodings[:, 0], special_encodings[:, 1], special_encodings[:, 2], c='red')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.set_title("Scatter Plot of Embeddings")
     else:
         raise ValueError("`ndims` must be 1, 2, or 3, but is {}".format(ndims))
 
@@ -249,17 +259,26 @@ def _plot_variational_latent_space(encodings, special_encodings, name, means, st
 
     # Plot the distributions as circles whose means determine location and whose radii are composed
     # of the standard deviations
-    plt.title("Distributions the Embeddings were drawn From")
     if ndims == 1:
+        plt.title("Distributions the Embeddings were drawn From")
         plt.scatter(means, np.zeros_like(means), s=np.square(stdevs * 10))
         if special_means is not None:
             plt.scatter(special_means, np.zeros_like(special_means), s=np.square(special_stdevs * 10), c='red')
     elif ndims == 2:
+        plt.title("Distributions the Embeddings were drawn From")
         plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
         if special_means is not None:
             plt.scatter(special_means[:, 0], special_means[:, 1], s=np.square(special_stdevs * 10), c='red')
     elif ndims == 3:
-        raise NotImplementedError("Implement me!")
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(means[:, 0], means[:, 1], means[:, 2], s=np.square(stdevs * 10))
+        if special_encodings is not None:
+            ax.scatter(special_means[:, 0], special_means[:, 1], special_means[:, 2], s=np.square(special_stdevs * 10), c='red')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.set_title("Distributions the Embeddings were drawn From")
     else:
         raise ValueError("`ndims` must be 1, 2, or 3, but is {}".format(ndims))
 
