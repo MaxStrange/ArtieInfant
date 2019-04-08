@@ -15,6 +15,9 @@ def analyze_pretrained_model(config, resultsdir: str, savetodir: str) -> None:
     """
     # Get needed configuarations
     pngname = config.getstr('experiment', 'name')
+    window_length_s = config.getfloat('preprocessing', 'spectrogram_window_length_s')
+    overlap = config.getfloat('preprocessing', 'spectrogram_window_overlap')
+    sample_rate_hz = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
 
     # Find all the sound files in the directory
     soundfpaths = analyze._get_soundfpaths_from_dir(resultsdir)
@@ -32,4 +35,4 @@ def analyze_pretrained_model(config, resultsdir: str, savetodir: str) -> None:
         seg.export(savepath, format='WAV')
 
     # Plot each one
-    analyze._analyze(orderedsegs, pngname, savetodir)
+    analyze._analyze(orderedsegs, pngname, savetodir, window_length_s, overlap, sample_rate_hz)

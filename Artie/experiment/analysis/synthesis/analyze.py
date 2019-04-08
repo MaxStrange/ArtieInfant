@@ -75,17 +75,32 @@ def _maximize():
     elif backend.lower().startswith("wx"):
         manager.frame.Maximize(True)
 
-def _analyze(segments, targetname, savetodir):
+def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_rate_hz):
     """
     Plots and saves figures.
     """
+    segments = [s.resample(sample_rate_hz) for s in segments]
+
     # Plot each wave form
     for i, s in enumerate(segments):
         plt.subplot(len(segments), 1, i + 1)
         plt.plot(s.to_numpy_array())
     _maximize()
+    plt.title("Waveform")
+    plt.ylabel("PCM")
+    plt.xlabel("Sample")
     save = os.path.join(savetodir, "{}.png".format(targetname))
     plt.savefig(save)
+    plt.show()
+
+    # Now plot each spectrogram
+    for i, s in enumerate(segments):
+        plt.subplot(len(segments), 1, i + 1)
+        fs, ts, amps = s.spectrogram(window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
+        plt.pcolormesh(ts, fs, amps)
+    plt.title("Spectrogram")
+    plt.show()
+    plt.savefig(os.path.join(savetodir, "{}_spectrogram.png".format(targetname)))
     plt.show()
 
 if __name__ == "__main__":
