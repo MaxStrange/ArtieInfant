@@ -7,7 +7,7 @@ from experiment.analysis import ae                      # pylint: disable=locall
 from experiment.analysis import production              # pylint: disable=locally-disabled, import-error
 from internals.motorcortex import motorcortex           # pylint: disable=locally-disabled, import-error
 from internals.vae import vae                           # pylint: disable=locally-disabled, import-error
-from internals.vae import ae                            # pylint: disable=locally-disabled, import-error
+from internals.vae import ae as vanilla                 # pylint: disable=locally-disabled, import-error
 from senses.voice_detector import voice_detector as vd  # pylint: disable=locally-disabled, import-error
 from senses.dataproviders import sequence as seq        # pylint: disable=locally-disabled, import-error
 
@@ -445,8 +445,10 @@ def _build_vae1(is_variational, input_shape, latent_dim, optimizer, loss, tbdir,
         x = BatchNormalization()(x)
         x = Conv2D(8, (3, 3), strides=(1, 1), activation='relu', padding='valid')(x)
         x = Flatten()(x)
-        x = Dense(32, activation='relu')(x)
-        x = Dense(128, activation='relu')(x)
+        encoder = Dense(128, activation='relu')(x)
+
+        decoderinputs = Input(shape=latent_dim, name='decoder-input')
+        x = Dense(128, activation='relu')(decoderinputs)
         x = Reshape(target_shape=(4, 4, 8))(x)
         x = UpSampling2D((2, 1))(x)
         x = BatchNormalization()(x)
@@ -468,10 +470,9 @@ def _build_vae1(is_variational, input_shape, latent_dim, optimizer, loss, tbdir,
         x = Conv2D(32, (8, 2), activation='relu', padding='same')(x)
         x = BatchNormalization()(x)
         x = UpSampling2D((2, 2))(x)
-        x = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
+        decoder = Conv2D(1, (2, 1), activation='relu', padding='valid')(x)
 
-        autoencoder = Model(inputs=inputs, outputs=x)
-        autoencoder.summary()
+        autoencoder = vanilla.AutoEncoder(input_shape, latent_dim, optimizer, loss, encoder, decoder, inputs, decoderinputs)
 
     return autoencoder
 

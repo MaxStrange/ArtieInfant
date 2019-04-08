@@ -124,8 +124,7 @@ def _predict_on_spectrograms(specdir: str, autoencoder: vae.VariationalAutoEncod
             print("Could not find any spectrograms in {} or {}/useless_subdirectory. Cannot predict using them.")
             return
     try:
-        # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
-        means, logvars, encodings = autoencoder._encoder.predict(specs)
+        aeoutput = autoencoder._encoder.predict(specs)
     except Exception:
         print("Probably out of memory. Trying as an image generator instead.")
         specs = None  # Hint to the GC
@@ -145,10 +144,16 @@ def _predict_on_spectrograms(specdir: str, autoencoder: vae.VariationalAutoEncod
                                             batch_size=batchsize,
                                             shuffle=True)
         print("Predicting...")
-        means, logvars, encodings = autoencoder._encoder.predict_generator(datagen,
+        aeoutput = autoencoder._encoder.predict_generator(datagen,
                                             steps=int(nspecs / batchsize),
                                             use_multiprocessing=False,
                                             workers=nworkers)
+        if isinstance(autoencoder, vae.VariationalAutoEncoder):
+            means, logvars, encodings = aeoutput
+        else:
+            means = None
+            logvars = None
+            encodings = aeoutput
 
     return means, logvars, encodings
 
@@ -194,7 +199,13 @@ def _predict_on_sound_files(fpaths: [str], dpath: str, model: vae.VariationalAut
 
     # Predict from the encoder portion of the model
     if specs.shape[0] > 0:
-        means, logvars, encodings = model._encoder.predict(specs)
+        modelret = model._encoder.predict(specs)
+        if isinstance(model, vae.VariationalAutoEncoder):
+            means, logvars, encodings = modelret
+        else:
+            means = None
+            logvars = None
+            encodings = modelret
     else:
         means, logvars, encodings = None, None, None
     return means, logvars, encodings
