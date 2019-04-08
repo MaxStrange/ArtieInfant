@@ -89,7 +89,7 @@ def _plot_input_output_spectrograms(ipath, autoencoder, savedir):
 
     return spec.shape
 
-def _plot_samples_from_latent_space(autoencoder, shape, savedir):
+def _plot_samples_from_latent_space(autoencoder, shape, savedir, ndims=2):
     """
     Samples embeddings from latent space and decodes them. Then plots them.
 
@@ -100,14 +100,8 @@ def _plot_samples_from_latent_space(autoencoder, shape, savedir):
     fs = [f for f in range(0, shape[0])]
     ts = [t for t in range(0, shape[1])]
 
-    # List of distros to sample from (mu, sigma)
-    # Change this to suit your needs
-    distros = [
-        ((3.7, -3.7), (1.2, 0.4)),
-        ((2.8, -2.8), (1.0, 0.3)),
-        ((2.3, -2.0), (2.0, 1.5)),
-        ((5.0, -1.0), (4.0, 0.5)),
-    ]
+    # List of distros to sample from (ndimensional mu, ndimensional sigma)
+    distros = [(np.random.normal(0.0, 2.5, size=ndims), np.abs(np.random.normal(1.0, 0.5, size=ndims))) for _ in range(4)]
 
     # Go through each distro and sample from it several times
     # Decode the samples
@@ -117,16 +111,16 @@ def _plot_samples_from_latent_space(autoencoder, shape, savedir):
             z = [autoencoder.sample_from_gaussian(mu, sigma)]
             sample = np.reshape(autoencoder.predict([z]), shape)
             plt.subplot(len(distros), nsamples, i + (j * nsamples))
-            plt.title("({:.2f},{:.2f})".format(z[0][0], z[0][1]))
+            plt.title(str(z))
             plt.pcolormesh(ts, fs, sample * 255.0)
     # Plot everything
     plt.savefig(os.path.join(savedir, "samples_from_latent_space.png"))
     plt.show()
 
-def _plot_topographic_swathe(autoencoder, shape, low, high, savedir):
+def _plot_topographic_swathe(autoencoder, shape, low, high, savedir, ndims=2):
     """
     Plot a topographic swathe; square from low to high in x and y.
-    Only works if we have a 2D embedding space (in 3D we would need a cube,
+    Only works if we have a 1D or 2D embedding space (in 3D we would need a cube,
     and beyond that is impossible to visualize intuitively).
     """
     n = 8
@@ -137,15 +131,26 @@ def _plot_topographic_swathe(autoencoder, shape, low, high, savedir):
     fs = [f for f in range(0, shape[0])]
     ts = [t for t in range(0, shape[1])]
 
-    k = 1
-    for yi in grid_y:
-        for xi in grid_x:
-            z_sample = np.array([[xi, yi]])
+    if ndims == 1:
+        for k, x in enumerate(grid_x, start=1):
+            z_sample = np.array([x])
             x_decoded = autoencoder.predict(z_sample) * 255.0
             sample = np.reshape(x_decoded, shape)
-            plt.subplot(n, n, k)
+            plt.subplot(1, n, k)
             plt.pcolormesh(ts, fs, sample)
-            k += 1
+    elif ndims == 2:
+        k = 1
+        for yi in grid_y:
+            for xi in grid_x:
+                z_sample = np.array([[xi, yi]])
+                x_decoded = autoencoder.predict(z_sample) * 255.0
+                sample = np.reshape(x_decoded, shape)
+                plt.subplot(n, n, k)
+                plt.pcolormesh(ts, fs, sample)
+                k += 1
+    else:
+        raise ValueError("Cannot plot a topographic swathe for dimensions higher than 2 currently. Passed ndims={}".format(ndims))
+
     plt.savefig(os.path.join(savedir, "spectrogram_swathe_{:.1f}_{:.1f}.png".format(low, high)))
     plt.show()
 

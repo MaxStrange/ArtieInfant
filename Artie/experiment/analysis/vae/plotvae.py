@@ -210,19 +210,29 @@ def _predict_on_sound_files(fpaths: [str], dpath: str, model: vae.VariationalAut
         means, logvars, encodings = None, None, None
     return means, logvars, encodings
 
-def _plot_vanilla_latent_space(encodings, special_encodings, name, savedir):
+def _plot_vanilla_latent_space(encodings, special_encodings, name, savedir, *, ndims=2):
     """
     See `_plot_variational_latent_space`.
     """
     # Plot where each embedding is
     plt.title("Scatter Plot of Embeddings")
-    plt.scatter(encodings[:, 0], encodings[:, 1])
-    if special_encodings is not None:
-        plt.scatter(special_encodings[:, 0], special_encodings[:, 1], c='red')
+    if ndims == 1:
+        plt.scatter(encodings, np.zeros_like(encodings))
+        if special_encodings is not None:
+            plt.scatter(special_encodings, np.zeros_like(special_encodings), c='red')
+    elif ndims == 2:
+        plt.scatter(encodings[:, 0], encodings[:, 1])
+        if special_encodings is not None:
+            plt.scatter(special_encodings[:, 0], special_encodings[:, 1], c='red')
+    elif ndims == 3:
+        raise NotImplementedError()
+    else:
+        raise ValueError("`ndims` must be 1, 2, or 3, but is {}".format(ndims))
+
     plt.savefig(os.path.join(savedir, "scatter_{}_embeddings_{}.png".format(encodings.shape[0], name)))
     plt.show()
 
-def _plot_variational_latent_space(encodings, special_encodings, name, means, stdevs, special_means, special_stdevs, savedir):
+def _plot_variational_latent_space(encodings, special_encodings, name, means, stdevs, special_means, special_stdevs, savedir, *, ndims=2):
     """
     Does the plotting that all the rest of this file's functions are centered around.
 
@@ -235,14 +245,24 @@ def _plot_variational_latent_space(encodings, special_encodings, name, means, st
     :param special_stdevs: STDevs of the reds.
     :param savedir: The directory to save the artifacts to.
     """
-    _plot_vanilla_latent_space(encodings, special_encodings, name, savedir)
+    _plot_vanilla_latent_space(encodings, special_encodings, name, savedir, ndims=ndims)
 
     # Plot the distributions as circles whose means determine location and whose radii are composed
     # of the standard deviations
     plt.title("Distributions the Embeddings were drawn From")
-    plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
-    if special_means is not None:
-        plt.scatter(special_means[:, 0], special_means[:, 1], s=np.square(special_stdevs * 10), c='red')
+    if ndims == 1:
+        plt.scatter(means, np.zeros_like(means), s=np.square(stdevs * 10))
+        if special_means is not None:
+            plt.scatter(special_means, np.zeros_like(special_means), s=np.square(special_stdevs * 10), c='red')
+    elif ndims == 2:
+        plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
+        if special_means is not None:
+            plt.scatter(special_means[:, 0], special_means[:, 1], s=np.square(special_stdevs * 10), c='red')
+    elif ndims == 3:
+        raise NotImplementedError("Implement me!")
+    else:
+        raise ValueError("`ndims` must be 1, 2, or 3, but is {}".format(ndims))
+
     save = os.path.join(savedir, "scatter_{}_distros_{}.png".format(encodings.shape[0], name))
     plt.savefig(save)
     plt.show()
