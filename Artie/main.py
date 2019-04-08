@@ -3,15 +3,17 @@ This is the main entry point for the ArtieInfant experiment.
 """
 from experiment import configuration
 from experiment.thesis import phase1
-import argparse
-import os
-import sys
 import instinct
 import internals
+import senses
+
+import argparse
 import logging
 import numpy as np
+import os
 import output
-import senses
+import shutil
+import sys
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -32,12 +34,18 @@ if __name__ == "__main__":
     # Load the correct config file
     config = configuration.load(args.config)
 
+    # Make a folder for the analysis results
+    experimentname = config.getstr('experiment', 'name')
+    saveroot = config.getstr('experiment', 'save_root')
+    savedir = os.path.join(saveroot, experimentname)
+    os.makedirs(savedir, exist_ok=True)
+
     # Random seed
     randomseed = config.getint('experiment', 'random-seed')
     np.random.seed(randomseed)
 
     # Phase 1
-    phase1.run(config,
+    phase1.run(config, savedir,
                 preprocess=args.preprocess,
                 preprocess_part_two=args.spectrograms,
                 pretrain_synth=args.pretrain_synth,
@@ -53,3 +61,6 @@ if __name__ == "__main__":
 
     # Phase 4
     # TODO: babble
+
+    # Put a copy of the log file into the save directory
+    shutil.copyfile(args.logfile, os.path.join(savedir, os.path.basename(args.logfile)))

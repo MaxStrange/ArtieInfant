@@ -621,6 +621,7 @@ def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, n
     # Load a bunch of spectrograms into a batch
     assert os.path.isdir(testdir), "'testsplit_root' in 'autoencoder' must be a valid directory, but is {}".format(testdir)
 
+    print("Finding all the images in the test split...")
     pathnames = [p for p in os.listdir(testdir) if os.path.splitext(p)[1].lower() == ".png"]
     paths = [os.path.abspath(os.path.join(testdir, p)) for p in pathnames]
     specs = [imageio.imread(p) / 255.0 for p in paths]
@@ -631,6 +632,7 @@ def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, n
     # The output of the encoder portion of the model is three items: Mean, LogVariance, and Value sampled from described distribution
     # We will only use the means of the distros, not the actual encodings, as the means are simply
     # what is approximated by the encodings (though with uncertainty - the amount of uncertainty is measured in _logvars)
+    print("Predicting on each image in the test split...")
     means, _logvars, _encodings = autoencoder._encoder.predict(specs)
 
     return [tup for tup in zip(paths, means)]
@@ -670,7 +672,7 @@ def _train_or_load_autoencoder(train_vae: bool, config) -> vae.VariationalAutoEn
 
     return autoencoder
 
-def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=False, train_vae=False, train_synth=False):
+def run(config, savedir, preprocess=False, preprocess_part_two=False, pretrain_synth=False, train_vae=False, train_synth=False):
     """
     Entry point for Phase 1.
 
@@ -686,12 +688,6 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
     If `train_vae` is True, we will train the variational autoencoder on the preprocessed data.
     If `train_synth` is True, we will train the voice synthesizer to mimic the prototypical proto phonemes.
     """
-    # Make a folder for the analysis results
-    experimentname = config.getstr('experiment', 'name')
-    saveroot = config.getstr('experiment', 'save_root')
-    savedir = os.path.join(saveroot, experimentname)
-    os.mkdir(savedir)
-
     # Potentially preprocess the audio
     if preprocess:
         print("Preprocessing all sounds. This will take close to forever...")
@@ -717,14 +713,15 @@ def run(config, preprocess=False, preprocess_part_two=False, pretrain_synth=Fals
         print("Analyzing the autoencoder...")
         ae.analyze(config, autoencoder, savedir)
 
-    # Now use the VAE on the test split and save pairs of (audiofile, coordinates in embedding space)
-    mimicry_targets = _infer_with_vae(autoencoder, config)
-
     # Train the motor cortex to produce sounds from these different embeddings
     # The synthesizer uses the autoencoder to evaluate how close its output is to the target sound
     # in latent space.
     if train_synth:
+        # Now use the VAE on the test split and save pairs of (audiofile, coordinates in embedding space)
+        mimicry_targets = _infer_with_vae(autoencoder, config)
+
         if synthmodel is None:
             synthmodel = motorcortex.SynthModel(config)
+
         experiment_results = motorcortex.train_on_targets(config, synthmodel, mimicry_targets, autoencoder)
         experiment_results.analyze()

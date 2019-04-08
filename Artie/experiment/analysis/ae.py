@@ -49,19 +49,19 @@ def analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, nembedding_dim
     else:
         raise ValueError("nembedding_dims must be 1, 2, or 3, but is {}".format(nembedding_dims))
 
-def analyze_reconstruction(impaths, autoencoder: vae.VariationalAutoEncoder) -> None:
+def analyze_reconstruction(impaths, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> None:
     """
     Plot an input spectrogram side-by-side with itself after reconstruction
     """
     for impath in impaths:
-        testvae._plot_input_output_spectrograms(impath, autoencoder)
+        testvae._plot_input_output_spectrograms(impath, autoencoder, savedir)
 
-def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder, shape: [int], low: float, high: float) -> None:
+def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder, shape: [int], low: float, high: float, savedir: str) -> None:
     """
     If a Variational AE, this samples from latent space and plots a swathe of spectrograms.
     """
-    testvae._plot_samples_from_latent_space(autoencoder, shape)
-    testvae._plot_topographic_swathe(autoencoder, shape, low, high)
+    testvae._plot_samples_from_latent_space(autoencoder, shape, savedir)
+    testvae._plot_topographic_swathe(autoencoder, shape, low, high, savedir)
 
 def analyze(config, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> None:
     """
@@ -101,8 +101,8 @@ def analyze(config, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> No
         logging.warn("Cannot do any reasonable latent space visualization for embedding spaces of dimensionality greater than 3.")
 
     print("Analyzing reconstruction...")
-    analyze_reconstruction(reconspects, autoencoder)
+    analyze_reconstruction(reconspects, autoencoder, savedir)
 
     if isinstance(autoencoder, vae.VariationalAutoEncoder):
         print("Analyzing variational stuff...")
-        analyze_variational_sampling(autoencoder, imshapes, swathe_low, swathe_high)
+        analyze_variational_sampling(autoencoder, imshapes, swathe_low, swathe_high, savedir)
