@@ -35,7 +35,11 @@ if __name__ == "__main__":
     print("  -> Human audible?", seg.human_audible())
 
     plt.title("Raw Values")
-    plt.plot(seg.to_numpy_array())
+    arr = seg.to_numpy_array()
+    times = np.linspace(0, len(arr) / seg.frame_rate, num=len(arr))
+    plt.plot(times, seg.to_numpy_array())
+    plt.xlabel("Time (s)")
+    plt.ylabel("PCM")
     plt.show()
 
     plt.title("Histogram")
@@ -49,4 +53,6 @@ if __name__ == "__main__":
     plt.title("Spectrogram")
     fs, ts, amps = seg.spectrogram(0, duration_s, window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
     plt.pcolormesh(ts, fs, amps)
+    plt.xlabel("Time (s)")
+    plt.ylabel("Hz")
     plt.show()

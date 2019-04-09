@@ -4,6 +4,7 @@ Load the given spectrogram model and test it on an input image, showing the imag
 Also shows a sampling from latent space.
 """
 import argparse
+import audiosegment as asg
 import imageio
 import logging
 import matplotlib.pyplot as plt
@@ -48,7 +49,7 @@ def _validate_args(args):
             print("Low ({}) must be less than high ({})".format(low, high))
             exit(3)
 
-def _plot_input_output_spectrograms(audiofpath, ipath, autoencoder, savedir):
+def _plot_input_output_spectrograms(audiofpath, ipath, autoencoder, savedir, window_length_s, overlap):
     """
     Loads `ipath` into a spectrogram and then runs it through
     `autoencoder`. Plots the input on the left and the output
@@ -67,9 +68,10 @@ def _plot_input_output_spectrograms(audiofpath, ipath, autoencoder, savedir):
     assert decoded_spec.shape[-1] == 1, "Expected nchannels to be the last item in the decoded spectrogram's shape, but it isn't."
     decoded_spec = np.reshape(decoded_spec, spec.shape) * 255.0
 
-    # Make up some bogus frequencies and times
-    fs = [f for f in range(0, spec.shape[0])]
-    ts = [t for t in range(0, spec.shape[1])]
+    # Make up some bogus frequencies and times  # TODO
+    # Load in the audio file and do the spectrogram to get the right frequencies and times
+    seg = asg.from_file(audiofpath)
+    fs, ts, _amps = seg.spectrogram(window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
 
     # Calculate the MSE of the two
     reconloss = np.sum(np.square(spec - decoded_spec))
@@ -78,11 +80,20 @@ def _plot_input_output_spectrograms(audiofpath, ipath, autoencoder, savedir):
     msg = "Reconstructive loss for {}: {}".format(ipath, reconloss)
     print(msg)
     logging.info(msg)
+
+    # Plot side-by-side
     plt.title("Before (left) and After (right) for {}".format(os.path.basename(ipath)))
+
     plt.subplot(121)
     plt.pcolormesh(ts, fs, spec)
+    plt.ylabel("Hz")
+    plt.xlabel("Time (s)")
+
     plt.subplot(122)
     plt.pcolormesh(ts, fs, decoded_spec)
+    plt.xlabel("Time (s)")
+
+    # Save the figure
     name = os.path.splitext(os.path.basename(ipath))[0]
     save = os.path.join(savedir, "spectrogram_{}.png".format(name))
     print("Saving", save)
@@ -93,18 +104,16 @@ def _plot_input_output_spectrograms(audiofpath, ipath, autoencoder, savedir):
     save = os.path.join(savedir, os.path.basename(audiofpath))
     shutil.copyfile(audiofpath, save)
 
-    return spec.shape
+    return fs, ts
 
-def _plot_samples_from_latent_space(autoencoder, shape, savedir, ndims=2):
+def _plot_samples_from_latent_space(autoencoder, shape, savedir, frequencies, times, ndims=2):
     """
     Samples embeddings from latent space and decodes them. Then plots them.
 
     `shape` is the shape of the spectrogram that we will be getting out of
     the decoder.
     """
-    # Make up some bogus frequencies and times
-    fs = [f for f in range(0, shape[0])]
-    ts = [t for t in range(0, shape[1])]
+    assert ndims in (1, 2, 3), "This visualization is impossible with ndims > 3. Is: {}".format(ndims)
 
     # List of distros to sample from (ndimensional mu, ndimensional sigma)
     distros = [(np.random.normal(0.0, 2.5, size=ndims), np.abs(np.random.normal(1.0, 0.5, size=ndims))) for _ in range(4)]
@@ -112,20 +121,39 @@ def _plot_samples_from_latent_space(autoencoder, shape, savedir, ndims=2):
     # Go through each distro and sample from it several times
     # Decode the samples
     nsamples = 6
+    fig, axs = plt.subplots(len(distros), nsamples, constrained_layout=True)
     for j, (mu, sigma) in enumerate(distros):
-        for i in range(1, nsamples):
+        for i in range(nsamples):
+            # Sample from the autoencoder's latent space
             z = [autoencoder.sample_from_gaussian(mu, sigma)]
             sample = np.reshape(autoencoder.predict([z]), shape)
-            plt.subplot(len(distros), nsamples, i + (j * nsamples))
-            plt.title(str(z))
-            plt.pcolormesh(ts, fs, sample * 255.0)
+
+            # Plot the sample into the grid of figures
+            axs[j][i].pcolormesh(times, frequencies, sample * 255.0)
+            if ndims == 1:
+                axs[j][i].set_title("{:.2f}".format(z[0]))
+            elif ndims == 2:
+                axs[j][i].set_title("({:.2f},{:.2f})".format(z[0][0], z[0][1]))
+            elif ndims == 3:
+                axs[j][i].set_title("({:.2f},{:.2f},{:.2f})".format(z[0][0], z[0][1], z[0][2]))
+
+            if j == len(distros) - 1:
+                # We are on the last row, let's label the x axes
+                axs[j][i].set_xlabel("Time (s)")
+
+            if i == 0:
+                # We are on the left, let's label the y axes
+                axs[j][i].set_ylabel("Hz")
+
+    fig.suptitle("Samples from Latent Space")
+
     # Plot everything
     save = os.path.join(savedir, "samples_from_latent_space.png")
     print("Saving", save)
     plt.savefig(save)
     plt.clf()
 
-def _plot_topographic_swathe(autoencoder, shape, low, high, savedir, ndims=2):
+def _plot_topographic_swathe(autoencoder, shape, low, high, savedir, frequencies, times, ndims=2):
     """
     Plot a topographic swathe; square from low to high in x and y.
     Only works if we have a 1D or 2D embedding space (in 3D we would need a cube,
@@ -135,63 +163,33 @@ def _plot_topographic_swathe(autoencoder, shape, low, high, savedir, ndims=2):
     grid_x = np.linspace(low, high, n)
     grid_y = np.linspace(low, high, n)[::-1]
 
-    # Make up some bogus frequencies and times
-    fs = [f for f in range(0, shape[0])]
-    ts = [t for t in range(0, shape[1])]
-
     if ndims == 1:
-        for k, x in enumerate(grid_x, start=1):
+        fig, axs = plt.subplots(1, n)
+        for k, x in enumerate(grid_x):
             z_sample = np.array([x])
             x_decoded = autoencoder.predict(z_sample) * 255.0
             sample = np.reshape(x_decoded, shape)
-            plt.subplot(1, n, k)
-            plt.pcolormesh(ts, fs, sample)
+            axs[k].pcolormesh(times, frequencies, sample)
+            axs[k].set_xlabel("Time (s)")
+            if k == 0:
+                axs[k].set_ylabel("Hz")
     elif ndims == 2:
-        k = 1
         for yi in grid_y:
             for xi in grid_x:
                 z_sample = np.array([[xi, yi]])
                 x_decoded = autoencoder.predict(z_sample) * 255.0
                 sample = np.reshape(x_decoded, shape)
-                plt.subplot(n, n, k)
-                plt.pcolormesh(ts, fs, sample)
-                k += 1
+                axs[yi][xi].pcolormesh(times, frequencies, sample)
+                if xi == 0:
+                    axs[yi][xi].set_ylabel("Hz")
+            if yi == len(grid_y) - 1:
+                # We are on the bottom row
+                axs[yi][xi].set_xlabel("Time (s)")
     else:
         raise ValueError("Cannot plot a topographic swathe for dimensions higher than 2 currently. Passed ndims={}".format(ndims))
+    fig.suptitle("Topographic Swathe")
 
     save = os.path.join(savedir, "spectrogram_swathe_{:.1f}_{:.1f}.png".format(low, high))
     print("Saving", save)
     plt.savefig(save)
     plt.clf()
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("model", help="Path to VAE model weights for the current architecture")
-    parser.add_argument("-i", "--image", action="append", help="A spectogram image to try to recreate")
-    parser.add_argument("-t", "--topo", nargs=2, type=float, help="(low, high). Show a topographical swathe between low and high.")
-    args = parser.parse_args()
-
-    _validate_args(args)
-
-    # Load the configuration
-    configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
-    config = configuration.load(None, fpath=configfpath)
-
-    # Random seed
-    np.random.seed(643662)
-
-    # Load the VAE
-    autoencoder = p1._build_vae(config)
-    autoencoder.load_weights(sys.argv[1])
-
-    # Load the spectrograms and run the model over them
-    for ipath in args.image:
-        shape = _plot_input_output_spectrograms(ipath, autoencoder)
-
-    # Take a few samples from latent space just to see what we get
-    _plot_samples_from_latent_space(autoencoder, shape)
-
-    # If we have a 2D embedding space, let's vary each dimension and plot a grid
-    nlatentdims = config.getint('autoencoder', 'nembedding_dims')
-    if args.topo and nlatentdims == 2:
-        _plot_topographic_swathe(autoencoder, shape, args.topo[0], args.topo[1])

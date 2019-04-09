@@ -48,20 +48,21 @@ def analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, nembedding_dim
     else:
         raise ValueError("nembedding_dims must be 1, 2, or 3, but is {}".format(nembedding_dims))
 
-def analyze_reconstruction(audiofpaths, impaths, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> None:
+def analyze_reconstruction(audiofpaths, impaths, autoencoder: vae.VariationalAutoEncoder, savedir: str, window_length_s: float, overlap: float) -> None:
     """
     Plot an input spectrogram side-by-side with itself after reconstruction
     """
     for audiofpath, impath in zip(audiofpaths, impaths):
-        testvae._plot_input_output_spectrograms(audiofpath, impath, autoencoder, savedir)
+        fs, ts = testvae._plot_input_output_spectrograms(audiofpath, impath, autoencoder, savedir, window_length_s, overlap)
+    return fs, ts
 
-def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder, shape: [int], low: float, high: float, savedir: str, ndims: int) -> None:
+def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder, shape: [int], low: float, high: float, savedir: str, ndims: int, frequencies: [float], times: [float]) -> None:
     """
     If a Variational AE, this samples from latent space and plots a swathe of spectrograms.
     """
-    testvae._plot_samples_from_latent_space(autoencoder, shape, savedir, ndims)
+    testvae._plot_samples_from_latent_space(autoencoder, shape, savedir, frequencies, times, ndims)
     if ndims < 3:
-        testvae._plot_topographic_swathe(autoencoder, shape, low, high, savedir, ndims)
+        testvae._plot_topographic_swathe(autoencoder, shape, low, high, savedir, frequencies, times, ndims)
 
 def convert_spectpath_to_audiofpath(audiofolder: str, specpath: str) -> str:
     """
@@ -116,8 +117,8 @@ def analyze(config, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> No
     print("Analyzing reconstruction...")
     # Get all the audio files that correspond to the reconstruction spectrograms
     reconaudiofpaths = [convert_spectpath_to_audiofpath(audiofolder, p) for p in reconspects]
-    analyze_reconstruction(reconaudiofpaths, reconspects, autoencoder, savedir)
+    frequencies, times = analyze_reconstruction(reconaudiofpaths, reconspects, autoencoder, savedir, window_length_s, overlap)
 
     if isinstance(autoencoder, vae.VariationalAutoEncoder):
         print("Analyzing variational stuff...")
-        analyze_variational_sampling(autoencoder, imshapes, swathe_low, swathe_high, savedir, nembedding_dims)
+        analyze_variational_sampling(autoencoder, imshapes, swathe_low, swathe_high, savedir, nembedding_dims, frequencies, times)

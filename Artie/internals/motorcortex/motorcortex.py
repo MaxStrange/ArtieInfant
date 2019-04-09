@@ -688,7 +688,7 @@ def train_on_targets(config: configuration.Configuration, pretrained_model: Synt
 
 def load(fpath):
     """
-    Deserializes an object created from `SynthMatObject.save()` into a SynthMat object.
+    Deserializes an object created from `SynthModel.save()` into a SynthModel object.
     """
     with open(fpath, 'rb') as f:
         return pickle.load(f)

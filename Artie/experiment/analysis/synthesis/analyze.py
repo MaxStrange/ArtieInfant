@@ -13,6 +13,7 @@ results
 import argparse
 import audiosegment as asg
 import matplotlib.pyplot as plt
+import numpy as np
 import os
 
 def _get_soundfpaths_from_dir(resultsdir):
@@ -61,20 +62,6 @@ def _order_fpaths(soundfpaths):
 
     return ordered
 
-def _maximize():
-    """
-    Maximizes the matplotlib window.
-    """
-    manager = plt.get_current_fig_manager()
-
-    backend = plt.get_backend()
-    if backend.lower().startswith("qt"):
-        manager.window.showMaximized()
-    elif backend.lower().startswith("tk"):
-        manager.resize(*manager.window.maxsize())
-    elif backend.lower().startswith("wx"):
-        manager.frame.Maximize(True)
-
 def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_rate_hz):
     """
     Plots and saves figures.
@@ -82,46 +69,32 @@ def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_r
     segments = [s.resample(sample_rate_hz) for s in segments]
 
     # Plot each wave form
+    fig, axs = plt.subplots(len(segments), 1, constrained_layout=True)
     for i, s in enumerate(segments):
-        plt.subplot(len(segments), 1, i + 1)
-        plt.plot(s.to_numpy_array())
-    _maximize()
-    plt.title("Waveform")
-    plt.ylabel("PCM")
-    plt.xlabel("Sample")
+        arr = s.to_numpy_array()
+        times = np.linspace(0, len(arr) / s.frame_rate, num=len(arr))
+        axs[i].plot(times, arr)
+        axs[i].set_ylabel("PCM")
+    axs[-1].set_xlabel("Time (s)")
+    fig.suptitle("Waveforms of Generated Utterances")
+
+    # Save the plot
     save = os.path.join(savetodir, "{}.png".format(targetname))
     print("Saving", save)
     plt.savefig(save)
     plt.clf()
 
     # Now plot each spectrogram
+    fig, axs = plt.subplots(len(segments), 1, constrained_layout=True)
     for i, s in enumerate(segments):
-        plt.subplot(len(segments), 1, i + 1)
         fs, ts, amps = s.spectrogram(window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
-        plt.pcolormesh(ts, fs, amps)
-    plt.title("Spectrogram")
+        axs[i].pcolormesh(ts, fs, amps)
+        axs.set_ylabel("Hz")
+    axs[-1].set_xlabel("Time (s)")
+    fig.suptitle("Spectrograms of Generated Utterances")
+
+    # Save the plot
     save = os.path.join(savetodir, "{}_spectrogram.png".format(targetname))
     print("Saving", save)
     plt.savefig(save)
     plt.clf()
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("resultsdir", help="A directory of results from the articulatory synthesis model.")
-    args = parser.parse_args()
-
-    if not os.path.isdir(args.resultsdir):
-        print("{} is not a valid directory.".format(args.resultsdir))
-        exit(1)
-
-    # Find all the sound files in the directory
-    soundfpaths = _get_soundfpaths_from_dir(args.resultsdir)
-
-    # Order the sounds chronologically (in terms of training. So pretraining, then phase1_0, phase1_1, etc.).
-    orderedfpaths = _order_fpaths(soundfpaths)
-
-    # Load them all in and resample them appropriately
-    orderedsegs = [asg.from_file(fp).resample(16000, 2, 1) for fp in orderedfpaths]
-
-    # Plot each one
-    _analyze(orderedsegs, os.path.basename(args.resultsdir.strip(os.sep)), ".", 0.5, 0.2, 16000.0)
