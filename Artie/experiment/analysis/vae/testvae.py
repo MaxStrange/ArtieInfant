@@ -9,6 +9,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import shutil
 import sys
 
 from experiment.thesis import phase1 as p1                      # pylint: disable=locally-disabled, import-error
@@ -47,7 +48,7 @@ def _validate_args(args):
             print("Low ({}) must be less than high ({})".format(low, high))
             exit(3)
 
-def _plot_input_output_spectrograms(ipath, autoencoder, savedir):
+def _plot_input_output_spectrograms(audiofpath, ipath, autoencoder, savedir):
     """
     Loads `ipath` into a spectrogram and then runs it through
     `autoencoder`. Plots the input on the left and the output
@@ -86,6 +87,10 @@ def _plot_input_output_spectrograms(ipath, autoencoder, savedir):
     save = os.path.join(savedir, "spectrogram_{}.png".format(name))
     plt.savefig(save)
     plt.show()
+
+    # Now also save the audio file that corresponds to this image
+    save = os.path.join(savedir, "sound-corresponding-to-recon-spect.wav")
+    shutil.copyfile(audiofpath, save)
 
     return spec.shape
 

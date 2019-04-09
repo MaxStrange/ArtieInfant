@@ -659,18 +659,6 @@ def _train_vae(autoencoder, config):
                               validation_data=testgen,
                               validation_steps=nsteps_per_validation)
 
-def _convert_spectpath_to_audiofpath(audiofolder: str, specpath: str) -> str:
-    """
-    Finds the path of the audio file that corresponds to the spectrogram
-    found at `specpath`.
-    """
-    specfname = os.path.basename(specpath)
-    wavfname = os.path.splitext(specfname)[0] + ".wav"
-    wavfpath = os.path.join(audiofolder, wavfname)
-    if not os.path.isfile(wavfpath):
-        raise FileNotFoundError("Could not find {}.".format(wavfpath))
-    return wavfpath
-
 def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, np.array)]:
     """
     Returns a list of tuples of the form (spectrogram_fpath, audiofile_fpath, embedding coordinates as NP array).
@@ -712,7 +700,7 @@ def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, n
     # We have a list of .png files. But we want the WAVs that they correspond to. Let's find them.
     pngs_and_means = [tup for tup in zip(paths, means)]
     folder = config.getstr('preprocessing', 'folder_to_save_wavs')  # This is where we saved the corresponding wav files
-    fpaths_and_means = [(p, _convert_spectpath_to_audiofpath(folder, p), embedding) for p, embedding in pngs_and_means]
+    fpaths_and_means = [(p, ae.convert_spectpath_to_audiofpath(folder, p), embedding) for p, embedding in pngs_and_means]
 
     return fpaths_and_means
 
@@ -781,7 +769,7 @@ def run(config, savedir, preprocess=False, preprocess_part_two=False, pretrain_s
         print("Pretraining the voice synthesizer. Learning to coo...")
         synthmodel = motorcortex.SynthModel(config)
         synthmodel.pretrain()
-        production.analyze_pretrained_model(config, synthmodel.phase0_artifacts_dir, savedir, "pretraining")
+        production.analyze_pretrained_model(config, synthmodel.phase0_artifacts_dir, savedir, "pretraining", synthmodel)
     else:
         synthmodel = None
 

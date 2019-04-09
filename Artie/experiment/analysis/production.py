@@ -4,11 +4,12 @@ synthesis stuff.
 """
 import audiosegment as asg
 import os
+import pickle
 
 from experiment.analysis.synthesis import analyze                           # pylint: disable=locally-disabled, import-error
 from internals.motorcortex import motorcortex                               # pylint: disable=locally-disabled, import-error
 
-def analyze_pretrained_model(config, resultsdir: str, savetodir: str, targetname: str) -> None:
+def analyze_pretrained_model(config, resultsdir: str, savetodir: str, targetname: str, model: motorcortex.SynthModel) -> None:
     """
     Makes the plots and whatever other artifacts are needed for
     analysis of a pretrained articulatory synthesis model.
@@ -39,10 +40,14 @@ def analyze_pretrained_model(config, resultsdir: str, savetodir: str, targetname
     # Plot each one
     analyze._analyze(orderedsegs, pngname, savetodir, window_length_s, overlap, sample_rate_hz)
 
+    # Save the model as well
+    savepath = os.path.join(savetodir, targetname + ".pkl")
+    model.save(savepath)
+
 def analyze_models(config, trained_models: [motorcortex.SynthModel], savetodir: str) -> None:
     """
     Similar to `analyze_pretrained_model`, but for a list of trained models.
     """
     # Currently, we just do the same thing as the pretrained analysis...
     for model in trained_models:
-        analyze_pretrained_model(config, model.phase1_artifacts_dir, savetodir, os.path.basename(model.target))
+        analyze_pretrained_model(config, model.phase1_artifacts_dir, savetodir, os.path.basename(model.target), model)

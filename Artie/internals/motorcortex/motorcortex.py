@@ -12,6 +12,7 @@ import numpy as np
 import os
 import output.voice.synthesizer as synth  # pylint: disable=locally-disabled, import-error
 import pandas
+import pickle
 import primordialooze as po
 import random
 import tempfile
@@ -307,6 +308,13 @@ class SynthModel:
         self._summarize_results(best, value, sim, savefpath)
 
         return best
+
+    def save(self, fpath):
+        """
+        Serializes the model into the given `fpath`. To load, call this module's `load` function.
+        """
+        with open(fpath, 'wb') as f:
+            pickle.dump(self, f)
 
     def train(self, target, savefpath=None, fitness_function_name='xcor', target_coords=None, autoencoder=None):
         """
@@ -677,3 +685,10 @@ def train_on_targets(config: configuration.Configuration, pretrained_model: Synt
             traceback.print_exc()
 
     return trained_models
+
+def load(fpath):
+    """
+    Deserializes an object created from `SynthMatObject.save()` into a SynthMat object.
+    """
+    with open(fpath, 'rb') as f:
+        return pickle.load(f)

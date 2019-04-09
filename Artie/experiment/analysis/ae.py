@@ -48,12 +48,12 @@ def analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, nembedding_dim
     else:
         raise ValueError("nembedding_dims must be 1, 2, or 3, but is {}".format(nembedding_dims))
 
-def analyze_reconstruction(impaths, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> None:
+def analyze_reconstruction(audiofpaths, impaths, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> None:
     """
     Plot an input spectrogram side-by-side with itself after reconstruction
     """
-    for impath in impaths:
-        testvae._plot_input_output_spectrograms(impath, autoencoder, savedir)
+    for audiofpath, impath in zip(audiofpaths, impaths):
+        testvae._plot_input_output_spectrograms(audiofpath, impath, autoencoder, savedir)
 
 def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder, shape: [int], low: float, high: float, savedir: str, ndims: int) -> None:
     """
@@ -62,6 +62,18 @@ def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder, shape:
     testvae._plot_samples_from_latent_space(autoencoder, shape, savedir, ndims)
     if ndims < 3:
         testvae._plot_topographic_swathe(autoencoder, shape, low, high, savedir, ndims)
+
+def convert_spectpath_to_audiofpath(audiofolder: str, specpath: str) -> str:
+    """
+    Finds the path of the audio file that corresponds to the spectrogram
+    found at `specpath`.
+    """
+    specfname = os.path.basename(specpath)
+    wavfname = os.path.splitext(specfname)[0] + ".wav"
+    wavfpath = os.path.join(audiofolder, wavfname)
+    if not os.path.isfile(wavfpath):
+        raise FileNotFoundError("Could not find {}.".format(wavfpath))
+    return wavfpath
 
 def analyze(config, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> None:
     """
@@ -72,6 +84,7 @@ def analyze(config, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> No
     swathe_low      = config.getfloat('autoencoder', 'topographic_swathe_low')
     swathe_high     = config.getfloat('autoencoder', 'topographic_swathe_high')
     reconspects     = config.getlist('autoencoder', 'spectrograms_to_reconstruct')
+    audiofolder     = config.getstr('preprocessing', 'folder_to_save_wavs')  # This is where we saved the corresponding wav files
     duration_s      = config.getfloat('preprocessing', 'seconds_per_spectrogram')
     window_length_s = config.getfloat('preprocessing', 'spectrogram_window_length_s')
     overlap         = config.getfloat('preprocessing', 'spectrogram_window_overlap')
@@ -101,7 +114,9 @@ def analyze(config, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> No
         logging.warn("Cannot do any reasonable latent space visualization for embedding spaces of dimensionality greater than 3.")
 
     print("Analyzing reconstruction...")
-    analyze_reconstruction(reconspects, autoencoder, savedir)
+    # Get all the audio files that correspond to the reconstruction spectrograms
+    reconaudiofpaths = [convert_spectpath_to_audiofpath(audiofolder, p) for p in reconspects]
+    analyze_reconstruction(reconaudiofpaths, reconspects, autoencoder, savedir)
 
     if isinstance(autoencoder, vae.VariationalAutoEncoder):
         print("Analyzing variational stuff...")
