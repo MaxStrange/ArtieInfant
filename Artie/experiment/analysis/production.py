@@ -42,6 +42,7 @@ def analyze_pretrained_model(config, resultsdir: str, savetodir: str, targetname
 
     # Save the model as well
     savepath = os.path.join(savetodir, targetname + ".pkl")
+    print("Saving", savepath)
     model.save(savepath)
 
 def analyze_models(config, trained_models: [motorcortex.SynthModel], savetodir: str) -> None:

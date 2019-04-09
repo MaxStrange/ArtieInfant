@@ -85,11 +85,12 @@ def _plot_input_output_spectrograms(audiofpath, ipath, autoencoder, savedir):
     plt.pcolormesh(ts, fs, decoded_spec)
     name = os.path.splitext(os.path.basename(ipath))[0]
     save = os.path.join(savedir, "spectrogram_{}.png".format(name))
+    print("Saving", save)
     plt.savefig(save)
-    plt.show()
+    plt.clf()
 
     # Now also save the audio file that corresponds to this image
-    save = os.path.join(savedir, "sound-corresponding-to-recon-spect.wav")
+    save = os.path.join(savedir, os.path.basename(audiofpath))
     shutil.copyfile(audiofpath, save)
 
     return spec.shape
@@ -119,8 +120,10 @@ def _plot_samples_from_latent_space(autoencoder, shape, savedir, ndims=2):
             plt.title(str(z))
             plt.pcolormesh(ts, fs, sample * 255.0)
     # Plot everything
-    plt.savefig(os.path.join(savedir, "samples_from_latent_space.png"))
-    plt.show()
+    save = os.path.join(savedir, "samples_from_latent_space.png")
+    print("Saving", save)
+    plt.savefig(save)
+    plt.clf()
 
 def _plot_topographic_swathe(autoencoder, shape, low, high, savedir, ndims=2):
     """
@@ -156,8 +159,10 @@ def _plot_topographic_swathe(autoencoder, shape, low, high, savedir, ndims=2):
     else:
         raise ValueError("Cannot plot a topographic swathe for dimensions higher than 2 currently. Passed ndims={}".format(ndims))
 
-    plt.savefig(os.path.join(savedir, "spectrogram_swathe_{:.1f}_{:.1f}.png".format(low, high)))
-    plt.show()
+    save = os.path.join(savedir, "spectrogram_swathe_{:.1f}_{:.1f}.png".format(low, high))
+    print("Saving", save)
+    plt.savefig(save)
+    plt.clf()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

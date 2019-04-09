@@ -90,8 +90,9 @@ def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_r
     plt.ylabel("PCM")
     plt.xlabel("Sample")
     save = os.path.join(savetodir, "{}.png".format(targetname))
+    print("Saving", save)
     plt.savefig(save)
-    plt.show()
+    plt.clf()
 
     # Now plot each spectrogram
     for i, s in enumerate(segments):
@@ -99,8 +100,10 @@ def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_r
         fs, ts, amps = s.spectrogram(window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
         plt.pcolormesh(ts, fs, amps)
     plt.title("Spectrogram")
-    plt.savefig(os.path.join(savetodir, "{}_spectrogram.png".format(targetname)))
-    plt.show()
+    save = os.path.join(savetodir, "{}_spectrogram.png".format(targetname))
+    print("Saving", save)
+    plt.savefig(save)
+    plt.clf()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -69,13 +69,17 @@ def analyze_single_segment(model: vae.VariationalAutoEncoder, targetfpath: str, 
         # Plot where each encoding is
         plt.scatter(encodings[:, 0], encodings[:, 1])
         plt.title("Scatter Plot of Encodings for {}".format(targetfpath))
-        plt.show()
+        print("Saving", title)
+        plt.savefig(title)
+        plt.clf()
 
         # Plot the distributions as circles whose means determine location and whose radii are composed
         # of the standard deviations
         plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
         plt.title("Distributions the Encodings were drawn From for {}".format(targetfpath))
-        plt.show()
+        print("Saving", title)
+        plt.savefig(title)
+        plt.clf()
 
     embedding = np.mean(encodings, axis=0)
     mean = np.mean(means, axis=0)
@@ -239,8 +243,10 @@ def _plot_vanilla_latent_space(encodings, special_encodings, name, savedir, *, n
     else:
         raise ValueError("`ndims` must be 1, 2, or 3, but is {}".format(ndims))
 
-    plt.savefig(os.path.join(savedir, "scatter_{}_embeddings_{}.png".format(encodings.shape[0], name)))
-    plt.show()
+    save = os.path.join(savedir, "scatter_{}_embeddings_{}.png".format(encodings.shape[0], name))
+    print("Saving", save)
+    plt.savefig(save)
+    plt.clf()
 
 def _plot_variational_latent_space(encodings, special_encodings, name, means, stdevs, special_means, special_stdevs, savedir, *, ndims=2):
     """
@@ -283,8 +289,9 @@ def _plot_variational_latent_space(encodings, special_encodings, name, means, st
         raise ValueError("`ndims` must be 1, 2, or 3, but is {}".format(ndims))
 
     save = os.path.join(savedir, "scatter_{}_distros_{}.png".format(encodings.shape[0], name))
+    print("Saving", save)
     plt.savefig(save)
-    plt.show()
+    plt.clf()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
