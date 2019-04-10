@@ -5,6 +5,7 @@ This file's API consists simply of the function run(), which will run phase 1 of
 """
 from experiment.analysis import ae                      # pylint: disable=locally-disabled, import-error
 from experiment.analysis import production              # pylint: disable=locally-disabled, import-error
+from experiment.configuration import ConfigError        # pylint: disable=locally-disabled, import-error
 from internals.motorcortex import motorcortex           # pylint: disable=locally-disabled, import-error
 from internals.vae import vae                           # pylint: disable=locally-disabled, import-error
 from internals.vae import ae as vanilla                 # pylint: disable=locally-disabled, import-error
@@ -677,7 +678,7 @@ def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, n
         # Draw n random items from the test split as our targets
         nitems_to_mimic = config.getint('synthesizer', 'mimicry-targets')
         mimicry_targets = [random.choice(paths) for _ in range(nitems_to_mimic)]
-    except config.ConfigError:
+    except ConfigError:
         # Other possibility is that the configuration item is a list of file paths to target
         mimicry_targets = config.getlist('synthesizer', 'mimicry-targets')
 
@@ -698,7 +699,7 @@ def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, n
         means = autoencoder._encoder.predict(specs)
 
     # We have a list of .png files. But we want the WAVs that they correspond to. Let's find them.
-    pngs_and_means = [tup for tup in zip(paths, means)]
+    pngs_and_means = [tup for tup in zip(mimicry_targets, means)]
     folder = config.getstr('preprocessing', 'folder_to_save_wavs')  # This is where we saved the corresponding wav files
     fpaths_and_means = [(p, ae.convert_spectpath_to_audiofpath(folder, p), embedding) for p, embedding in pngs_and_means]
 

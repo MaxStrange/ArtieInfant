@@ -174,17 +174,18 @@ def _plot_topographic_swathe(autoencoder, shape, low, high, savedir, frequencies
             if k == 0:
                 axs[k].set_ylabel("Hz")
     elif ndims == 2:
-        for yi in grid_y:
-            for xi in grid_x:
+        fig, axs = plt.subplots(len(grid_y), len(grid_x))
+        for i, yi in enumerate(grid_y):
+            for j, xi in enumerate(grid_x):
                 z_sample = np.array([[xi, yi]])
                 x_decoded = autoencoder.predict(z_sample) * 255.0
                 sample = np.reshape(x_decoded, shape)
-                axs[yi][xi].pcolormesh(times, frequencies, sample)
+                axs[i][j].pcolormesh(times, frequencies, sample)
                 if xi == 0:
-                    axs[yi][xi].set_ylabel("Hz")
+                    axs[i][j].set_ylabel("Hz")
             if yi == len(grid_y) - 1:
                 # We are on the bottom row
-                axs[yi][xi].set_xlabel("Time (s)")
+                axs[i][j].set_xlabel("Time (s)")
     else:
         raise ValueError("Cannot plot a topographic swathe for dimensions higher than 2 currently. Passed ndims={}".format(ndims))
     fig.suptitle("Topographic Swathe")

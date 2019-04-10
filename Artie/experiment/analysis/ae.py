@@ -72,9 +72,15 @@ def convert_spectpath_to_audiofpath(audiofolder: str, specpath: str) -> str:
     specfname = os.path.basename(specpath)
     wavfname = os.path.splitext(specfname)[0] + ".wav"
     wavfpath = os.path.join(audiofolder, wavfname)
-    if not os.path.isfile(wavfpath):
-        raise FileNotFoundError("Could not find {}.".format(wavfpath))
-    return wavfpath
+    if os.path.isfile(wavfpath):
+        return wavfpath
+    else:
+        # Try not removing the .png. Sometimes I am stupid.
+        tryagainfpath = os.path.join(audiofolder, specfname + ".wav")
+        logging.warn("Could not find {}. Trying {}.".format(wavfpath, tryagainfpath))
+        if not os.path.isfile(tryagainfpath):
+            raise FileNotFoundError("Could not find {} or {}.".format(wavfpath, tryagainfpath))
+        return tryagainfpath
 
 def analyze(config, autoencoder: vae.VariationalAutoEncoder, savedir: str) -> None:
     """

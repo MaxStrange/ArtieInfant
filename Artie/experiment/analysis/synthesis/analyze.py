@@ -69,13 +69,13 @@ def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_r
     segments = [s.resample(sample_rate_hz) for s in segments]
 
     # Plot each wave form
-    fig, axs = plt.subplots(len(segments), 1, constrained_layout=True)
+    fig, axs = plt.subplots(len(segments), 1, constrained_layout=True, squeeze=False)
     for i, s in enumerate(segments):
         arr = s.to_numpy_array()
         times = np.linspace(0, len(arr) / s.frame_rate, num=len(arr))
-        axs[i].plot(times, arr)
-        axs[i].set_ylabel("PCM")
-    axs[-1].set_xlabel("Time (s)")
+        axs[i][0].plot(times, arr)
+        axs[i][0].set_ylabel("PCM")
+    axs[0][-1].set_xlabel("Time (s)")
     fig.suptitle("Waveforms of Generated Utterances")
 
     # Save the plot
@@ -85,12 +85,12 @@ def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_r
     plt.clf()
 
     # Now plot each spectrogram
-    fig, axs = plt.subplots(len(segments), 1, constrained_layout=True)
+    fig, axs = plt.subplots(len(segments), 1, constrained_layout=True, squeeze=False)
     for i, s in enumerate(segments):
         fs, ts, amps = s.spectrogram(window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
-        axs[i].pcolormesh(ts, fs, amps)
-        axs.set_ylabel("Hz")
-    axs[-1].set_xlabel("Time (s)")
+        axs[i][0].pcolormesh(ts, fs, amps)
+        axs[i][0].set_ylabel("Hz")
+    axs[0][-1].set_xlabel("Time (s)")
     fig.suptitle("Spectrograms of Generated Utterances")
 
     # Save the plot
