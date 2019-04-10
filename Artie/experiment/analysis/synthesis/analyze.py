@@ -74,7 +74,6 @@ def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_r
         arr = s.to_numpy_array()
         times = np.linspace(0, len(arr) / s.frame_rate, num=len(arr))
         axs[i][0].plot(times, arr)
-        axs[i][0].set_ylabel("PCM")
         if i == len(segments) - 1:
             # This is the bottom row, enable the xticks
             pass
@@ -83,6 +82,7 @@ def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_r
             axs[i][0].xaxis.set_ticklabels([])
     axs[-1][0].set_xlabel("Time (s)")
     fig.suptitle("Waveforms of Generated Utterances")
+    fig.text(0.01, 0.5, "PCM", ha='center', va='center', rotation='vertical')
 
     # Save the plot
     save = os.path.join(savetodir, "{}.png".format(targetname))
@@ -95,7 +95,6 @@ def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_r
     for i, s in enumerate(segments):
         fs, ts, amps = s.spectrogram(window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
         axs[i][0].pcolormesh(ts, fs, amps)
-        axs[i][0].set_ylabel("Hz")
         if i == len(segments) - 1:
             # This is the bottom row, enable the xticks
             pass
@@ -104,6 +103,7 @@ def _analyze(segments, targetname, savetodir, window_length_s, overlap, sample_r
             axs[i][0].xaxis.set_ticklabels([])
     axs[-1][0].set_xlabel("Time (s)")
     fig.suptitle("Spectrograms of Generated Utterances")
+    fig.text(0.03, 0.5, "Hz", ha='center', va='center', rotation='vertical')
 
     # Save the plot
     save = os.path.join(savetodir, "{}_spectrogram.png".format(targetname))
