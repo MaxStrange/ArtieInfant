@@ -44,12 +44,9 @@ if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("USAGE: python {} <path-to-preprocessed-spectrogram> <long or short>".format(sys.argv[0]))
         exit(1)
-    elif not os.path.isfile(sys.argv[1]):
-        print("USAGE: python {} <path-to-preprocessed-spectrogram>".format(sys.argv[0]))
-        exit(2)
     elif sys.argv[2].strip().lower() not in ("long", "short"):
         print("Second argument must be either 'long' or 'short' (for the length of the spectrogram)")
         exit(3)
 
-    seg = segment_from_specname(sys.argv[1], sys.argv[2].strip().lower())
+    seg = segment_from_specname(sys.argv[1], sys.argv[2].strip().lower() == "long")
     seg.export(os.path.basename(sys.argv[1]) + ".wav", format="WAV")
