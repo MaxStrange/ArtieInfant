@@ -82,16 +82,16 @@ def _plot_input_output_spectrograms(audiofpath, ipath, autoencoder, savedir, win
     logging.info(msg)
 
     # Plot side-by-side
-    plt.title("Before (left) and After (right) for {}".format(os.path.basename(ipath)))
+    fig, axs = plt.subplots(1, 2, squeeze=True)
+    fig.suptitle("Before (left) and After (right) for {}".format(os.path.basename(ipath)))
 
-    plt.subplot(121)
-    plt.pcolormesh(ts, fs, spec)
-    plt.ylabel("Hz")
-    plt.xlabel("Time (s)")
+    axs[0].pcolormesh(ts, fs, spec)
+    axs[0].ylabel("Hz")
+    axs[0].xlabel("Time (s)")
 
-    plt.subplot(122)
-    plt.pcolormesh(ts, fs, decoded_spec)
-    plt.xlabel("Time (s)")
+    axs[1].pcolormesh(ts, fs, decoded_spec)
+    axs[1].xlabel("Time (s)")
+    axs[1].xaxis.set_ticklabels([])
 
     # Save the figure
     name = os.path.splitext(os.path.basename(ipath))[0]
@@ -132,18 +132,27 @@ def _plot_samples_from_latent_space(autoencoder, shape, savedir, frequencies, ti
             axs[j][i].pcolormesh(times, frequencies, sample * 255.0)
             if ndims == 1:
                 axs[j][i].set_title("{:.2f}".format(z[0]))
+                axs[j][i].set_fontsize(12)
             elif ndims == 2:
                 axs[j][i].set_title("({:.2f},{:.2f})".format(z[0][0], z[0][1]))
+                axs[j][i].set_fontsize(12)
             elif ndims == 3:
                 axs[j][i].set_title("({:.2f},{:.2f},{:.2f})".format(z[0][0], z[0][1], z[0][2]))
+                axs[j][i].set_fontsize(12)
 
             if j == len(distros) - 1:
                 # We are on the last row, let's label the x axes
                 axs[j][i].set_xlabel("Time (s)")
+            else:
+                # If we aren't on the last row, let's not have xticks
+                axs[j][i].xaxis.set_ticklabels([])
 
             if i == 0:
                 # We are on the left, let's label the y axes
                 axs[j][i].set_ylabel("Hz")
+            else:
+                # If we aren't on the left, let's not have yticks
+                axs[j][i].yaxis.set_ticklabels([])
 
     fig.suptitle("Samples from Latent Space")
 
@@ -173,6 +182,8 @@ def _plot_topographic_swathe(autoencoder, shape, low, high, savedir, frequencies
             axs[k].set_xlabel("Time (s)")
             if k == 0:
                 axs[k].set_ylabel("Hz")
+            else:
+                axs[k].yaxis.set_ticklabels([])
     elif ndims == 2:
         fig, axs = plt.subplots(len(grid_y), len(grid_x))
         for i, yi in enumerate(grid_y):
@@ -181,11 +192,17 @@ def _plot_topographic_swathe(autoencoder, shape, low, high, savedir, frequencies
                 x_decoded = autoencoder.predict(z_sample) * 255.0
                 sample = np.reshape(x_decoded, shape)
                 axs[i][j].pcolormesh(times, frequencies, sample)
-                if xi == 0:
+                if j == 0:
+                    # We are on the left
                     axs[i][j].set_ylabel("Hz")
-            if yi == len(grid_y) - 1:
-                # We are on the bottom row
-                axs[i][j].set_xlabel("Time (s)")
+                else:
+                    axs[i][j].yaxis.set_ticklabels([])
+
+                if i == len(grid_y) - 1:
+                    # We are on the bottom row
+                    axs[i][j].set_xlabel("Time (s)")
+                else:
+                    axs[i][j].xaxis.set_ticklabels([])
     else:
         raise ValueError("Cannot plot a topographic swathe for dimensions higher than 2 currently. Passed ndims={}".format(ndims))
     fig.suptitle("Topographic Swathe")
