@@ -135,7 +135,7 @@ def _predict_on_spectrograms(specdir: str, autoencoder: vae.VariationalAutoEncod
         specs = None  # Hint to the GC
 
         # Remove the useless subdirectory from the path (the imagedatagen needs it, but can't be told about it... ugh)
-        pathsplit = args.specdir.rstrip(os.sep).split(os.sep)
+        pathsplit = specdir.rstrip(os.sep).split(os.sep)
         root = os.path.join(*[os.sep if p == '' else p for p in pathsplit[0:-1]])
 
         # Set up based on config file

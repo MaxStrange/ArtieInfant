@@ -104,4 +104,5 @@ class AutoEncoder:
         """
         """
         complete_decoder = Model(decoderinputlayer, decoder, name='decoder')
+        complete_decoder.summary()
         return complete_decoder
