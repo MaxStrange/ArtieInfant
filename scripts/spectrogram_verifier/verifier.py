@@ -21,7 +21,7 @@ if __name__ == "__main__":
     fpaths = [os.path.join(targetdir, fname) for fname in os.listdir(targetdir)]
     for fpath in tqdm.tqdm(fpaths):
         spec = imageio.imread(fpath)
-        if spec.shape != (81, 18):
+        if spec.shape != (241, 20):
             #print("{} has shape {}".format(fpath, spec.shape))
             if remove:
                 os.remove(fpath)

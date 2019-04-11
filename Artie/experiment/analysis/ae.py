@@ -12,7 +12,7 @@ import os
 
 def _analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, training_root: str, testsplit_root: str, batchsize: int, imshapes: [int], specargs: {}, savedir: str, ndims: int) -> None:
     """
-    Analyzes a 2D latent space for an autoencoder.
+    Analyzes a 1D, 2D, or 3D latent space for an autoencoder.
     """
     analysisdir = os.path.abspath(os.path.dirname(__file__))
     voweldir = os.path.join(analysisdir, "vae", "sounds", "vowels")

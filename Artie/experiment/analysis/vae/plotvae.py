@@ -31,6 +31,21 @@ def load_spectrograms_from_directory(d, numspecs=None):
         numspecs = int(round(numspecs))
 
     pathnames = [p for p in os.listdir(d) if os.path.splitext(p)[1].lower() == ".png"]
+    if not pathnames:
+        # We couldn't find any files in the supplied directory. Sometimes I am stupid though,
+        # so let's try whatever/useless_subdirectory as well.
+        new_d = os.path.join(d, "useless_subdirectory")
+        pathnames = [p for p in os.listdir(new_d) if os.path.splitext(p)[1].lower() == ".png"]
+        if pathnames:
+            # It worked, so let's update d to be this new one that actually has stuff in it
+            d = new_d
+
+    if numspecs:
+        pathnames = pathnames[:numspecs]
+
+    if not pathnames:
+        raise FileNotFoundError("Could not find any .png files in directory {}".format(d))
+
     paths = [os.path.abspath(os.path.join(d, p)) for p in pathnames]
     specs = [imageio.imread(p) / 255.0 for p in paths]
     arr = np.array(specs)
@@ -67,8 +82,9 @@ def analyze_single_segment(model: vae.VariationalAutoEncoder, targetfpath: str, 
 
     if visualize:
         # Plot where each encoding is
+        title = "Scatter Plot of Encodings for {}".format(targetfpath)
         plt.scatter(encodings[:, 0], encodings[:, 1])
-        plt.title("Scatter Plot of Encodings for {}".format(targetfpath))
+        plt.title(title)
         print("Saving", title)
         plt.savefig(title)
         plt.clf()
@@ -76,7 +92,8 @@ def analyze_single_segment(model: vae.VariationalAutoEncoder, targetfpath: str, 
         # Plot the distributions as circles whose means determine location and whose radii are composed
         # of the standard deviations
         plt.scatter(means[:, 0], means[:, 1], s=np.square(stdevs * 10))
-        plt.title("Distributions the Encodings were drawn From for {}".format(targetfpath))
+        title = "Distributions the Encodings were drawn From for {}".format(targetfpath)
+        plt.title(title)
         print("Saving", title)
         plt.savefig(title)
         plt.clf()
@@ -292,44 +309,3 @@ def _plot_variational_latent_space(encodings, special_encodings, name, means, st
     print("Saving", save)
     plt.savefig(save)
     plt.clf()
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("model", help="Path to trained VAE model that matches the architecture in ArtieInfant")
-    parser.add_argument("specdir", help="Path to spectrogram image directory")
-    parser.add_argument("-f", "--file", action="append", help="A sound file to run through the VAE (after conversion to spectrogram)")
-    parser.add_argument("-d", "--dir", help="A directory of sound files to run through the VAE (after conversion to spectrogram)")
-    args = parser.parse_args()
-    _validate_args(args)
-
-    # Come up with a name for the special sound group we are plottting (if we are plotting them)
-    # This is useful for saving the figures
-    if args.dir:
-        name = os.path.basename(args.dir)
-    else:
-        name = None
-
-    # Load the configuration
-    configfpath = os.path.abspath("../../Artie/experiment/configfiles/testthesis.cfg")
-    config = configuration.load(None, fpath=configfpath)
-
-    # Random seed
-    np.random.seed(1263262)
-
-    # Load the VAE
-    autoencoder = _build_the_vae(config, args.model)
-
-    # Run the batch to get the encodings
-    batchsize = config.getint('autoencoder', 'batchsize')
-    nworkers = config.getint('autoencoder', 'nworkers')
-    imshapes = config.getlist('autoencoder', 'input_shape')[0:2]  # take only the first two dimensions (not channels)
-    imshapes = [int(i) for i in imshapes]  # They are strings in the config file, so convert them to ints
-    means, logvars, encodings = _predict_on_spectrograms(args.specdir, autoencoder, batchsize, nworkers, imshapes)
-    stdevs = np.exp(0.5 * logvars)
-
-    # If the user specified a directory or a list of files, embed them too. We'll paint them red.
-    special_means, special_logvars, special_encodings = _predict_on_sound_files(args.file, args.dir, autoencoder)
-    if special_logvars is not None:
-        special_stdevs = np.exp(0.5 * special_logvars)
-
-    _plot_variational_latent_space(encodings, special_encodings, name, means, stdevs, special_means, special_stdevs)
