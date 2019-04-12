@@ -713,7 +713,7 @@ def _train_vae(autoencoder, config):
                               validation_data=testgen,
                               validation_steps=nsteps_per_validation)
 
-def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, np.array)]:
+def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, str, np.array)]:
     """
     Returns a list of tuples of the form (spectrogram_fpath, audiofile_fpath, embedding coordinates as NP array).
     """
@@ -844,4 +844,4 @@ def run(config, savedir, preprocess=False, preprocess_part_two=False, pretrain_s
             synthmodel = motorcortex.SynthModel(config)
 
         trained_synth_models = motorcortex.train_on_targets(config, synthmodel, mimicry_targets, autoencoder)
-        production.analyze_models(config, trained_synth_models, savedir)
+        production.analyze_models(config, trained_synth_models, savedir, [target[1] for target in mimicry_targets])

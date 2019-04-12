@@ -5,8 +5,10 @@ synthesis stuff.
 import audiosegment as asg
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas
 import pickle
+import shutil
 
 from experiment.analysis.synthesis import analyze                           # pylint: disable=locally-disabled, import-error
 from internals.motorcortex import motorcortex                               # pylint: disable=locally-disabled, import-error
@@ -73,10 +75,15 @@ def analyze_pretrained_model(config, resultsdir: str, savetodir: str, targetname
     print("Saving", savepath)
     model.save(savepath)
 
-def analyze_models(config, trained_models: [motorcortex.SynthModel], savetodir: str) -> None:
+def analyze_models(config, trained_models: [motorcortex.SynthModel], savetodir: str, targetaudiofpaths: [str]) -> None:
     """
     Similar to `analyze_pretrained_model`, but for a list of trained models.
     """
     # Currently, we just do the same thing as the pretrained analysis...
-    for model in trained_models:
+    for model, targetaudiofpath in zip(trained_models, targetaudiofpaths):
         analyze_pretrained_model(config, model.phase1_artifacts_dir, savetodir, os.path.basename(model.target), model)
+
+        # Now save the target sound
+        savepath = os.path.join(savetodir, os.path.basename(targetaudiofpath))
+        print("Saving", savepath)
+        shutil.copyfile(targetaudiofpath, savepath)
