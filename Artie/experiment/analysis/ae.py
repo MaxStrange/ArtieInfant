@@ -60,8 +60,8 @@ def analyze_variational_sampling(autoencoder: vae.VariationalAutoEncoder, shape:
     """
     If a Variational AE, this samples from latent space and plots a swathe of spectrograms.
     """
-    testvae._plot_samples_from_latent_space(autoencoder, shape, savedir, frequencies, times, ndims)
     if ndims < 3:
+        testvae._plot_samples_from_latent_space(autoencoder, shape, savedir, frequencies, times, ndims)
         testvae._plot_topographic_swathe(autoencoder, shape, low, high, savedir, frequencies, times, ndims)
 
 def convert_spectpath_to_audiofpath(audiofolder: str, specpath: str) -> str:

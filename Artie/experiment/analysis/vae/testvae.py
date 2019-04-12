@@ -132,7 +132,7 @@ def _plot_samples_from_latent_space(autoencoder, shape, savedir, frequencies, ti
             # Plot the sample into the grid of figures
             axs[j][i].pcolormesh(times, frequencies, sample * 255.0)
             if ndims == 1:
-                axs[j][i].set_title("{:.2f}".format(z[0]))
+                axs[j][i].set_title("{:.2f}".format(z[0][0]))
                 axs[j][i].title.set_fontsize(8)
             elif ndims == 2:
                 axs[j][i].set_title("({:.2f},{:.2f})".format(z[0][0], z[0][1]))

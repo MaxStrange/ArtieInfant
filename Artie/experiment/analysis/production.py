@@ -4,15 +4,17 @@ synthesis stuff.
 """
 import audiosegment as asg
 import os
+import matplotlib.pyplot as plt
+import pandas
 import pickle
 
 from experiment.analysis.synthesis import analyze                           # pylint: disable=locally-disabled, import-error
 from internals.motorcortex import motorcortex                               # pylint: disable=locally-disabled, import-error
 
-def analyze_pretrained_model(config, resultsdir: str, savetodir: str, targetname: str, model: motorcortex.SynthModel) -> None:
+def _plot_sounds(config, resultsdir: str, savetodir: str, targetname: str) -> None:
     """
-    Makes the plots and whatever other artifacts are needed for
-    analysis of a pretrained articulatory synthesis model.
+    Makes plots of the sounds that the model generated over time, showing
+    how these sounds evolved.
     """
     # Get needed configuarations
     pngname = config.getstr('experiment', 'name')
@@ -39,6 +41,32 @@ def analyze_pretrained_model(config, resultsdir: str, savetodir: str, targetname
 
     # Plot each one
     analyze._analyze(orderedsegs, pngname, savetodir, window_length_s, overlap, sample_rate_hz)
+
+def _plot_genetics(config, resultsdir: str, savetodir: str) -> None:
+    """
+    Plots a line graph of how the best, avg, and worst agents changed over time.
+    """
+    csvs = [csv for csv in os.listdir(resultsdir) if os.path.splitext(csv)[-1].lower() == ".csv"]
+    csvs = [os.path.join(resultsdir, csv) for csv in csvs]
+    for csv in csvs:
+        df = pandas.read_csv(csv)
+        df = df.drop(['GenerationIndex'], axis=1)
+        ax = df.plot()
+        ax.set_title("Fitness Score over Generations")
+        ax.set_ylabel("Fitness Score")
+        ax.set_xlabel("Generation")
+        save = os.path.join(savetodir, os.path.basename(csv) + "_history.png")
+        print("Saving {}".format(save))
+        plt.savefig(save)
+        plt.clf()
+
+def analyze_pretrained_model(config, resultsdir: str, savetodir: str, targetname: str, model: motorcortex.SynthModel) -> None:
+    """
+    Makes the plots and whatever other artifacts are needed for
+    analysis of a pretrained articulatory synthesis model.
+    """
+    _plot_sounds(config, resultsdir, savetodir, targetname)
+    _plot_genetics(config, resultsdir, savetodir)
 
     # Save the model as well
     savepath = os.path.join(savetodir, targetname + ".pkl")
