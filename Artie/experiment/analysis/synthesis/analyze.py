@@ -16,15 +16,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-def _get_soundfpaths_from_dir(resultsdir):
+def _get_soundfpaths_from_dir(resultsdir, targetname=None):
     """
     Returns a list of fpaths corresponding to all the OGG or WAV files
-    in the directory (non-recursively).
+    in the directory (non-recursively) that have `target` in their name.
+
+    If `target` is None, we return all OGG and WAV files in the directory.
     """
+    print("Looking for files with '{}' in them...".format(targetname))
     fpaths = []
     for fname in os.listdir(resultsdir):
-        if os.path.splitext(fname)[-1].lower() in (".ogg", ".wav"):
+        # Are we interested in this file?
+        is_ogg_or_wav = os.path.splitext(fname)[-1].lower() in (".ogg", ".wav")
+        has_targetname = targetname is None or targetname in fname
+
+        if is_ogg_or_wav and has_targetname:
             fpaths.append(os.path.join(resultsdir, fname))
+
+    print("Found: {}".format(fpaths))
     return fpaths
 
 def _order_fpaths(soundfpaths):

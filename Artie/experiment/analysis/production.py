@@ -24,10 +24,12 @@ def _plot_sounds(config, resultsdir: str, savetodir: str, targetname: str) -> No
     overlap = config.getfloat('preprocessing', 'spectrogram_window_overlap')
     sample_rate_hz = config.getfloat('preprocessing', 'spectrogram_sample_rate_hz')
 
-    pngname += "_" + targetname
+    if targetname is not None:
+        pngname += "_" + targetname
 
     # Find all the sound files in the directory
-    soundfpaths = analyze._get_soundfpaths_from_dir(resultsdir)
+    t = os.path.splitext(targetname)[0] if targetname is not None else None
+    soundfpaths = analyze._get_soundfpaths_from_dir(resultsdir, t)
 
     # Order the sounds chronologically (in terms of training. So pretraining, then phase1_0, phase1_1, etc.).
     orderedfpaths = analyze._order_fpaths(soundfpaths)
@@ -67,7 +69,7 @@ def analyze_pretrained_model(config, resultsdir: str, savetodir: str, targetname
     Makes the plots and whatever other artifacts are needed for
     analysis of a pretrained articulatory synthesis model.
     """
-    _plot_sounds(config, resultsdir, savetodir, targetname)
+    _plot_sounds(config, resultsdir, savetodir, targetname=None)
     _plot_genetics(config, resultsdir, savetodir)
 
     # Save the model as well
@@ -81,7 +83,8 @@ def analyze_models(config, trained_models: [motorcortex.SynthModel], savetodir: 
     """
     # Currently, we just do the same thing as the pretrained analysis...
     for model, targetaudiofpath in zip(trained_models, targetaudiofpaths):
-        analyze_pretrained_model(config, model.phase1_artifacts_dir, savetodir, os.path.basename(model.target), model)
+        _plot_sounds(config, model.phase1_artifacts_dir, savetodir, os.path.basename(model.target))
+        _plot_genetics(config, model.phase1_artifacts_dir, savetodir)
 
         # Now save the target sound
         savepath = os.path.join(savetodir, os.path.basename(targetaudiofpath))
