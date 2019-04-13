@@ -52,6 +52,7 @@ if __name__ == "__main__":
 
     plt.title("Spectrogram")
     fs, ts, amps = seg.spectrogram(0, duration_s, window_length_s=window_length_s, overlap=overlap, window=('tukey', 0.5))
+    amps = 10.0 * np.log10(amps)
     plt.pcolormesh(ts, fs, amps)
     plt.xlabel("Time (s)")
     plt.ylabel("Hz")

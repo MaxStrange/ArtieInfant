@@ -755,6 +755,10 @@ def _infer_with_vae(autoencoder: vae.VariationalAutoEncoder, config) -> [(str, s
     pngs_and_means = [tup for tup in zip(mimicry_targets, means)]
     folder = config.getstr('preprocessing', 'folder_to_save_wavs')  # This is where we saved the corresponding wav files
     fpaths_and_means = [(p, ae.convert_spectpath_to_audiofpath(folder, p), embedding) for p, embedding in pngs_and_means]
+    if len(fpaths_and_means) < 10:
+        logging.info("mimicry targets:\n{}".format(fpaths_and_means))
+    else:
+        logging.info("Too many mimicry targets to list. Have: {}".format(len(fpaths_and_means)))
 
     return fpaths_and_means
 
