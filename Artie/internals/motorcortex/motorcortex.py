@@ -290,6 +290,9 @@ class SynthModel:
                                                                     self.window_length_s,
                                                                     self.overlap,
                                                                     self.resample_to_hz)
+        elif fitness_function_name.lower().strip() == 'random':
+            nworkers = self._nworkers
+            fitnessfunction = ParallelizableFitnessFunctionRandom()
         else:
             raise ValueError("'fitness_function_name' is {}, but must be an allowed value.".format(fitness_function_name))
 
@@ -333,7 +336,9 @@ class SynthModel:
         If fitness_function_name is 'euclid', we use 1/euclidean distance between target_coords and
         the embedding location as determined by encoding each item using the autoencoder as the fitness function.
 
-        If fitness_function is 'xcor', we use the cross correlation and ignore `target_coords` and `autoencoder`.
+        If fitness_function_name is 'xcor', we use the cross correlation and ignore `target_coords` and `autoencoder`.
+
+        If fitness_function_name is 'random', we simply return a random number in the interval [0, 100] for each agent.
         """
         self.target = target.name
 
@@ -586,6 +591,20 @@ class ParallelizableFitnessFunctionPhase1:
         # This is the place at which the waves match each other best
         return max(xcor)
 
+class ParallelizableFitnessFunctionRandom:
+    """
+    A parallelizable fitness function to test the correlation of fitness function with
+    actually getting any better at saying the target.
+    """
+    def __init__(self):
+        pass
+
+    def __call__(self, agent):
+        """
+        Just returns a uniform random number between 0 and 100 every time.
+        """
+        return random.randint(0, 100)
+
 class ParallelizableFitnessFunctionDistance:
     def __init__(self, narticulators, duration_ms, time_points_ms, target_coords, autoencoder,
                     seconds_per_spectrogram, window_length_s, overlap, resample_to_hz):
@@ -668,8 +687,8 @@ def train_on_targets(config: configuration.Configuration, pretrained_model: Synt
     nchannels = config.getint('preprocessing', 'nchannels')
     fitness_function_name = config.getstr('synthesizer', 'fitness-function')
 
-    if fitness_function_name.lower() not in ('xcor', 'euclid'):
-        raise ValueError("Fitness function must be one of 'xcor' or 'euclid' but is {}".format(fitness_function_name))
+    if fitness_function_name.lower() not in ('xcor', 'euclid', 'random'):
+        raise ValueError("Fitness function must be one of 'xcor', 'euclid', or 'random', but is {}".format(fitness_function_name))
 
     # We are going to try to train several synthesizers
     trained_models = []
