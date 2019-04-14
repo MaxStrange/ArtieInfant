@@ -633,7 +633,12 @@ class ParallelizableFitnessFunctionDistance:
         amps = np.expand_dims(np.array(amps), 0)   # Give it a batch channel
 
         # Now get the location of this spectrogram in the latent space by feeding it into the encoder
-        mean, _logvars, _encodings = self.autoencoder._encoder.predict(amps)
+        try:
+            # Try a variational one
+            mean, _logvars, _encodings = self.autoencoder._encoder.predict(amps)
+        except ValueError:
+            # We have a vanilla autoencoder
+            mean = self.autoencoder._encoder.predict(amps)
 
         # Return the fitness
         return 1.0 / (np.linalg.norm(mean - self.target_coords) + 1e-9)
