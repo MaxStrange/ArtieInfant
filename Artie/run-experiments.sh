@@ -1,7 +1,11 @@
 # -------- Short time RMS genetic experiments --------
+#echo "!!!!!!!!!!!!!! genetic2/1.cfg !!!!!!!!!!!!!!!!!!!!"
 #python3 main.py experiment/configfiles/genetic2/1.cfg --pretrain-synth --loglevel info
+#echo "!!!!!!!!!!!!!! genetic2/2.cfg !!!!!!!!!!!!!!!!!!!!"
 #python3 main.py experiment/configfiles/genetic2/2.cfg --pretrain-synth --loglevel info
+#echo "!!!!!!!!!!!!!! genetic2/3.cfg !!!!!!!!!!!!!!!!!!!!"
 #python3 main.py experiment/configfiles/genetic2/3.cfg --pretrain-synth --loglevel info
+#echo "!!!!!!!!!!!!!! genetic2/4.cfg !!!!!!!!!!!!!!!!!!!!"
 #python3 main.py experiment/configfiles/genetic2/4.cfg --pretrain-synth --loglevel info
 
 # -------- Short time XCOR genetic experiments ------
@@ -45,6 +49,10 @@ echo "!!!!!!!!!!!!!! latentdims/16.cfg !!!!!!!!!!!!!!!!!!!!"
 python main.py experiment/configfiles/latentdims/16.cfg --train-vae --loglevel info
 
 # --------- Short time Euclid genetic experiments ---
+echo "!!!!!!!!!!!!!! closedloop/3.cfg !!!!!!!!!!!!!!!!!!!!"
+python main.py experiment/configfiles/closedloop/3.cfg --pretrain-synth --train-synth --loglevel info
+echo "!!!!!!!!!!!!!! closedloop/4.cfg !!!!!!!!!!!!!!!!!!!!"
+python main.py experiment/configfiles/closedloop/4.cfg --pretrain-synth --train-synth --loglevel info
 
 # --------- Long time Overfitting -------------------
 
