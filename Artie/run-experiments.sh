@@ -64,6 +64,18 @@ python3 main.py experiment/configfiles/overfitting/5.cfg --train-vae --loglevel 
 echo "!!!!!!!!!!!!!! overfitting/6.cfg !!!!!!!!!!!!!!!!!!!!"
 python3 main.py experiment/configfiles/overfitting/6.cfg --train-vae --loglevel info
 
+# --------- Short time Overfitting ------------------
+echo "!!!!!!!!!!!!!! overfitting/3.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/overfitting/3.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! overfitting/4.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/overfitting/4.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! overfitting/7.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/overfitting/7.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! overfitting/8.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/overfitting/8.cfg --train-vae --loglevel info
+
+# --------- Long time Underfitting ------------------
+
 # --------- Short time Underfitting -----------------
 
 # --------- Variational Loss Function ---------------
