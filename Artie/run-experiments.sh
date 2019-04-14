@@ -75,6 +75,18 @@ echo "!!!!!!!!!!!!!! overfitting/8.cfg !!!!!!!!!!!!!!!!!!!!"
 python3 main.py experiment/configfiles/overfitting/8.cfg --train-vae --loglevel info
 
 # --------- Long time Underfitting ------------------
+echo "!!!!!!!!!!!!!! underfitting/1.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/1.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! underfitting/2.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/2.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! underfitting/3.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/3.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! underfitting/7.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/7.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! underfitting/8.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/8.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! underfitting/9.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/9.cfg --train-vae --loglevel info
 
 # --------- Short time Underfitting -----------------
 
