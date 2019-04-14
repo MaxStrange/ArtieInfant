@@ -186,6 +186,7 @@ class SynthModel:
         self._population_index = 0
         self.best_agents_phase0 = None
         self.best_agents_phase1 = None
+        self._phase1_population = None
 
         # Create the save directories if they don't exist
         os.makedirs(self.phase0_artifacts_dir, exist_ok=True)
@@ -270,7 +271,7 @@ class SynthModel:
             self._allowed_lows = np.reshape(lows, (-1,))
             self._allowed_highs = np.reshape(highs, (-1,))
 
-    def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath, fitness_function_name, target_coords, autoencoder):
+    def _run_phase1_simulation(self, target, niterations, fitness_target, savefpath, fitness_function_name, target_coords, autoencoder, seedfunc=None):
         if fitness_function_name.lower().strip() == 'xcor':
             # Create the fitness function for phase 1
             nworkers = self._nworkers
@@ -292,9 +293,14 @@ class SynthModel:
         else:
             raise ValueError("'fitness_function_name' is {}, but must be an allowed value.".format(fitness_function_name))
 
+        if seedfunc is None:
+            seedfunc = self._phase1_seed_function
+        elif not callable(seedfunc):
+            raise ValueError("'seedfunc' must be callable. Is: {}".format(seedfunc))
+
         # Create the simulation and run it
         sim = po.Simulation(self._nagents_phase1, self._agentshape, fitnessfunction,
-                            seedfunc=self._phase1_seed_function,
+                            seedfunc=seedfunc,
                             selectionfunc=self._phase1_selection_function,
                             crossoverfunc=self._phase1_crossover_function,
                             mutationfunc=self._phase1_mutation_function,
@@ -304,6 +310,7 @@ class SynthModel:
                             min_agents_per_generation=self._nagents_phase1)
         best, value = sim.run(niterations=niterations, fitness=fitness_target)
         self.best_agents_phase1 = list(sim.best_agents)
+        self._phase1_population = np.copy(sim._agents)
 
         self._summarize_results(best, value, sim, savefpath)
 
@@ -369,10 +376,18 @@ class SynthModel:
                 except TypeError:
                     fitnesstarget = self._phase1_fitness_target
 
+                # Our seed function needs to pick up where we left off
+                if maskidx == 0:
+                    # Just use the normal phase1 seed function
+                    seedfunc = None
+                else:
+                    # Use the special annealing seed function, which will pick up where we left off
+                    seedfunc = Phase1AnnealingSeedFunction(np.copy(self._phase1_population))
+
                 # Now run the simulation normally
                 if savefpath is not None:
                     fpath = os.path.splitext(savefpath)[0] + "_" + str(maskidx) + ".wav"
-                best = self._run_phase1_simulation(target, niterations, fitnesstarget, fpath, fitness_function_name, target_coords, autoencoder)
+                best = self._run_phase1_simulation(target, niterations, fitnesstarget, fpath, fitness_function_name, target_coords, autoencoder, seedfunc=seedfunc)
 
                 # Add this latest mask to the list of masks that we should anneal
                 annealed_masks.extend(mask)
@@ -442,7 +457,6 @@ class SynthModel:
                 self._population_index = 0
 
             # Clip to allowed values
-            #agent = np.random.normal(agent, 0.05)  # Used to add noise, trying it without. Remove if you find this later.
             agent = np.clip(agent, self._allowed_lows, self._allowed_highs)
 
             return agent
@@ -692,3 +706,13 @@ def load(fpath):
     """
     with open(fpath, 'rb') as f:
         return pickle.load(f)
+
+class Phase1AnnealingSeedFunction:
+    def __init__(self, population):
+        self._index = 0
+        self._pop = population
+
+    def __call__(self):
+        agent = self._pop[self._index,:]
+        self._index += 1
+        return agent
