@@ -40,21 +40,29 @@ python3 main.py experiment/configfiles/genetic3/8.cfg --pretrain-synth --train-s
 
 # --------- Short time vanilla latent dims rerun ----
 echo "!!!!!!!!!!!!!! latentdims/13.cfg !!!!!!!!!!!!!!!!!!!!"
-python main.py experiment/configfiles/latentdims/13.cfg --train-vae --loglevel info
+python3 main.py experiment/configfiles/latentdims/13.cfg --train-vae --loglevel info
 echo "!!!!!!!!!!!!!! latentdims/14.cfg !!!!!!!!!!!!!!!!!!!!"
-python main.py experiment/configfiles/latentdims/14.cfg --train-vae --loglevel info
+python3 main.py experiment/configfiles/latentdims/14.cfg --train-vae --loglevel info
 echo "!!!!!!!!!!!!!! latentdims/15.cfg !!!!!!!!!!!!!!!!!!!!"
-python main.py experiment/configfiles/latentdims/15.cfg --train-vae --loglevel info
+python3 main.py experiment/configfiles/latentdims/15.cfg --train-vae --loglevel info
 echo "!!!!!!!!!!!!!! latentdims/16.cfg !!!!!!!!!!!!!!!!!!!!"
-python main.py experiment/configfiles/latentdims/16.cfg --train-vae --loglevel info
+python3 main.py experiment/configfiles/latentdims/16.cfg --train-vae --loglevel info
 
 # --------- Short time Euclid genetic experiments ---
 echo "!!!!!!!!!!!!!! closedloop/3.cfg !!!!!!!!!!!!!!!!!!!!"
-python main.py experiment/configfiles/closedloop/3.cfg --pretrain-synth --train-synth --loglevel info
+python3 main.py experiment/configfiles/closedloop/3.cfg --pretrain-synth --train-synth --loglevel info
 echo "!!!!!!!!!!!!!! closedloop/4.cfg !!!!!!!!!!!!!!!!!!!!"
-python main.py experiment/configfiles/closedloop/4.cfg --pretrain-synth --train-synth --loglevel info
+python3 main.py experiment/configfiles/closedloop/4.cfg --pretrain-synth --train-synth --loglevel info
 
 # --------- Long time Overfitting -------------------
+echo "!!!!!!!!!!!!!! overfitting/1.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/overfitting/1.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! overfitting/2.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/overfitting/2.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! overfitting/5.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/overfitting/5.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! overfitting/6.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/overfitting/6.cfg --train-vae --loglevel info
 
 # --------- Short time Underfitting -----------------
 
