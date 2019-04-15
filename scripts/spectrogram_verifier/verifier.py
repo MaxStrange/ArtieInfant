@@ -22,6 +22,6 @@ if __name__ == "__main__":
     for fpath in tqdm.tqdm(fpaths):
         spec = imageio.imread(fpath)
         if spec.shape != (241, 20):
-            #print("{} has shape {}".format(fpath, spec.shape))
+            print("{} has shape {}".format(fpath, spec.shape))
             if remove:
                 os.remove(fpath)
