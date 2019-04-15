@@ -89,5 +89,33 @@ echo "!!!!!!!!!!!!!! underfitting/9.cfg !!!!!!!!!!!!!!!!!!!!"
 python3 main.py experiment/configfiles/underfitting/9.cfg --train-vae --loglevel info
 
 # --------- Short time Underfitting -----------------
+echo "!!!!!!!!!!!!!! underfitting/4.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/4.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! underfitting/5.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/5.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! underfitting/6.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/6.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! underfitting/10.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/10.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! underfitting/11.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/11.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! underfitting/12.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/underfitting/12.cfg --train-vae --loglevel info
 
-# --------- Variational Loss Function ---------------
+# --------- Variational Loss Function ---------
+echo "!!!!!!!!!!!!!! loss/1.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/loss/1.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! loss/2.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/loss/2.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! loss/3.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/loss/3.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! loss/4.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/loss/4.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! loss/5.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/loss/5.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! loss/6.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/loss/6.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! loss/7.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/loss/7.cfg --train-vae --loglevel info
+echo "!!!!!!!!!!!!!! loss/8.cfg !!!!!!!!!!!!!!!!!!!!"
+python3 main.py experiment/configfiles/loss/8.cfg --train-vae --loglevel info
