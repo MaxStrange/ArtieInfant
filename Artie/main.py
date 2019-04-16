@@ -3,19 +3,23 @@ This is the main entry point for the ArtieInfant experiment.
 """
 from experiment import configuration
 from experiment.thesis import phase1
-import argparse
-import os
-import sys
 import instinct
 import internals
+import senses
+
+import argparse
 import logging
 import numpy as np
+import os
 import output
-import senses
+import random
+import shutil
+import sys
+import tensorflow as tf
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("config", help="The name (not the path) of the config file to use.")
+    parser.add_argument("config", help="The path to the config file to use.")
     parser.add_argument("--loglevel", choices=["warn", "info", "debug"], default="debug", help="Log level for debug logging during the experiment.")
     parser.add_argument("--logfile", type=str, default="experimentlog.log", help="Path to the log file to write logs to.")
     parser.add_argument("--preprocess", action="store_true", help="Preprocesses all the data as part of training.")
@@ -32,12 +36,22 @@ if __name__ == "__main__":
     # Load the correct config file
     config = configuration.load(args.config)
 
+    # Make a folder for the analysis results
+    experimentname = config.getstr('experiment', 'name')
+    saveroot = config.getstr('experiment', 'save_root')
+    savedir = os.path.join(saveroot, experimentname)
+    os.makedirs(savedir, exist_ok=True)
+
     # Random seed
     randomseed = config.getint('experiment', 'random-seed')
     np.random.seed(randomseed)
+    random.seed(randomseed)
+    tf.set_random_seed(randomseed)
+    # Note that due to using a GPU and using multiprocessing, reproducibility is not guaranteed
+    # But the above lines do their best
 
     # Phase 1
-    phase1.run(config,
+    phase1.run(config, savedir,
                 preprocess=args.preprocess,
                 preprocess_part_two=args.spectrograms,
                 pretrain_synth=args.pretrain_synth,
@@ -53,3 +67,6 @@ if __name__ == "__main__":
 
     # Phase 4
     # TODO: babble
+
+    # Put a copy of the log file into the save directory
+    shutil.copyfile(args.logfile, os.path.join(savedir, os.path.basename(args.logfile)))
