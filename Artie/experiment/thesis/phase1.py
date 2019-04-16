@@ -644,6 +644,12 @@ def _train_vae(autoencoder, config):
     root = config.getstr('autoencoder', 'preprocessed_data_root')
     assert os.path.isdir(root), "{} is not a valid path.".format(root)
 
+    # The root of the test split
+    test = config.getstr('autoencoder', 'testsplit_root')
+    if test.endswith("useless_subdirectory") or test.endswith("useless_subdirectory" + os.sep):
+        test = os.path.dirname(test)
+    assert os.path.isdir(test), "{} is not a valid path.".format(test)
+
     # Get whether or not we should visualize during training
     visualize = config.getbool('autoencoder', 'visualize')
 
@@ -676,9 +682,8 @@ def _train_vae(autoencoder, config):
         callbacks = []
 
     logging.info("Loading images from {}".format(root))
-    validation_fraction = 0.1
-    nsteps_per_validation = steps_per_epoch * validation_fraction
-    imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0, validation_split=validation_fraction)
+    nsteps_per_validation = steps_per_epoch
+    imreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
     print("Creating datagen...")
     datagen = imreader.flow_from_directory(root,
                                             target_size=imshapes,
@@ -688,10 +693,10 @@ def _train_vae(autoencoder, config):
                                             batch_size=batchsize,
                                             shuffle=True,
                                             save_to_dir=None,
-                                            save_format='png',
-                                            subset="training")
+                                            save_format='png')
     print("Creating testgen...")
-    testgen = imreader.flow_from_directory(root,
+    testreader = preprocessing.image.ImageDataGenerator(rescale=1.0/255.0)
+    testgen = testreader.flow_from_directory(test,#root,
                                             target_size=imshapes,
                                             color_mode='grayscale',
                                             classes=None,
@@ -699,8 +704,7 @@ def _train_vae(autoencoder, config):
                                             batch_size=batchsize,
                                             shuffle=True,
                                             save_to_dir=None,
-                                            save_format='png',
-                                            subset="validation")
+                                            save_format='png')
     print("Training...")
     autoencoder.fit_generator(datagen,
                               batchsize,
