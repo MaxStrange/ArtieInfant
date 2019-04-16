@@ -623,6 +623,10 @@ def _build_vae(config):
     # Get TensorBoard directory
     tbdir = config.getstr('autoencoder', 'tbdir')
     assert os.path.isdir(tbdir) or tbdir.lower() == "none", "{} is not a valid directory. Please fix tbdir in 'autoencoder' section of config file.".format(tbdir)
+    # Now create a subdirectory in it
+    experiment_name = config.getstr('experiment', 'name')
+    tbdir = os.path.join(tbdir, experiment_name)
+    os.makedirs(tbdir, exist_ok=True)
 
     # Remove anything in the tbdir already
     if tbdir is not None:
