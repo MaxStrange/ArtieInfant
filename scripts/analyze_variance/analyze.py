@@ -12,9 +12,9 @@ baselocdir = "/home/max/Dropbox/thesis/results/real/geneticexperiments"
 
 # Names of the experiments
 experiment05_random = "geneticIII-0.5s-tps0.0-0.2-0.4-100pop-50gen-random-2px"
-experiment03_random = "geneticIII-0.3s-tps0.0-0.1-0.25-100pop-50gen-random-2px"
+experiment03_random = "geneticIII-0.3s-tps0.0-0.1-0.25-100pop-50gen-random-nox"
 experiment05_xcor   = "geneticI-0.5s-tps0.0-0.2-0.4-100pop-25gen-xcor-2px"
-experiment03_xcor   = "geneticII-0.3s-tps0.0-0.1-0.25-100pop-25gen-xcor-2px"
+experiment03_xcor   = "geneticII-0.3s-tps0.0-0.1-0.25-100pop-12gen-xcor-2px"
 experiment05_euclid = "closedloop-0.5s-tps0.0-0.2-0.4-100pop-12gen-euclid-2px"
 experiment03_euclid = "closedloop-0.3s-tps0.0-0.1-0.25-100pop-12gen-euclid-2px"
 
@@ -62,9 +62,9 @@ def xcorevaluate(seg: asg.AudioSegment, targetseg: asg.AudioSegment) -> float:
     # This is the place at which the waves match each other best
     return max(xcor)
 
-
 def evaluate(target: str, directory: str) -> None:
     targetseg = asg.from_file(os.path.join(directory, target))
+    values = []
     for i in range(0, 4):
         # Evaluate the cross-correlation between the best agent at that time point and the target
         wavname = "{}.synthmimic_{}.wav".format(target, i)
@@ -73,21 +73,43 @@ def evaluate(target: str, directory: str) -> None:
 
         # Read it in and apply the cross correlation procedure against its target
         seg = asg.from_file(wavfpath)
-        assert len(seg) == len(targetseg)
-        assert seg.frame_rate == targetseg.frame_rate
-        assert seg.sample_width == targetseg.sample_width
-        assert seg.channels == targetseg.channels
+        assert len(seg) == len(targetseg), "{} != {}".format(len(seg), len(targetseg))
+        assert seg.channels == targetseg.channels, "{} != {}".format(seg.channels, targetseg.channels)
+
+        if seg.frame_rate != targetseg.frame_rate:
+            # Resample to whichever has lower sample rate
+            newrate = min(seg.frame_rate, targetseg.frame_rate)
+            seg = seg.resample(sample_rate_Hz=newrate)
+            targetseg = targetseg.resample(sample_rate_Hz=newrate)
+        assert seg.frame_rate == targetseg.frame_rate, "{} != {}".format(seg.frame_rate, targetseg.frame_rate)
+
+        if seg.sample_width != targetseg.sample_width:
+            # Resample to whichever has less sample width
+            newwidth = min(seg.sample_width, targetseg.sample_width)
+            seg = seg.resample(sample_width=newwidth)
+            targetseg = targetseg.resample(sample_width=newwidth)
+        assert seg.sample_width == targetseg.sample_width, "{} != {}".format(seg.sample_width, targetseg.sample_width)
+
         xcorval = xcorevaluate(seg, targetseg)
-        print(xcorval)
+        values.append(xcorval)
+    return values
+
+def analyze_variance(targetlen='half'):
+    assert targetlen in ('half', 'third')
+
+    if targetlen == 'half':
+        targetlist = (target05_1, target05_2)
+        targetdir = halfsecond_directories
+    else:
+        targetlist = (target03_1, target03_2)
+        targetdir = thirdsecond_directories
+
+    for target in targetlist:
+        for exptype in targetdir.keys():
+            directory = targetdir[exptype]
+            values = evaluate(target, directory)
 
 if __name__ == "__main__":
     assert os.path.isdir(baselocdir), "{} is not a directory.".format(baselocdir)
-
-    for target in (target05_1, target05_2):
-        for directory in halfsecond_directories:
-            evaluate(target, directory)
-
-    # Do the same for 0.3 second condition
-    for target in (target03_1, target03_2):
-        for directory in thirdsecond_directories:
-            evaluate(target, directory)
+    analyze_variance('half')
+    analyze_variance('third')
