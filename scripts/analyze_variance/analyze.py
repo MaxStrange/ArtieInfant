@@ -4,6 +4,7 @@ if the xcor value of the files escape the variance of the xcor
 of the random ones.
 """
 import audiosegment as asg
+import numpy as np
 import os
 
 # Location to prepend to all targets
@@ -39,7 +40,28 @@ def xcorevaluate(seg: asg.AudioSegment, targetseg: asg.AudioSegment) -> float:
     """
     Applies the cross correlation procedure to the two segments and returns the value.
     """
-    pass
+    # Process the target sound
+    target = targetseg.to_numpy_array().astype(float)
+    target += abs(min(target))
+    if max(target) != min(target):
+        target /= max(target) - min(target)
+    assert sum(target[target < 0]) == 0, "There are negative values after normalization! Error!"
+
+    # Shift the wave form up by most negative value and normalize into 0.0 to 1.0
+    ours = seg.to_numpy_array().astype(float)
+    most_neg_val = min(ours)
+    ours += abs(most_neg_val)
+    if max(ours) != min(ours):
+        ours /= max(ours) - min(ours)
+    assert sum(ours[ours < 0]) == 0, "There are negative values after normalization! Error!"
+
+    # Cross correlate with some amount of zero extension
+    xcor = np.correlate(ours, target, mode='full')
+
+    # Find the single maximum value along the xcor vector
+    # This is the place at which the waves match each other best
+    return max(xcor)
+
 
 def evaluate(target: str, directory: str) -> None:
     targetseg = asg.from_file(os.path.join(directory, target))
@@ -56,6 +78,7 @@ def evaluate(target: str, directory: str) -> None:
         assert seg.sample_width == targetseg.sample_width
         assert seg.channels == targetseg.channels
         xcorval = xcorevaluate(seg, targetseg)
+        print(xcorval)
 
 if __name__ == "__main__":
     assert os.path.isdir(baselocdir), "{} is not a directory.".format(baselocdir)
