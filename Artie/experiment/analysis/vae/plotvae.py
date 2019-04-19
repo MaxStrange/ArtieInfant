@@ -185,7 +185,9 @@ def _predict_on_sound_files(fpaths: [str], dpath: str, model: vae.VariationalAut
     Run the given model on each file in fpaths and each file in dpath. These are sound files, not spectrograms,
     so they need to be converted to spectrograms first.
 
-    If fpaths and dpaths are both None or empty, we return None, None, None.
+    This returns means, logvars, encodings, and a list of the segment names in the same order as the encodings
+
+    If fpaths and dpaths are both None or empty, we return None, None, None, [].
     """
     if dpath is None:
         dpath = []
@@ -230,7 +232,7 @@ def _predict_on_sound_files(fpaths: [str], dpath: str, model: vae.VariationalAut
             encodings = modelret
     else:
         means, logvars, encodings = None, None, None
-    return means, logvars, encodings
+    return means, logvars, encodings, [seg.name for seg in segs]
 
 def _plot_vanilla_latent_space(encodings, special_encodings, name, savedir, *, ndims=2):
     """

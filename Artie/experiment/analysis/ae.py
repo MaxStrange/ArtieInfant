@@ -30,7 +30,7 @@ def _analyze_latent_space(autoencoder: vae.VariationalAutoEncoder, training_root
 
         # Plot the latent space of the encoder, but this time with vowels plotted in red
         print("Visualizing vowels in the latent space...")
-        special_means, special_logvars, special_encodings = plotvae._predict_on_sound_files(None, voweldir, autoencoder, **specargs)
+        special_means, special_logvars, special_encodings, _ = plotvae._predict_on_sound_files(None, voweldir, autoencoder, **specargs)
         if isinstance(autoencoder, vae.VariationalAutoEncoder):
             if special_logvars is not None:
                 special_stdevs = np.exp(0.5 * special_logvars)
