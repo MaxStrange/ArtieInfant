@@ -4,6 +4,7 @@ if the xcor value of the files escape the variance of the xcor
 of the random ones.
 """
 import audiosegment as asg
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 
@@ -11,8 +12,8 @@ import os
 baselocdir = "/home/max/Dropbox/thesis/results/real/geneticexperiments"
 
 # Names of the experiments
-experiment05_random = "geneticIII-0.5s-tps0.0-0.2-0.4-100pop-50gen-random-2px"
-experiment03_random = "geneticIII-0.3s-tps0.0-0.1-0.25-100pop-50gen-random-nox"
+experiment05_random = "geneticIII-0.5s-tps0.0-0.2-0.4-100pop-12gen-random-2px"
+experiment03_random = "geneticIII-0.3s-tps0.0-0.1-0.25-100pop-12gen-random-2px"
 experiment05_xcor   = "geneticI-0.5s-tps0.0-0.2-0.4-100pop-25gen-xcor-2px"
 experiment03_xcor   = "geneticII-0.3s-tps0.0-0.1-0.25-100pop-12gen-xcor-2px"
 experiment05_euclid = "closedloop-0.5s-tps0.0-0.2-0.4-100pop-12gen-euclid-2px"
@@ -35,6 +36,16 @@ thirdsecond_directories = {
     "XCOR":   os.path.join(baselocdir, experiment03_xcor),
     "EUCLID": os.path.join(baselocdir, experiment03_euclid),
 }
+
+def plot_target(target: str, randoms: [float], xcors: [float], euclids: [float]):
+    plt.plot(randoms, 'b', label="random")
+    plt.plot(xcors, 'r', label="cross correlation")
+    plt.plot(euclids, 'g', label="euclidean")
+    plt.ylabel("Peak Cross Correlation")
+    plt.xlabel("Iterations")
+    plt.legend()
+    plt.savefig("{}-variance.png".format(target))
+    plt.show()
 
 def xcorevaluate(seg: asg.AudioSegment, targetseg: asg.AudioSegment) -> float:
     """
@@ -107,7 +118,18 @@ def analyze_variance(targetlen='half'):
     for target in targetlist:
         for exptype in targetdir.keys():
             directory = targetdir[exptype]
+            # Get the xcor values for all four of the dinglehoppers
             values = evaluate(target, directory)
+            if exptype == 'RANDOM':
+                randoms = values
+            elif exptype == 'XCOR':
+                xcors = values
+            elif exptype == 'EUCLID':
+                euclids = values
+            else:
+                assert False, "Bwah bwah"
+
+        plot_target(target, randoms, xcors, euclids)
 
 if __name__ == "__main__":
     assert os.path.isdir(baselocdir), "{} is not a directory.".format(baselocdir)
