@@ -61,15 +61,13 @@ if __name__ == "__main__":
     # Encode the test set
     _, _, test_set_embeddings = plotvae._predict_on_spectrograms(testdir, ae, batchsize=32, nworkers=4, imshapes=input_shape)
     ntest_embeddings = test_set_embeddings.shape[0]
-    print(test_set_embeddings.shape)
 
     # Grab the special set if present
     if args.datadir:
         _, _, special_embeddings, special_names = plotvae._predict_on_sound_files(fpaths=None, dpath=args.datadir, model=ae, sample_rate_hz=sample_rate_hz, duration_s=duration_s, window_length_s=window_length_s)
-        embeddings = np.append(test_set_embeddings, special_embeddings, axis=1)
+        embeddings = np.append(test_set_embeddings, special_embeddings, axis=0)
     else:
         embeddings = test_set_embeddings
-    print(embeddings.shape)
 
     # Do the T-SNE now and get back the embeddings that we will plot
     tsne = sklearn.manifold.TSNE(n_components=tsne_dimensions,
