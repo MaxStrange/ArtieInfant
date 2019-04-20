@@ -49,6 +49,8 @@ def _plot(test_embeddings: np.ndarray, special_embeddings: np.ndarray, special_l
     save = "scatter_embeddings_ad_hoc.png"
     print("Saving", save)
     plt.savefig(save)
+
+    plt.show()
     plt.clf()
 
 if __name__ == "__main__":
