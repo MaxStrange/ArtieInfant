@@ -70,11 +70,14 @@ if __name__ == "__main__":
         embeddings = test_set_embeddings
 
     fig = plt.figure()
-    fig.set_suptitle("t-SNE Embeddings of {}-Dimensional Space".format(tsne_dimensions))
+    fig.suptitle("t-SNE Embeddings of {}-Dimensional Space".format(tsne_dimensions))
     for perpindex, perplexity in enumerate(perplexities):
         # Add a new subplot
         projection = '3d' if tsne_dimensions == 3 else None
         ax = fig.add_subplot(1, len(perplexities), perpindex + 1, projection=projection)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_xlabel("{} perp".format(perplexity))
 
         # Do the T-SNE now and get back the embeddings that we will plot
         tsne = sklearn.manifold.TSNE(n_components=tsne_dimensions,

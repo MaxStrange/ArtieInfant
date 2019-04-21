@@ -4,7 +4,9 @@ given a particular model.
 """
 import argparse
 import audiosegment as asg
+import math
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
 import os
 import sys
@@ -17,27 +19,39 @@ from experiment.analysis.vae import plotvae             # pylint: disable=locall
 
 def _plot(specs, title, fname, times, frequencies):
     """
-    Plot a 4x4 grid of spectrograms.
+    Plot an nxn grid of spectrograms.
     """
-    n = 4
-    fig, axs = plt.subplots(n, n)
-    for i in range(n):
+    n = math.ceil(math.sqrt(specs.shape[0]))
+    if n * (n - 1) >= specs.shape[0]:
+        m = n - 1
+    else:
+        m = n
+    #fig, axs = plt.subplots(n, n)
+    fig = plt.figure()
+    for i in range(m):
         for j in range(n):
-            sample = specs[i * j, :, :]
-            axs[i][j].pcolormesh(times, frequencies, sample)
+            # Plot a subplot if possible
+            if (i * n + j) < specs.shape[0]:
+                sample = specs[i * n + j, :, :]
+                ax = fig.add_subplot(m, n, (i * n + j) + 1)
+                ax.pcolormesh(times, frequencies, sample)
+            else:
+                pass
+
+            # Remove the ticklabels from y axis if we are not on the left
             if j == 0:
                 # We are on the left
-                #axs[i][j].set_ylabel("Hz")
                 pass
             else:
-                axs[i][j].yaxis.set_ticklabels([])
+                ax.yaxis.set_ticklabels([])
 
-            if i == n - 1:
+            # Remove the ticklabels from x axis if we are not on the bottom
+            if i == m - 1:
                 # We are on the bottom row
-                #axs[i][j].set_xlabel("Time (s)")
                 pass
             else:
-                axs[i][j].xaxis.set_ticklabels([])
+                ax.xaxis.set_ticklabels([])
+
     fig.suptitle(title)
     fig.text(0.5, 0.04, "Time (s)", ha='center', va='center')
     fig.text(0.03, 0.5, "Hz", ha='center', va='center', rotation='vertical')
@@ -102,10 +116,7 @@ if __name__ == "__main__":
     times = np.linspace(0, duration_s, num=input_shape[1])
     frequencies = np.linspace(0, sample_rate_hz / 2.0, num=input_shape[0])
 
-    if len(wavpaths) != 16:
-        print("You need to adjust the plotting code to deal with your directory. I was lazy and only wrote this to work for the special case I was doing at the time.")
-        exit()
-
     # Plot everything
-    _plot(amplitudes, "Spectrograms of Variations on /a/", "spectrogram_variations.png", times, frequencies)
-    _plot(reconstructions, "Reconstructions of Variations on /a/", "spectrogram_reconstruction.png", times, frequencies)
+    dirname = os.path.basename(args.audiodir)
+    _plot(amplitudes, "Spectrograms of Variations on /{}/".format(dirname), "spectrogram_variations.png", times, frequencies)
+    _plot(reconstructions, "Reconstructions of Variations on /{}/".format(dirname), "spectrogram_reconstruction.png", times, frequencies)

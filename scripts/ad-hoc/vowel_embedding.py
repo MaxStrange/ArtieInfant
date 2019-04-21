@@ -17,6 +17,41 @@ from experiment.thesis import phase1                    # pylint: disable=locall
 from experiment.analysis.vae import plotvae             # pylint: disable=locally-disabled, import-error
 
 
+def _plot_projections(test_set_embeddings: np.ndarray, special_embeddings: np.ndarray, labels: [str]) -> None:
+    """
+    Projects the 3D embeddings onto the three planes (X, Y), (X, Z), and (Y, Z).
+
+    Asserts that the embeddings are 3-dimensional.
+    """
+    if test_set_embeddings.shape[0] == 0:
+        print("No test_set_embeddings. Can't project.")
+        return
+
+    assert test_set_embeddings.shape[1] == 3, "This only works for 3D embeddings."
+
+    fig = plt.figure()
+
+    ax = fig.add_subplot(131)
+    ax.set_xlabel('(X, Y)')
+    ax.scatter(test_set_embeddings[:, 0], test_set_embeddings[:, 1])
+    ax.scatter(special_embeddings[:, 0], special_embeddings[:, 1], c='red')
+
+    ax = fig.add_subplot(132)
+    ax.set_xlabel('(X, Z)')
+    ax.scatter(test_set_embeddings[:, 0], test_set_embeddings[:, 2])
+    ax.scatter(special_embeddings[:, 0], special_embeddings[:, 2], c='red')
+
+    ax = fig.add_subplot(133)
+    ax.set_xlabel('(Y, Z)')
+    ax.scatter(test_set_embeddings[:, 1], test_set_embeddings[:, 2])
+    ax.scatter(special_embeddings[:, 1], special_embeddings[:, 2], c='red')
+
+    fig.suptitle("Projection of 3D Embeddings")
+    save = "scatter_embeddings_ad_hoc_projections.png"
+    plt.savefig(save)
+    plt.show()
+    plt.clf()
+
 def _plot(test_embeddings: np.ndarray, special_embeddings: np.ndarray, special_labels: [str], ndims: int) -> None:
     """
     Plots the given embeddings and labels.
@@ -59,6 +94,7 @@ if __name__ == "__main__":
     parser.add_argument('specmode', choices=['long', 'short'], help="Long: 241x20x1 spectrograms; Short: 81x18x1")
     parser.add_argument('overlaydir', type=str, help="Directory that contains the sound files you want to overlay on the test set's embeddings")
     parser.add_argument('--ndims', default=3, type=int, help="The number of dimensions of the latent space for the given model of autoencoder.")
+    parser.add_argument('--projection', action='store_true', help="If present, we will project the plot onto the three planes (X, Y), (X, Z), and (Y, Z). Only works if ndims is 3, ignored otherwise.")
     args = parser.parse_args()
 
     # Validate args
@@ -96,3 +132,7 @@ if __name__ == "__main__":
 
     # Now plot the embedding space
     _plot(test_set_embeddings, special_embeddings, labels, args.ndims)
+
+    if args.ndims == 3 and args.projection:
+        # We want to project the 3D plot onto the three planes
+        _plot_projections(test_set_embeddings, special_embeddings, labels)
