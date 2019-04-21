@@ -22,7 +22,6 @@ if __name__ == "__main__":
     parser.add_argument('specmode', choices=['long', 'short'], help="Long: 241x20x1 spectrograms; Short: 81x18x1")
     parser.add_argument('ndims', type=int, help="The number of dimensions of the latent space for the given model of autoencoder.")
     parser.add_argument('--randseed', type=int, default=12543, help="Random seed for reproducing t-SNE results.")
-    parser.add_argument('--perplexity', type=float, default=30.0, help="Perplexity of t-SNE. Values between 5 and 50 make sense typically.")
     parser.add_argument('--datadir', type=str, help="If given, we will convert all audio files in this directory into spectrograms and embed them in the resulting t-SNE plot.")
     args = parser.parse_args()
 
@@ -38,20 +37,21 @@ if __name__ == "__main__":
 
     # Parameters
     tsne_dimensions = 2
+    perplexities    = [5, 15, 30, 50]
 
     # Set stuff up based on what mode we are
     if args.specmode == 'long':
-        input_shape = [241, 20, 1]
-        testdir = "/home/max/Dropbox/thesis/harddrive_backup/test_spectrogram_images/test_set"
-        sample_rate_hz = 16000.0
-        duration_s = 0.5
+        input_shape     = [241, 20, 1]
+        testdir         = "/home/max/Dropbox/thesis/harddrive_backup/test_spectrogram_images/test_set"
+        sample_rate_hz  = 16000.0
+        duration_s      = 0.5
         window_length_s = 0.03
         ae = phase1._build_vae1(is_variational=False, input_shape=input_shape, latent_dim=args.ndims, optimizer='adadelta', loss='mse', tbdir=None, kl_loss_prop=None, recon_loss_prop=None, std_loss_prop=None)
     else:
-        input_shape = [81, 18, 1]
-        testdir = "/home/max/Dropbox/thesis/harddrive_backup/filterbank_images/test_set"
-        sample_rate_hz = 8000.0
-        duration_s = 0.3
+        input_shape     = [81, 18, 1]
+        testdir         = "/home/max/Dropbox/thesis/harddrive_backup/filterbank_images/test_set"
+        sample_rate_hz  = 8000.0
+        duration_s      = 0.3
         window_length_s = 0.02
         ae = phase1._build_vae2(is_variational=False, input_shape=input_shape, latent_dim=args.ndims, optimizer='adadelta', loss='mse', tbdir=None, kl_loss_prop=None, recon_loss_prop=None, std_loss_prop=None)
 
@@ -69,18 +69,57 @@ if __name__ == "__main__":
     else:
         embeddings = test_set_embeddings
 
-    # Do the T-SNE now and get back the embeddings that we will plot
-    tsne = sklearn.manifold.TSNE(n_components=tsne_dimensions,
-                                 perplexity=args.perplexity,    # Low values attempt to retain distance relationships over small distances (local), high means longer distances (global). The most reasonable values are 5 to 50
-                                 learning_rate=200.0,           # try values between 10 and 1000 to adjust shape of outcome
-                                 metric='euclidean',
-                                 init='random',                 # try 'pca' if you want more stability
-                                 verbose=2,
-                                 angle=0.5)                     # try between 0.2 and 0.8. Not sure what it will do
-    tsne_embeddings = tsne.fit_transform(embeddings)
+    fig = plt.figure()
+    fig.set_suptitle("t-SNE Embeddings of {}-Dimensional Space".format(tsne_dimensions))
+    for perpindex, perplexity in enumerate(perplexities):
+        # Add a new subplot
+        projection = '3d' if tsne_dimensions == 3 else None
+        ax = fig.add_subplot(1, len(perplexities), perpindex + 1, projection=projection)
 
-    # Do the plot
-    if args.datadir:
-        plotvae._plot_vanilla_latent_space(tsne_embeddings[0:ntest_embeddings, :], special_encodings=tsne_embeddings[ntest_embeddings:, :], name=None, savedir=".", ndims=tsne_dimensions, show=True)
-    else:
-        plotvae._plot_vanilla_latent_space(tsne_embeddings, special_encodings=None, name=None, savedir=".", ndims=tsne_dimensions, show=True)
+        # Do the T-SNE now and get back the embeddings that we will plot
+        tsne = sklearn.manifold.TSNE(n_components=tsne_dimensions,
+                                    perplexity=perplexity,         # Low values attempt to retain distance relationships over small distances (local), high means longer distances (global). The most reasonable values are 5 to 50
+                                    learning_rate=200.0,           # try values between 10 and 1000 to adjust shape of outcome
+                                    metric='euclidean',
+                                    init='random',                 # try 'pca' if you want more stability
+                                    verbose=2,
+                                    angle=0.5)                     # try between 0.2 and 0.8. Not sure what it will do
+        tsne_embeddings = tsne.fit_transform(embeddings)
+
+        # collect the stuff into the right names
+        if args.datadir:
+            encodings         = tsne_embeddings[0:ntest_embeddings, :]
+            special_encodings = tsne_embeddings[ntest_embeddings:, :]
+        else:
+            encodings         = tsne_embeddings
+            special_encodings = None
+
+        name    = None
+        savedir = "."
+        ndims   = tsne_dimensions
+
+        # Plot where each embedding is
+        if ndims == 1:
+            ax.scatter(encodings, np.zeros_like(encodings))
+            if special_encodings is not None:
+                plt.scatter(special_encodings, np.zeros_like(special_encodings), c='red')
+        elif ndims == 2:
+            ax.scatter(encodings[:, 0], encodings[:, 1])
+            if special_encodings is not None:
+                plt.scatter(special_encodings[:, 0], special_encodings[:, 1], c='red')
+        elif ndims == 3:
+            ax.scatter(encodings[:, 0], encodings[:, 1], encodings[:, 2])
+            if special_encodings is not None:
+                ax.scatter(special_encodings[:, 0], special_encodings[:, 1], special_encodings[:, 2], c='red')
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlabel('Z')
+        else:
+            raise ValueError("`ndims` must be 1, 2, or 3, but is {}".format(ndims))
+
+    save = os.path.join(savedir, "scatter_{}_embeddings_{}.png".format(encodings.shape[0], name))
+    print("Saving", save)
+    plt.savefig(save)
+
+    plt.show()
+    plt.clf()
