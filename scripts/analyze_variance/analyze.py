@@ -16,7 +16,8 @@ experiment05_random = "geneticIII-0.5s-tps0.0-0.2-0.4-100pop-12gen-random-2px"
 experiment03_random = "geneticIII-0.3s-tps0.0-0.1-0.25-100pop-12gen-random-2px"
 experiment05_xcor   = "geneticI-0.5s-tps0.0-0.2-0.4-100pop-25gen-xcor-2px"
 experiment03_xcor   = "geneticII-0.3s-tps0.0-0.1-0.25-100pop-12gen-xcor-2px"
-experiment05_euclid = "closedloop-0.5s-tps0.0-0.2-0.4-100pop-12gen-euclid-2px"
+#experiment05_euclid = "closedloop-0.5s-tps0.0-0.2-0.4-100pop-12gen-euclid-2px"
+experiment05_euclid = "closedloop-0.5s-tps0.0-0.2-0.4-300pop-100gen-euclid-2px"
 experiment03_euclid = "closedloop-0.3s-tps0.0-0.1-0.25-100pop-12gen-euclid-2px"
 
 # Names of the targets
