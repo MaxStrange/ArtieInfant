@@ -1,6 +1,6 @@
 # ArtieInfant
 
-[![Build Status](https://travis-ci.org/MaxStrange/ArtieInfant.svg?branch=master)](https://travis-ci.org/MaxStrange/ArtieInfant)
+[![Build Status](https://travis-ci.org/MaxStrange/ArtieInfant.svg?branch=master)](https://travis-ci.org/MaxStrange/ArtieInfant) [![DOI](https://zenodo.org/badge/100988308.svg)](https://zenodo.org/badge/latestdoi/100988308)
 
 Simulated Infant Babbling
 
