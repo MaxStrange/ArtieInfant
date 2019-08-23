@@ -5,6 +5,7 @@ import audiosegment
 import imageio
 import logging
 import multiprocessing as mp
+import numpy as np
 import os
 import random
 import tqdm
@@ -148,7 +149,7 @@ def _preproc_worker_fn(q, destination_folder, baby_detector_kwargs, language_det
             except Exception as e:
                 logging.debug("Problem with an audio segment: {}".format(e))
 
-def _run_preprocessing_pipeline(config):
+def run_preprocessing_pipeline(config):
     """
     Preprocesses the data according to config's properties.
     """
@@ -242,7 +243,7 @@ def _run_preprocessing_pipeline(config):
     for c in consumers:
         c.join()
 
-def _convert_to_images(config):
+def convert_to_images(config):
     """
     Converts all the preprocessed audio files into spectrograms saved as PNG files.
     """

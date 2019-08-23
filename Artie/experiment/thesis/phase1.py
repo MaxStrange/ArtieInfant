@@ -6,6 +6,7 @@ This file's API consists simply of the function run(), which will run phase 1 of
 from experiment.analysis import ae                      # pylint: disable=locally-disabled, import-error
 from experiment.analysis import production              # pylint: disable=locally-disabled, import-error
 from experiment.configuration import ConfigError        # pylint: disable=locally-disabled, import-error
+from experiment.thesis import preproc                   # pylint: disable=locally-disabled, import-error
 from internals.motorcortex import motorcortex           # pylint: disable=locally-disabled, import-error
 from internals.vae import vae                           # pylint: disable=locally-disabled, import-error
 from internals.vae import ae as vanilla                 # pylint: disable=locally-disabled, import-error
@@ -248,12 +249,12 @@ def run(config, savedir, preprocess=False, preprocess_part_two=False, pretrain_s
     # Potentially preprocess the audio
     if preprocess:
         print("Preprocessing all sounds. This will take close to forever...")
-        _run_preprocessing_pipeline(config)
+        preproc.run_preprocessing_pipeline(config)
 
     # Convert the preprocessed audio files into spectrograms and save them as image files
     if preprocess_part_two:
         print("Converting all preprocessed sound files into spectrograms and saving them as images. This will take the rest of forever...")
-        _convert_to_images(config)
+        preproc.convert_to_images(config)
 
     # Pretrain the voice synthesizer to make non-specific noise
     if pretrain_synth:
