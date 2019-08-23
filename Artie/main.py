@@ -1,8 +1,10 @@
 """
 This is the main entry point for the ArtieInfant experiment.
 """
-from experiment import configuration
-from experiment.thesis import phase1
+import backend.kerasback as kerasbackend            # pylint: disable=locally-disabled, no-name-in-module
+import backend.pytorchback as pytorchbackend        # pylint: disable=locally-disabled, no-name-in-module
+import experiment.configuration as configuration
+import experiment.thesis.phase1 as phase1
 import instinct
 import internals
 import senses
@@ -15,7 +17,6 @@ import output
 import random
 import shutil
 import sys
-import tensorflow as tf
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -27,11 +28,20 @@ if __name__ == "__main__":
     parser.add_argument("--spectrograms", action="store_true", help="Convert preprocessed data into spectrogram images.")
     parser.add_argument("--train-vae", action="store_true", help="Train the Variational Autoencoder. If not, we will attempt to load a pretrained one.")
     parser.add_argument("--train-synth", action="store_true", help="Train the voice synthesizer. If not, we will attempt to load a pretrained one.")
+    parser.add_argument("--back-end", choices=("keras", "pytorch"), default='keras', help="Should we use Keras or PyTorch?")
     args = parser.parse_args()
 
     # Set up the logging configuration
     loglevel = getattr(logging, args.loglevel.upper())
     logging.basicConfig(filename=args.logfile, filemode='w', level=loglevel)
+
+    # Get the appropriate backend
+    if args.back_end == "keras":
+        nnbackend = kerasbackend
+    elif args.back_end == "pytorch":
+        nnbackend = pytorchbackend
+    else:
+        raise NotImplementedError("Backend {} is not yet implemented.".format(args.back_end))
 
     # Load the correct config file
     config = configuration.load(args.config)
@@ -46,7 +56,7 @@ if __name__ == "__main__":
     randomseed = config.getint('experiment', 'random-seed')
     np.random.seed(randomseed)
     random.seed(randomseed)
-    tf.set_random_seed(randomseed)
+    nnbackend.seed(randomseed)
     # Note that due to using a GPU and using multiprocessing, reproducibility is not guaranteed
     # But the above lines do their best
 
@@ -56,7 +66,8 @@ if __name__ == "__main__":
                 preprocess_part_two=args.spectrograms,
                 pretrain_synth=args.pretrain_synth,
                 train_vae=args.train_vae,
-                train_synth=args.train_synth)
+                train_synth=args.train_synth,
+                network_backend=nnbackend)
 
     # Phase 2
     # TODO: train language model (RNN)
