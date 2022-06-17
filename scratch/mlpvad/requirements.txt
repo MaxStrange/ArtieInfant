@@ -1,5 +1,5 @@
 tqdm==4.15.0
 Keras==2.0.8
-numpy==1.13.1
+numpy==1.21.0
 audiosegment==0.6.1
 matplotlib==2.0.2
