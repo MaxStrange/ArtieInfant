@@ -1,4 +1,4 @@
-tqdm==4.15.0
+tqdm==4.66.3
 Keras==2.0.8
 numpy==1.13.1
 audiosegment==0.6.1
